@@ -5,6 +5,22 @@ import json
 import pprint
 
 class Migrator():
+
+    @staticmethod
+    def is_directory(decw,connection_settings,hash):
+        # Example pseudocode for IPFS. You'll need to adapt this based on your IPFS client library or command line usage
+        _,ipfs_api = decw.net.create_ipfs_connection(connection_settings)
+        object_info = ipfs_api.ls(hash)
+        object_info = object_info['Objects'][0]
+        # print(object_info)
+        if object_info and 'Links' in object_info:
+            print("Inspecting links")
+            for link in object_info['Links']:
+                if len(link['Name']) > 0:
+                    return True
+            # return len(object_info['Links']) > 0  # Has links, likely a directory
+        return False  # No links, likely a file
+
     @staticmethod
     def find_batch_cids(decw,offset,limit):
         found = []
