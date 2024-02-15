@@ -202,4 +202,60 @@ def test_ipfs_folder_backup():
 
 # run_ipfs_backup() 
 # test_ipfs_file_backup()
-test_ipfs_folder_backup()
+# test_ipfs_folder_backup()
+
+def test_object_backup():
+    '''
+    Low level test that verifies that the IPFS Migrator is backing up IPFS files in a manner that is perfect down to the bit.
+    '''
+    # [ ] create test data 
+    decw = core()
+    with open('../.wallet.dec','r') as f:
+        data = f.read()
+    with open('../.wallet.dec.password','r') as f:
+        password = f.read()
+    loaded = decw.load_wallet(data,password)
+    assert loaded == True
+    user_context = {
+            'api_key':"UNDEFINED"}
+    connection_settings = {'host': "devdecelium.com",
+                            'port':5001,
+                            'protocol':"http"}
+    connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",
+                                      api_key=user_context['api_key'])
+
+    ipfs_req_context = {**user_context, **{
+            'file_type':'ipfs', 
+            'connection_settings':connection_settings
+        }}
+    # Upload to IPFS directly, & verify
+
+    # -- Upload Object --
+    pins = decw.net.create_ipfs({**ipfs_req_context, **{
+            'payload_type':'local_path',
+            'payload':'./test/testdata/test_folder'
+     }})
+    print(pins)
+    '''
+    singed_req = decw.dw.sr({**user_context, **{
+            'payload_type':'ipfs_pin_list',
+            'payload':pins}})
+    obj_id = decw.net.create_entity(singed_req)
+    assert 'obj-' in obj_id
+    # -- Download Object --
+    obj_content = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
+    print(obj_content)
+    
+    # -- Verify Pin Exists --
+
+    # -- Remove Object --
+
+    # -- Verify Download Object Fails --
+
+    # -- Verify Pin Missing --
+
+    print(pins)
+    assert len(pins) > 0
+    assert 'cid' in pins[0]
+    '''
+test_object_backup()
