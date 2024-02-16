@@ -125,7 +125,10 @@ class Migrator():
                 print(f"Error checking pin status for {cid}: {pin_check_error}")
             while len(current_docs) > 0:
                 for item in current_docs:
-                    new_pins = Migrator.backup_ipfs_entity(item,pins,download_path,client)
+                    dic = item
+                    if type(item) == str:
+                        dic = {'cid':item,'self_id':None}
+                    new_pins = Migrator.backup_ipfs_entity(dic,pins,download_path,client)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
                 print("Moving to new batch-------------")
@@ -144,7 +147,3 @@ class Migrator():
         }
 
         return item_details
-
-
-# 1 - backup & respore ipfs
-# 2 - backup & resore objs

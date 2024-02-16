@@ -4,7 +4,8 @@ import os
 import json
 import pprint
 from Migrator import Migrator
-
+import pandas
+import shutil
 
 
 def run_ipfs_backup():
@@ -200,10 +201,6 @@ def test_ipfs_folder_backup():
         print(folder_json)
     # TODO LS and verify
 
-# run_ipfs_backup() 
-# test_ipfs_file_backup()
-# test_ipfs_folder_backup()
-
 def test_object_backup():
     '''
     Low level test that verifies that the IPFS Migrator is backing up IPFS files in a manner that is perfect down to the bit.
@@ -215,9 +212,10 @@ def test_object_backup():
     with open('../.wallet.dec.password','r') as f:
         password = f.read()
     loaded = decw.load_wallet(data,password)
+    print(decw.dw.list_accounts())
     assert loaded == True
     user_context = {
-            'api_key':"UNDEFINED"}
+            'api_key':decw.dw.pubk()}
     connection_settings = {'host': "devdecelium.com",
                             'port':5001,
                             'protocol':"http"}
@@ -236,26 +234,89 @@ def test_object_backup():
             'payload':'./test/testdata/test_folder'
      }})
     print(pins)
-    '''
     singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder.ipfs'}})
+    obj_id = decw.net.delete_entity(singed_req)
+    singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder.ipfs',
+            'file_type':'ipfs',
             'payload_type':'ipfs_pin_list',
             'payload':pins}})
     obj_id = decw.net.create_entity(singed_req)
+    print(obj_id)
     assert 'obj-' in obj_id
+
     # -- Download Object --
-    obj_content = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
-    print(obj_content)
-    
+    obj = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
+    import pprint
+    pprint.pprint(obj)
+    assert 'settings' in obj
+    assert 'ipfs_cid' in obj['settings']
+    assert 'ipfs_cids' in obj['settings']
+    new_cids = [obj['settings']['ipfs_cid']]
+
     # -- Verify Pin Exists --
+    for cid in obj['settings']['ipfs_cids'].values():
+        new_cids.append(cid)
+    print(new_cids)
+
+    all_cids = Migrator.find_all_cids(decw)
+    df = pandas.DataFrame(all_cids)
+    all_cids = list(df['cid'])
+    # print(all_cids)
+    is_subset = set(new_cids) <= set(all_cids)
+    assert is_subset
+    print(new_cids)
+
+    # -- Download Backup --
+    download_path = './test/testobjbackup'
+    try:
+        shutil.rmtree(download_path)
+    except:
+        pass
+    Migrator.download_ipfs_data(new_cids, download_path, connection_settings)
+    
 
     # -- Remove Object --
-
+    singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder.ipfs'}})
+    del_res = decw.net.delete_entity(singed_req)
+    assert del_res == True
     # -- Verify Download Object Fails --
+    obj = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
+    assert 'error' in obj
 
+    
     # -- Verify Pin Missing --
+    all_cids = Migrator.find_all_cids(decw)
+    df = pandas.DataFrame(all_cids)
+    all_cids = list(df['cid'])
+    is_subset = set(new_cids) <= set(all_cids)
+    assert is_subset == False
 
-    print(pins)
-    assert len(pins) > 0
-    assert 'cid' in pins[0]
-    '''
+
+    # -- Upload Backup & Verify Correctness -- 
+    print(new_cids)
+    backup_cids = []
+    for root, dirs, files in os.walk(download_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if file_path.endswith('.file'):
+                payload_type = 'local_path'
+            if file_path.endswith('.dag'):
+                payload_type = 'ipfs_pin_list'
+
+            result = decw.net.create_ipfs({**ipfs_req_context,
+                    'payload_type':payload_type,
+                    'payload':file_path})
+            print(result)
+            backup_cid = result[0]['cid']
+            backup_cids.append(backup_cid)
+            print(file)
+            print(backup_cid)
+            assert backup_cid in new_cids
+
+# run_ipfs_backup() 
+# test_ipfs_file_backup()
+# test_ipfs_folder_backup()
 test_object_backup()
