@@ -136,6 +136,92 @@ class Migrator():
                 next_batch = []
 
     @staticmethod
+    def upload_ipfs_data(decw,download_path,connection_settings):
+        uploaded_something = False
+        #for root, dirs, files in os.walk(download_path):
+        #    for file in files:
+        #    file_path = os.path.join(root, file)
+        cids = [] 
+        for item in os.listdir(download_path):
+            # Construct the full path of the item-
+            file_path = os.path.join(download_path, item)
+            if file_path.endswith('.file'):
+                payload_type = 'local_path'
+            elif file_path.endswith('.dag'):
+                payload_type = 'ipfs_pin_list'
+            else:
+                continue
+            result = decw.net.create_ipfs({
+                    'api_key':"UNDEFINED",
+                    'file_type':'ipfs', 
+                    'connection_settings':connection_settings,
+                    'payload_type':payload_type,
+                    'payload':file_path})
+            print(file_path)
+            print(result)
+            assert result[0]['cid'] in file_path
+            cids.append(result[0]['cid'])
+        return cids
+
+    @staticmethod
+    def download_object(decw,object_ids,download_path,connection_settings):
+        if type(object_ids) == str:
+            object_ids = [object_ids]
+        results = {}
+        for obj_id in object_ids:
+            obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+            assert 'settings' in obj
+            assert 'ipfs_cid' in obj['settings']
+            assert 'ipfs_cids' in obj['settings']
+            new_cids = [obj['settings']['ipfs_cid']]
+
+            for cid in obj['settings']['ipfs_cids'].values():
+                new_cids.append(cid)
+            Migrator.download_ipfs_data(new_cids, download_path+'/'+obj_id, connection_settings)
+            with open(download_path+'/'+obj_id+'/object.json','w') as f:
+                f.write(json.dumps(obj))
+            results[obj_id] = True
+        return results
+
+    @staticmethod
+    def upload_object_query(decw,obj_id,download_path,connection_settings):
+        '''
+            Validates the object, and generates a query to reupload the exact object
+        '''
+        if not os.path.isfile(download_path+'/'+obj_id+'/object.json'):
+            return {"error":"could not fine object.json in the selected path"}
+            
+        with open(download_path+'/'+obj_id+'/object.json','r') as f:
+            obj = json.loads(f.read())
+        assert 'settings' in obj
+        assert 'ipfs_cid' in obj['settings']
+        assert 'ipfs_cids' in obj['settings']
+        #obj_cids = [obj['settings']['ipfs_cid']]
+        obj_cids = []
+        for path,cid in obj['settings']['ipfs_cids'].items():
+            cid_record = { 'cid':cid,
+                           'name':path }
+            cid_record['name'] = cid_record['name'].replace(obj_id+'/',"")
+            if len(path) > 0:
+                cid_record['root'] = True
+            obj_cids.append(cid_record)
+            print(cid_record)
+            assert os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')            
+        #assert Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings) == True
+        # TODO - create a Types package to share types
+        # Create entity can take instances of itself as an upload. (Or, perhaps there is a "restore" entity)
+        import pprint
+        pprint.pprint(obj) 
+        query ={
+            'parent_id':obj['parent_id'],
+            'self_id':obj['self_id'],
+            'name':obj['dir_name'],
+            'file_type':'ipfs',
+            'payload_type':'ipfs_pin_list',
+            'payload':obj_cids}
+        return query
+
+    @staticmethod
     def backup_directory_dag(client, cid, path=""):
         item_details_response = client.object.get(cid)
         item_details = {
