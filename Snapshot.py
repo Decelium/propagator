@@ -28,31 +28,32 @@ class Snapshot:
 
     @staticmethod
     def push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
-        object_ids = os.path.listdir(download_path)
+        object_ids = os.listdir(download_path)
         # (later) TODO Implement limit and offset
         ipfs_cids = []
         all_cids =  Migrator.ipfs_pin_list( connection_settings)
         for obj_id in object_ids:
-            obj_id = decw.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
-            if type(obj_id) == dict and 'error' in obj_id:
+            obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+            if type(obj) == dict and 'error' in obj:
                 query = Migrator.upload_object_query(decw,obj_id,download_path,connection_settings)
                 result = decw.net.create_entity(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
                 assert 'obj-' in result
-                assert 'settings' in obj
-                assert 'ipfs_cid' in obj['settings']
-                assert 'ipfs_cids' in obj['settings']
-                #obj_cids = [obj['settings']['ipfs_cid']]
-                obj_cids = [obj['settings']['ipfs_cid']]
-                for path,cid in obj['settings']['ipfs_cids'].items():
-                    obj_cids.append(cid)
-                missing_cids = list(set(all_cids) - set(obj_cids))
-                if(len(missing_cids) > 0):
-                    Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
-                    assert Migrator.ipfs_has_cids(decw,obj_cids, connection_settings) == True
+                obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+            assert 'settings' in obj
+            assert 'ipfs_cid' in obj['settings']
+            assert 'ipfs_cids' in obj['settings']
+            #obj_cids = [obj['settings']['ipfs_cid']]
+            obj_cids = [obj['settings']['ipfs_cid']]
+            for path,cid in obj['settings']['ipfs_cids'].items():
+                obj_cids.append(cid)
+            missing_cids = list(set(all_cids) - set(obj_cids))
+            if(len(missing_cids) > 0):
+                Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
+                assert Migrator.ipfs_has_cids(decw,obj_cids, connection_settings) == True
 
-        return missing_objects
+        return missing_cids
 
     def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0):
-        object_ids = os.path.listdir(download_path)
+        object_ids = os.listdir(download_path)
         filter = {'attrib':{'self_id':{'$in':object_ids}}}
         return Snapshot.append_from_remote(decw, connection_settings, download_path,limit, offset,filter)

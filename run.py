@@ -409,6 +409,9 @@ def test_simple_snapshot():
     singed_req = decw.dw.sr({**user_context, **{
             'path':'temp/test_folder.ipfs'}})
     del_try = decw.net.delete_entity(singed_req)
+    singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder2.ipfs'}})
+    del_try = decw.net.delete_entity(singed_req)
     print(del_try)
 
     singed_req = decw.dw.sr({**user_context, **{
@@ -419,7 +422,8 @@ def test_simple_snapshot():
     obj_id = decw.net.create_entity(singed_req)
     print(obj_id)
     assert 'obj-' in obj_id    
-    
+
+
     # A --- Create a snapshot append_snapshot ---
     # filter = {'attrib':{'file_type':'ipfs'}}
     filter = {'attrib':{'self_id':obj_id}}
@@ -427,11 +431,13 @@ def test_simple_snapshot():
     offset = 0
     print(filter)
     assert Snapshot.append_from_remote(decw, connection_settings, backup_path, limit, offset,filter) == True
-    obj = Snapshot.load_entity({'self_id':obj_id,'attrib':True})
+    obj = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
     new_cids = [obj['settings']['ipfs_cid']] 
-    for new_cid in obj_new['settings']['ipfs_cids'].values():
+    for new_cid in obj['settings']['ipfs_cids'].values():
         new_cids.append(new_cid)
     assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
+
+
 
     # B --- Delete From server && Show is missing from server ---
     singed_req = decw.dw.sr({**user_context, **{
@@ -442,11 +448,16 @@ def test_simple_snapshot():
     assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == False
 
     # C --- test restore_remote_objects & Validate---
-    # Push the local data you have to the server - 
-    Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+    # Push the local data you have to the server -
+    #                      (decw,api_key, connection_settings, download_path,limit=20, offset=0):
+    Snapshot.push_to_remote(decw,user_context['api_key'], connection_settings, backup_path,limit=100, offset=0)
     assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
     obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
     assert 'obj-' in obj['self_id']
+
+
+    return #----------------------------------------------------- < ----
+
 
     # Corrupt the data
     singed_req = decw.dw.sr({**user_context, ## 

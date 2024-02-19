@@ -99,11 +99,13 @@ class Migrator():
         if os.path.exists(file_path+".file") or os.path.exists(file_path+".dag"):
             print(f"CID {cid} already exists in {file_path}")
             return new_cids
-
+        cids = current_pins
+        if type(current_pins) == dict:
+            cids = current_pins['Keys']
         try:
             # Check if the item is pinned on this node
             pinned = False
-            if cid in current_pins['Keys']:
+            if cid in cids:
                 pinned = True
             if not pinned:
                 print(f"CID {cid} IS NOT PINNED {file_path}")
@@ -138,7 +140,8 @@ class Migrator():
             return new_cids
 
     @staticmethod
-    def ipfs_pin_list( download_path, connection_settings):
+    def ipfs_pin_list( connection_settings):
+        c = connection_settings
         ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
 
         with ipfshttpclient.connect(ipfs_string) as client:
@@ -163,7 +166,7 @@ class Migrator():
         #        pins = client.pin.ls(type='recursive')
         #    except Exception as pin_check_error:
         #        print(f"Error checking pin status for {cid}: {pin_check_error}")
-        pins = Migrator.ipfs_pin_list(download_path, connection_settings)
+        pins = Migrator.ipfs_pin_list( connection_settings)
         with ipfshttpclient.connect(ipfs_string) as client:
             while len(current_docs) > 0:
                 for item in current_docs:
@@ -228,7 +231,7 @@ class Migrator():
     @staticmethod
     def validate_backedup_object(decw,object_id,download_path,connection_settings):
         # Compares the local object with the remote
-        obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+        obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         with open(download_path+'/'+object_id+'/object.json','r') as f:
             obj_local = json.loads(f.read())
         assert obj_local['self_id'] == obj_remote['self_id']
