@@ -20,11 +20,28 @@ class Migrator():
                     return True
             # return len(object_info['Links']) > 0  # Has links, likely a directory
         return False  # No links, likely a file
-
     @staticmethod
-    def find_batch_cids(decw,offset,limit):
+    def find_batch_object_ids(decw,offset,limit,filter=None):
+        if filter ==None:
+            filter ={'attrib':{'file_type':'ipfs'}}
+        filter['limit'] = limit
+        filter['offset'] = offset
+        docs = decw.net.list(filter)
+        print("Searching for objs")
+        print(filter)
+        print(docs)
+        obj_ids = []
+        for doc in docs:
+            obj_ids.append(doc['self_id'])
+        return obj_ids
+    @staticmethod
+    def find_batch_cids(decw,offset,limit,filter=None):
         found = []
-        docs = decw.net.list({'limit':limit,'offset':offset,'attrib':{'file_type':'ipfs'}})
+        if filter ==None:
+            filter ={'attrib':{'file_type':'ipfs'}}
+        filter['limit'] = limit
+        filter['offset'] = offset
+        docs = decw.net.list(filter)
         returned = len(docs)
         for doc in docs:
             if 'settings' in doc.keys():
@@ -38,8 +55,20 @@ class Migrator():
                         found.append(rec)                
         return found,returned
 
+    def decelium_has_cids(decw,new_cids):
+        all_cids = Migrator.find_all_cids(decw)
+        df = pandas.DataFrame(all_cids)
+        all_cids = list(df['cid'])
+        is_subset = set(new_cids) <= set(all_cids)
+        return is_subset
+
+    def ipfs_has_cids(decw,new_cids, connection_settings):
+        all_cids = Migrator.ipfs_pin_list( connection_settings)
+        is_subset = set(new_cids) <= set(all_cids)
+        return is_subset
+
     @staticmethod
-    def find_all_cids(decw,offset=0,limit=20):
+    def find_all_cids(decw,offset=0,limit=20): #find all cids on decelium
         found = []
         returned = limit
         while returned >= limit:
@@ -109,6 +138,17 @@ class Migrator():
             return new_cids
 
     @staticmethod
+    def ipfs_pin_list( download_path, connection_settings):
+        ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
+
+        with ipfshttpclient.connect(ipfs_string) as client:
+            try:
+                pin_response = client.pin.ls(type='recursive')
+                pins = pin_response['Keys']
+                return pins
+            except:
+                print(f"Error checking pin status for {cid}: {pin_check_error}")
+                return []
     def download_ipfs_data(docs, download_path, connection_settings):
         c = connection_settings
         # Ensure the download directory exists
@@ -118,11 +158,13 @@ class Migrator():
 
         current_docs = docs
         next_batch = []
+        #with ipfshttpclient.connect(ipfs_string) as client:
+        #    try:
+        #        pins = client.pin.ls(type='recursive')
+        #    except Exception as pin_check_error:
+        #        print(f"Error checking pin status for {cid}: {pin_check_error}")
+        pins = Migrator.ipfs_pin_list(download_path, connection_settings)
         with ipfshttpclient.connect(ipfs_string) as client:
-            try:
-                pins = client.pin.ls(type='recursive')
-            except Exception as pin_check_error:
-                print(f"Error checking pin status for {cid}: {pin_check_error}")
             while len(current_docs) > 0:
                 for item in current_docs:
                     dic = item
@@ -138,7 +180,7 @@ class Migrator():
     @staticmethod
     def upload_ipfs_data(decw,download_path,connection_settings):
         uploaded_something = False
-        #for root, dirs, files in os.walk(download_path):
+        # for root, dirs, files in os.walk(download_path):
         #    for file in files:
         #    file_path = os.path.join(root, file)
         cids = [] 
@@ -182,6 +224,39 @@ class Migrator():
                 f.write(json.dumps(obj))
             results[obj_id] = True
         return results
+
+    @staticmethod
+    def validate_backedup_object(decw,object_id,download_path,connection_settings):
+        # Compares the local object with the remote
+        obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+        with open(download_path+'/'+object_id+'/object.json','r') as f:
+            obj_local = json.loads(f.read())
+        assert obj_local['self_id'] == obj_remote['self_id']
+        assert obj_local['parent_id'] == obj_remote['parent_id']
+        assert obj_local['dir_name'] == obj_remote['dir_name']
+        assert obj_local['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid']
+        assert obj_local['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name']
+        for key in obj_local['settings']['ipfs_cids'].keys():
+            assert obj_local['settings']['ipfs_cids'][key] ==   obj_remote['settings']['ipfs_cids'][key]
+        for key in obj_remote['settings']['ipfs_cids'].keys():
+            assert obj_remote['settings']['ipfs_cids'][key] ==   obj_local['settings']['ipfs_cids'][key]
+        for item in os.listdir(download_path+'/'+object_id):
+            # Construct the full path of the item-
+            file_path = os.path.join(download_path+'/'+object_id, item)
+            if file_path.endswith('.file'):
+                payload_type = 'local_path'
+            elif file_path.endswith('.dag'):
+                payload_type = 'ipfs_pin_list'
+            else:
+                continue
+            result = decw.net.create_ipfs({
+                    'api_key':"UNDEFINED",
+                    'file_type':'ipfs', 
+                    'connection_settings':connection_settings,
+                    'payload_type':payload_type,
+                    'payload':file_path})
+            assert result[0]['cid'] in file_path
+        return True
 
     @staticmethod
     def upload_object_query(decw,obj_id,download_path,connection_settings):

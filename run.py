@@ -4,13 +4,47 @@ import os
 import json
 import pprint
 from Migrator import Migrator
+from Snapshot import Snapshot
 import pandas
 import shutil
 '''
 Backups are likely the MOST important aspect of Decelium.
 This file tests the Migrator, a small utility that is the powerhouse behind creating and restoring backup data from the
 Decelium network. 
+
+Architecture
+
+Outer:
+- Backup.py - Driver for all backups
+
+Snapshot: Wrapper classes to manage snapshots
+- Class Snapshot - Generic Snapshot type
+- Class System Smapshot - Used to save / restore all data
+- Class Personal Snapshot - Save / Restore all owned data
+- Class Community Snapshort - Save / Restore / community data
+
+
+Migrator:
+- Driver class that manages data movement between data sources
+
+Datasource:
+- Datasource - base class that provides upload / download functions for any source / dest
+- Network - A Decelium Network data source (dev / stage / live etc)
+- Local Disk - A local hard drive data source, bound to a system path
+- Memory - An in memory storage area -- used for transient storage
+
+Tasks / Objectives:
+- [ ] Facilitate System backups
+----- [ ] 
+
+
+# TODO - test find_batch_object_ids
+# TODO - Validate the file locally against the remote version. Update if required
+
 '''
+
+
+
 
 def run_ipfs_backup():
     decw = core()
@@ -52,7 +86,7 @@ def test_ipfs_file_backup():
     Migrator.download_ipfs_data(found, './test/testbackup',connection_settings)
     file_path = './test/testbackup/'+pins[0]['cid']+'.file'
 
-    # Assert the file exists
+    # Assert the file exists 
     assert os.path.exists(file_path), "The backup file does not exist."
     with open('./test/testdata/img_test_1.png', 'rb') as original_file:
         original_content = original_file.read()
@@ -61,7 +95,7 @@ def test_ipfs_file_backup():
     assert original_content == backup_content, "The contents of the files are not identical."
 
 
-    # Unpin from IPFS & Verify
+    # Unpin from IPFS & Verify 
     result = decw.net.remove_ipfs({
             'api_key':"UNDEFINED",
             'file_type':'ipfs', 
@@ -71,7 +105,7 @@ def test_ipfs_file_backup():
     assert result[pins[0]['cid']]['removed'] == True
     # LS and verify no pin exists for file
     # TODO LS and verify
-    # Reupload backup & Verify
+    # Reupload backup & Verify 
     pins_new = decw.net.create_ipfs({
             'api_key':"UNDEFINED",
             'file_type':'ipfs', 
@@ -334,21 +368,17 @@ def test_object_backup():
     assert is_subset == True
     
 
-# run_ipfs_backup() 
-# test_ipfs_file_backup()
-# test_ipfs_folder_backup()
-test_object_backup()
 
 
-def quick_test():
-    # [ ] create test data 
+
+def test_simple_snapshot():
+    # setup connection 
     decw = core()
     with open('../.wallet.dec','r') as f:
         data = f.read()
     with open('../.wallet.dec.password','r') as f:
         password = f.read()
     loaded = decw.load_wallet(data,password)
-    print(decw.dw.list_accounts())
     assert loaded == True
     user_context = {
             'api_key':decw.dw.pubk()}
@@ -356,49 +386,103 @@ def quick_test():
                             'port':5001,
                             'protocol':"http"}
     connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",
-                                        api_key=user_context['api_key'])
-
+                                      api_key=user_context['api_key'])
     ipfs_req_context = {**user_context, **{
             'file_type':'ipfs', 
             'connection_settings':connection_settings
         }}
-    q = {'api_key': 'e66eebeb3b56bd627c082a36fb0528e45d1fa8d6a1b9e47d478c3af9a11baaf6431bfdb491ceb6d8c5a3674433dcf5a1a1f9af74cf5a9414d026b68fdcedfc5d',
-        'file_type': 'ipfs',
-        'name': 'test_folder.ipfs',
-        'no_validation':True,
-        'parent_id': 'dir-948b86b7-927d-456e-ba33-a2ea2a3bea2e',
-        'payload': [{'cid': 'QmVKugVyynbLDmwgxHm9Z6JZMjqtyVNH6MqgxTxhTXX2US',
-                    'name': '.DS_Store',
-                    'root': True},
-                    {'cid': 'QmQkBHa6uAcVm8bwfoufcmAiG25vfNYdo3Lvrt9Q7QWmZR',
-                    'name': 'test.txt',
-                    'root': True},
-                    {'cid': 'QmYZsomCw9J9Fb8hLgiB7iA3W1iTYnLi7hbJXq3Bggz2rL',
-                    'name': 'img_test.png',
-                    'root': True},
-                    {'cid': 'QmSi9vz6qz2rnES8hhv288UYK9MSWLo4p9HZcszDYdRXsF',
-                    'name': 'test_sub/a_file.txt',
-                    'root': True},
-                    {'cid': 'QmbGSb2Gerf3WQUeS78yvEcYcSkTvurQghktXT3y9Fao6S',
-                    'name': 'test_sub',
-                    'root': True},
-                    {'cid': 'QmS13EHyNHj8sYwXCnLFNrUQobr9EyoDsBTaFzm2ij5dPG',
-                    'name': '',
-                    'root': True}],
-        'payload_type': 'ipfs_pin_list',
-        'self_id': 'obj-a82f695f-1474-4bd9-8df3-df2eebbf6bb0'}
-    # result = decw.net.delete_entity(decw.dw.sr({'api_key':q['api_key'],'self_id':q['self_id']},["admin"]))
-    result = decw.net.delete_entity(decw.dw.sr({'api_key':q['api_key'],'parent_id':q['parent_id'],'name':q['name']},["admin"]))
-    print({'api_key':q['api_key'],'parent_id':q['parent_id'],'name':q['name']})
-    print(result)
 
+    # --- remove old backup ---
+    backup_path = "./test/system_backup_test"
+    try:
+        shutil.rmtree(backup_path)
+    except:
+        pass
 
-    new_obj = decw.net.create_entity(decw.dw.sr(q,["admin"]))
-    print(new_obj)
-    #obj_new = decw.net.download_entity( {'self_id':new_obj,'attrib':True})
+    
+    # --- upload test dir, with specifc obj ---
+    pins = decw.net.create_ipfs({**ipfs_req_context, **{
+            'payload_type':'local_path',
+            'payload':'./test/testdata/test_folder'
+     }})
 
+    singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder.ipfs'}})
+    del_try = decw.net.delete_entity(singed_req)
+    print(del_try)
 
-    #import pprint
-    #pprint.pprint(obj_new)
+    singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder.ipfs',
+            'file_type':'ipfs',
+            'payload_type':'ipfs_pin_list',
+            'payload':pins}})
+    obj_id = decw.net.create_entity(singed_req)
+    print(obj_id)
+    assert 'obj-' in obj_id    
+    
+    # A --- Create a snapshot append_snapshot ---
+    # filter = {'attrib':{'file_type':'ipfs'}}
+    filter = {'attrib':{'self_id':obj_id}}
+    limit = 20
+    offset = 0
+    print(filter)
+    assert Snapshot.append_from_remote(decw, connection_settings, backup_path, limit, offset,filter) == True
+    obj = Snapshot.load_entity({'self_id':obj_id,'attrib':True})
+    new_cids = [obj['settings']['ipfs_cid']] 
+    for new_cid in obj_new['settings']['ipfs_cids'].values():
+        new_cids.append(new_cid)
+    assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
 
-# quick_test()
+    # B --- Delete From server && Show is missing from server ---
+    singed_req = decw.dw.sr({**user_context, **{
+            'path':'temp/test_folder.ipfs'}})
+    del_try = decw.net.delete_entity(singed_req)
+    assert del_try == True 
+    # B TODO - Check IPFS to validate the files are gone
+    assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == False
+
+    # C --- test restore_remote_objects & Validate---
+    # Push the local data you have to the server - 
+    Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+    assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
+    obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
+    assert 'obj-' in obj['self_id']
+
+    # Corrupt the data
+    singed_req = decw.dw.sr({**user_context, ## 
+            'self_id':obj['self_id'],
+            'name':"test_folder2.ipfs"})
+    edit_try = decw.net.edit_entity(singed_req)
+    assert edit_try == True
+
+    for filename in os.listdir(backup_path+'/'+obj['self_id']):
+        if filename.endswith('.dag') or filename.endswith('.file'):
+            file_path = os.path.join(backup_path, filename)
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+    length = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+    assert length == 1
+    obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True})
+    assert obj_updated['dir_name'] == "test_folder2.ipfs"
+    backedup_cids = [obj['settings']['ipfs_cid']] 
+    for backedup_cid in obj_new['settings']['ipfs_cids'].values():
+        backedup_cids.append(backedup_cids)
+    local_ids = []
+    for filename in os.listdir(backup_path+'/'+obj['self_id']):
+        if filename.endswith('.dag') or filename.endswith('.file'):
+            local_ids.append(filename.split('.')[0])
+    assert set(local_ids) == set(backedup_cids)
+
+    singed_req = decw.dw.sr({**user_context, ## 
+            'self_id':obj['self_id'],
+            'name':"test_folder.ipfs"})
+    edit_try = decw.net.edit_entity(singed_req)
+    assert edit_try == True
+
+# TODO - All entities need a checksum system / sig system
+# TODO - 
+# run_ipfs_backup() 
+# test_ipfs_file_backup()
+# test_ipfs_folder_backup()
+# test_object_backup() - 
+test_simple_snapshot()
