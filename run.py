@@ -430,7 +430,7 @@ def test_simple_snapshot():
     limit = 20
     offset = 0
     print(filter)
-    assert Snapshot.append_from_remote(decw, connection_settings, backup_path, limit, offset,filter) == True
+    assert len(Snapshot.append_from_remote(decw, connection_settings, backup_path, limit, offset,filter)) > 0
     obj = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
     new_cids = [obj['settings']['ipfs_cid']] 
     for new_cid in obj['settings']['ipfs_cids'].values():
@@ -456,37 +456,61 @@ def test_simple_snapshot():
     assert 'obj-' in obj['self_id']
 
 
-    return #----------------------------------------------------- < ----
-
+    # TODO -- Add support for repairing corrupt items
+    # - [ ] Need to track "last updates"
+    # - [ ] If last updated is old, then the newest version is used
+    # - [ ] Ideally key object data is signed by some authority (like a validator?) So the data can ve verified / unverified
+    # - [ ]
 
     # Corrupt the data
     singed_req = decw.dw.sr({**user_context, ## 
             'self_id':obj['self_id'],
-            'name':"test_folder2.ipfs"})
+            'attrib':{'dir_name':"test_folder2.ipfs"}
+            })
     edit_try = decw.net.edit_entity(singed_req)
+    # print(edit_try)
     assert edit_try == True
+    obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
+    # pprint.pprint(obj)
+    assert obj['dir_name'] == "test_folder2.ipfs"
 
     for filename in os.listdir(backup_path+'/'+obj['self_id']):
         if filename.endswith('.dag') or filename.endswith('.file'):
-            file_path = os.path.join(backup_path, filename)
+            file_path = os.path.join(backup_path+'/'+obj['self_id'], filename)
             os.remove(file_path)
             print(f"Deleted: {file_path}")
-    length = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+    had_exception = False
+    try:
+        length = len(Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0))
+    except:
+        had_exception = True
+        length = len(Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=True))
+    assert had_exception
     assert length == 1
-    obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True})
+    obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
     assert obj_updated['dir_name'] == "test_folder2.ipfs"
+
+
+    
     backedup_cids = [obj['settings']['ipfs_cid']] 
-    for backedup_cid in obj_new['settings']['ipfs_cids'].values():
-        backedup_cids.append(backedup_cids)
+    for backedup_cid in obj['settings']['ipfs_cids'].values():
+        backedup_cids.append(backedup_cid)
     local_ids = []
     for filename in os.listdir(backup_path+'/'+obj['self_id']):
         if filename.endswith('.dag') or filename.endswith('.file'):
             local_ids.append(filename.split('.')[0])
-    assert set(local_ids) == set(backedup_cids)
+    print("Compare lists")
+
+    print(local_ids)
+    print(backedup_cids)
+
+    assert set(local_ids) <= set(backedup_cids)
+    assert set(backedup_cids) <= set(local_ids)
+
 
     singed_req = decw.dw.sr({**user_context, ## 
             'self_id':obj['self_id'],
-            'name':"test_folder.ipfs"})
+            'attrib':{'name':"test_folder.ipfs"}})
     edit_try = decw.net.edit_entity(singed_req)
     assert edit_try == True
 

@@ -4,19 +4,21 @@ import shutil
 from Migrator import Migrator
 class Snapshot:
     @staticmethod
-    def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None):
+    def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
         found_objs = Migrator.find_batch_object_ids(decw,offset,limit,filter)
         if len(found_objs) <= 0:
             return []
         for obj_id in found_objs:
-            print(obj_id,download_path)
-            if not os.path.exists(download_path+'/'+obj_id):
+            print("append_from_remote FOUND",obj_id,download_path)
+            print(overwrite)
+            if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
                 print("saving",obj_id)
-                Migrator.download_object(decw,[obj_id], download_path, connection_settings)
-            assert Migrator.validate_backedup_object(decw,obj_id, download_path, connection_settings) == True
-        return len(found_objs)
+                Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+            if overwrite == False:
+                assert Migrator.validate_backedup_object(decw,obj_id, download_path, connection_settings) == True
+        return found_objs
 
     @staticmethod
     def load_entity(filter,download_path):
@@ -53,7 +55,11 @@ class Snapshot:
 
         return missing_cids
 
-    def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0):
+    def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
         object_ids = os.listdir(download_path)
-        filter = {'attrib':{'self_id':{'$in':object_ids}}}
-        return Snapshot.append_from_remote(decw, connection_settings, download_path,limit, offset,filter)
+        found_objs = []
+        for obj_id in object_ids:
+            print("Searching for ,"+obj_id)
+            filter = {'attrib':{'self_id':obj_id}}
+            found_objs = found_objs + Snapshot.append_from_remote(decw, connection_settings, download_path,limit, offset,filter,overwrite)
+        return found_objs

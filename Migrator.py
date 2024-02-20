@@ -90,13 +90,13 @@ class Migrator():
             found = found + docs
         return found
 
-    def backup_ipfs_entity(item,current_pins,download_path,client):
+    def backup_ipfs_entity(item,current_pins,download_path,client,overwrite=False):
         new_cids = []
         cid = item['cid']
         file_path = os.path.join(download_path, cid)
 
         # Check if the file already exists to avoid double writing
-        if os.path.exists(file_path+".file") or os.path.exists(file_path+".dag"):
+        if (os.path.exists(file_path+".file") or os.path.exists(file_path+".dag")) and overwrite == False:
             print(f"CID {cid} already exists in {file_path}")
             return new_cids
         cids = current_pins
@@ -152,7 +152,7 @@ class Migrator():
             except:
                 print(f"Error checking pin status for {cid}: {pin_check_error}")
                 return []
-    def download_ipfs_data(docs, download_path, connection_settings):
+    def download_ipfs_data(docs, download_path, connection_settings,overwrite=False):
         c = connection_settings
         # Ensure the download directory exists
         if not os.path.exists(download_path):
@@ -173,7 +173,7 @@ class Migrator():
                     dic = item
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
-                    new_pins = Migrator.backup_ipfs_entity(dic,pins,download_path,client)
+                    new_pins = Migrator.backup_ipfs_entity(dic,pins,download_path,client,overwrite)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
                 print("Moving to new batch-------------")
@@ -209,7 +209,7 @@ class Migrator():
         return cids
 
     @staticmethod
-    def download_object(decw,object_ids,download_path,connection_settings):
+    def download_object(decw,object_ids,download_path,connection_settings, overwrite=False):
         if type(object_ids) == str:
             object_ids = [object_ids]
         results = {}
@@ -222,7 +222,8 @@ class Migrator():
 
             for cid in obj['settings']['ipfs_cids'].values():
                 new_cids.append(cid)
-            Migrator.download_ipfs_data(new_cids, download_path+'/'+obj_id, connection_settings)
+            Migrator.download_ipfs_data(new_cids, download_path+'/'+obj_id, connection_settings,overwrite)
+            print("overwriting object "+ str(overwrite))
             with open(download_path+'/'+obj_id+'/object.json','w') as f:
                 f.write(json.dumps(obj))
             results[obj_id] = True
