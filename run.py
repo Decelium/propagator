@@ -40,7 +40,10 @@ Tasks / Objectives:
 
 # TODO - test find_batch_object_ids
 # TODO - Validate the file locally against the remote version. Update if required
-
+# TODO - when appending, scan an object to see if it is incomplete, and complete it
+# TODO - When downloading, or uploading, return a status of the object after
+# ------- Incomplete
+# ------- cd 
 '''
 
 

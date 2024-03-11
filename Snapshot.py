@@ -3,22 +3,58 @@ import json
 import shutil
 from Migrator import Migrator
 class Snapshot:
+
+    #@staticmethod
+    #def init_snapshot(download_path,filter= None):
+    #    if filter == None:
+    #        filter = {'attrib':{'file_type':'ipfs'}}
+    #    assert type(snapshot_desc["filter"]) == dict #
+    #
+    #    snapshot_desc = {"filter":filter}
+    #    if not os.path.exists(os.path.join(download_path,"snapshot.json")):
+    #        with open(os.path.join(download_path,"snapshot.json"),'w') as f:
+    #            f.write(json.dumps(snapshot_desc))
+    #    with open(os.path.join(download_path,"snapshot.json"),'r') as f:
+    #        snapshot_desc = json.loads(f.read())
+    #    assert "filter" in snapshot_desc
+    #    return snapshot_desc
+    
     @staticmethod
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
+
         found_objs = Migrator.find_batch_object_ids(decw,offset,limit,filter)
+        results = {}
+        print("append_from_remote 2")
         if len(found_objs) <= 0:
-            return []
+            return {}
+        
         for obj_id in found_objs:
-            print("append_from_remote FOUND",obj_id,download_path)
-            print(overwrite)
+            result = {'self_id':obj_id,'local':None,'remote':None}
             if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
                 print("saving",obj_id)
-                Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                try:
+                    object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                    object_results[obj_id]
+                    result['local'] = object_results[obj_id]
+                    result['remote'] = object_results[obj_id]
+                    results[obj_id] = result
+                except:
+                    result['local'] = False
+                    result['remote'] = False
+                    results[obj_id] = result
             if overwrite == False:
-                assert Migrator.validate_backedup_object(decw,obj_id, download_path, connection_settings) == True
-        return found_objs
+                print("Validating "+ obj_id)
+                try:
+                    result['local'] = Migrator.validate_local_object(decw,obj_id, download_path, connection_settings)
+                    result['remote'] = None
+                    results[obj_id] = result
+                except:
+                    result['local'] = False
+                    result['remote'] = None
+                    results[obj_id] = result
+        return results
 
     @staticmethod
     def load_entity(filter,download_path):
@@ -55,11 +91,44 @@ class Snapshot:
 
         return missing_cids
 
+    @staticmethod
     def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
         object_ids = os.listdir(download_path)
         found_objs = []
+        current_offset = 0
         for obj_id in object_ids:
-            print("Searching for ,"+obj_id)
+            if current_offset < offset:
+                current_offset += 1
+                continue            
             filter = {'attrib':{'self_id':obj_id}}
-            found_objs = found_objs + Snapshot.append_from_remote(decw, connection_settings, download_path,limit, offset,filter,overwrite)
+            found_objs = found_objs + Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite)            
+            current_offset += 1
         return found_objs
+    
+    @staticmethod
+    def validate_snapshot(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
+        object_ids = os.listdir(download_path)
+        found_objs = []
+        results = {}
+        # print(object_ids)
+        current_offset = 0
+        for obj_id in object_ids:
+            if current_offset < offset:
+                current_offset += 1
+                continue               
+            print (obj_id)
+            results[obj_id] = {'self_id':obj_id,'local':None,'remote':None}            
+            try:
+                results[obj_id]["local"] = Migrator.validate_local_object(decw,obj_id,download_path,connection_settings)
+                results[obj_id]["local_message"] = "Synchronized successfully."
+                results[obj_id]["local_error"] = ""
+            except:
+                results[obj_id]["local"] = None
+                results[obj_id]["local_message"] = "Connection Errror"
+                import traceback as tb
+                results[obj_id]["local_error"] = tb.format_exc()
+            current_offset += 1
+            if current_offset >= limit+offset:
+                break
+        return results
+
