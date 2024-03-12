@@ -117,16 +117,27 @@ class Snapshot:
                 current_offset += 1
                 continue               
             print (obj_id)
-            results[obj_id] = {'self_id':obj_id,'local':None,'remote':None}            
+            results[obj_id] = {'self_id':obj_id,'local':None,'remote':None}          
+            '''  
             try:
                 results[obj_id]["local"] = Migrator.validate_local_object(decw,obj_id,download_path,connection_settings)
-                results[obj_id]["local_message"] = "Synchronized successfully."
+                results[obj_id]["local_message"] = "Local Synchronized successfully."
                 results[obj_id]["local_error"] = ""
             except:
-                results[obj_id]["local"] = None
-                results[obj_id]["local_message"] = "Connection Errror"
+                results[obj_id]["local"] = False
+                results[obj_id]["local_message"] = "Local Errror"
                 import traceback as tb
                 results[obj_id]["local_error"] = tb.format_exc()
+            '''
+            try:
+                results[obj_id]["remote"] = Migrator.validate_remote_object(decw,obj_id,download_path,connection_settings)
+                results[obj_id]["remote_message"] = "Remote Synchronized successfully."
+                results[obj_id]["remote_error"] = ""
+            except:
+                results[obj_id]["remote"] = False
+                results[obj_id]["remote_message"] = "Connection Errror"
+                import traceback as tb
+                results[obj_id]["remote_error"] = tb.format_exc()
             current_offset += 1
             if current_offset >= limit+offset:
                 break

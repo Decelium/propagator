@@ -235,7 +235,7 @@ class Migrator():
         return results
 
     @staticmethod
-    def validate_local_object(decw,object_id,download_path,connection_settings):
+    def validate_local_against_remote_object(decw,object_id,download_path,connection_settings):
         # Compares the local object with the remote
         obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         with open(download_path+'/'+object_id+'/object.json','r') as f:
@@ -249,8 +249,6 @@ class Migrator():
         if 'ipfs_cids' in obj_local['settings']:
             for key in obj_local['settings']['ipfs_cids'].keys():
                 assert obj_local['settings']['ipfs_cids'][key] ==   obj_remote['settings']['ipfs_cids'][key]
-            for key in obj_remote['settings']['ipfs_cids'].keys():
-                assert obj_remote['settings']['ipfs_cids'][key] ==   obj_local['settings']['ipfs_cids'][key]
         for item in os.listdir(download_path+'/'+object_id):
             # Construct the full path of the item-
             file_path = os.path.join(download_path+'/'+object_id, item)
@@ -261,14 +259,66 @@ class Migrator():
             else:
                 continue
             assert os.path.exists(file_path) == True
-            # TODO - Quickly (somehow) verify integrity of files
-            #result = decw.net.create_ipfs({
-            #        'api_key':"UNDEFINED",
-            #        'file_type':'ipfs', 
-            #        'connection_settings':connection_settings,
-            #        'payload_type':payload_type,
-            #        'payload':file_path})
-            #assert result[0]['cid'] in file_path
+        return True
+
+    @staticmethod
+    def validate_local_object(decw,object_id,download_path,connection_settings):
+        # Validate the local representation of an object
+        with open(download_path+'/'+object_id+'/object.json','r') as f:
+            obj_local = json.loads(f.read())
+
+        cids_pinned = []
+        cids_downloaded = []
+        assert obj_local['self_id'] 
+        assert obj_local['parent_id']
+        assert obj_local['dir_name']
+        assert obj_local['settings']['ipfs_cid'] 
+        cids_pinned.append (obj_local['settings']['ipfs_cid'] )
+
+        assert obj_local['settings']['ipfs_name'] 
+        if 'ipfs_cids' in obj_local['settings']:
+            for key in obj_local['settings']['ipfs_cids'].keys():
+                assert obj_local['settings']['ipfs_cids'][key] 
+                cids_pinned.append (obj_local['settings']['ipfs_cids'][key] )
+        
+        for item in os.listdir(download_path+'/'+object_id):
+            # Construct the full path of the item-
+            file_path = os.path.join(download_path+'/'+object_id, item)
+            if item.endswith('.file') or item.endswith('.dag'):
+                cids_downloaded.append(item.split('.')[0])
+        missing = []
+        for pin in cids_pinned:
+            try:
+                assert pin in cids_downloaded
+            except:
+                missing.append(pin)
+        if len(missing) > 0:
+            raise Exception(download_path+'/'+object_id+" is missing "+str(len(missing))+" pins :"+str(missing) )
+        return True
+    
+    @staticmethod
+    def validate_remote_object(decw,object_id,download_path,connection_settings,obj_remote = None):
+        # Compares the local object with the remote
+        if obj_remote == None:
+            obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
+
+        assert obj_remote['self_id'] == obj_remote['self_id']
+        assert obj_remote['parent_id'] == obj_remote['parent_id']
+        assert obj_remote['dir_name'] == obj_remote['dir_name']
+        assert obj_remote['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid']
+        cids = [obj_remote['settings']['ipfs_cid']]
+        assert obj_remote['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name']
+        if 'ipfs_cids' in obj_remote['settings']:
+            for key in obj_remote['settings']['ipfs_cids'].keys():
+                assert obj_remote['settings']['ipfs_cids'][key]
+            cids.append(obj_remote['settings']['ipfs_cids'][key])
+        for cid in cids:
+            result = decw.net.check_pin_status({
+                    'api_key':"UNDEFINED",
+                    'connection_settings':connection_settings,
+                    'cid': cid})
+            assert result == True
+
         return True
 
     @staticmethod
