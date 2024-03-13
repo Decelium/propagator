@@ -4,8 +4,9 @@ import os
 import json
 import pprint
 import pandas
-class Migrator():
+from Messages import Messages
 
+class Migrator():
     @staticmethod
     def is_directory(decw,connection_settings,hash):
         # Example pseudocode for IPFS. You'll need to adapt this based on your IPFS client library or command line usage
@@ -202,11 +203,11 @@ class Migrator():
                     'connection_settings':connection_settings,
                     'payload_type':payload_type,
                     'payload':file_path})
-            # print(file_path)
-            # print(result)
-            assert result[0]['cid'] in file_path
+            
+            messages = Messages("Migrator.upload_ipfs_data")
+            messages.add_error(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
-        return cids
+        return cids,messages
 
     @staticmethod
     def download_object(decw,object_ids,download_path,connection_settings, overwrite=False):
@@ -214,41 +215,58 @@ class Migrator():
             object_ids = [object_ids]
         results = {}
         for obj_id in object_ids:
+            messages = Messages("Migrator.download_object(for {obj_id})")
             try:
                 obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
-                assert 'settings' in obj
-                assert 'ipfs_cid' in obj['settings']
+
+                assert messages.add_error('settings' in obj,"Settings not present in "+obj_id )
+                assert messages.add_error('ipfs_cid' in obj['settings'],"Core IPFS CID not present in "+obj_id ) 
                 new_cids = [obj['settings']['ipfs_cid']]
                 if 'ipfs_cids' in obj['settings']:
-                    assert 'ipfs_cids' in obj['settings']
                     for cid in obj['settings']['ipfs_cids'].values():
                         new_cids.append(cid)
-                Migrator.download_ipfs_data(new_cids, download_path+'/'+obj_id, connection_settings,overwrite)
+                result = Migrator.download_ipfs_data(new_cids, download_path+'/'+obj_id, connection_settings,overwrite)
+                # messages.append(download_messages)
                 with open(download_path+'/'+obj_id+'/object.json','w') as f:
                     f.write(json.dumps(obj))
-                results[obj_id] = True
+                results[obj_id] = (True,messages)
             except:
-                results[obj_id] = False
                 import traceback as tb
+                exc = tb.format_exc()
                 with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
-                    f.write(tb.format_exc())
+                    f.write(exc)
+                messages.add_error(False,"Exception encountered for "+obj_id+": "+exc ) 
+                results[obj_id] = (False,messages)
         return results
 
     @staticmethod
     def validate_local_against_remote_object(decw,object_id,download_path,connection_settings):
+        messages = Messages("Migrator.validate_local_against_remote_object(for {object_id})")
+
         # Compares the local object with the remote
         obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         with open(download_path+'/'+object_id+'/object.json','r') as f:
             obj_local = json.loads(f.read())
 
-        assert obj_local['self_id'] == obj_remote['self_id']
-        assert obj_local['parent_id'] == obj_remote['parent_id']
-        assert obj_local['dir_name'] == obj_remote['dir_name']
-        assert obj_local['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid']
-        assert obj_local['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name']
+        messages.add_error(obj_local['self_id'] == obj_remote['self_id'] ,"local.self_id is not identical to remote.self_id "+object_id )
+        messages.add_error(obj_local['parent_id'] == obj_remote['parent_id'] ,"local.parent_id is not identical to remote.parent_id "+object_id )
+        messages.add_error(obj_local['dir_name'] == obj_remote['dir_name'] ,"local.dir_name is not identical to remote.dir_name "+object_id )
+        if messages.add_error('settings' in obj_local  and  'settings' in obj_remote 
+                              ,"local or remote do not have settings "+object_id ):
+            messages.add_error(obj_local['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid'] 
+                               ,"local.ipfs_cid is not identical to remote.ipfs_cid "+object_id )
+            messages.add_error(obj_local['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name'] 
+                               ,"local.ipfs_name is not identical to remote.ipfs_name "+object_id )
+        
+        messages.add_error(obj_local['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid'] ,"local.dir_name is not identical to remote.dir_name "+object_id )
         if 'ipfs_cids' in obj_local['settings']:
             for key in obj_local['settings']['ipfs_cids'].keys():
-                assert obj_local['settings']['ipfs_cids'][key] ==   obj_remote['settings']['ipfs_cids'][key]
+                messages.add_error(obj_local['settings']['ipfs_cids'][key] == obj_remote['settings']['ipfs_cids'][key] 
+                                   ,"local mismatch in keys for "+object_id )
+            for key in obj_remote['settings']['ipfs_cids'].keys():
+                messages.add_error(obj_local['settings']['ipfs_cids'][key] == obj_remote['settings']['ipfs_cids'][key] 
+                                   ,"remote mismatch in keys for "+object_id )
+                
         for item in os.listdir(download_path+'/'+object_id):
             # Construct the full path of the item-
             file_path = os.path.join(download_path+'/'+object_id, item)
@@ -258,8 +276,10 @@ class Migrator():
                 payload_type = 'ipfs_pin_list'
             else:
                 continue
-            assert os.path.exists(file_path) == True
-        return True
+            messages.add_error(os.path.exists(file_path) == True 
+                                ,"The local file does not exist "+object_id )        
+                
+        return len(messages.get_error_messages() == 0),messages
 
     @staticmethod
     def validate_local_object(decw,object_id,download_path,connection_settings):
@@ -269,16 +289,16 @@ class Migrator():
 
         cids_pinned = []
         cids_downloaded = []
-        assert obj_local['self_id'] 
-        assert obj_local['parent_id']
-        assert obj_local['dir_name']
-        assert obj_local['settings']['ipfs_cid'] 
+        assert obj_local['self_id']  # CHANGEASSERT
+        assert obj_local['parent_id'] # CHANGEASSERT
+        assert obj_local['dir_name'] # CHANGEASSERT
+        assert obj_local['settings']['ipfs_cid']  # CHANGEASSERT
         cids_pinned.append (obj_local['settings']['ipfs_cid'] )
 
-        assert obj_local['settings']['ipfs_name'] 
+        assert obj_local['settings']['ipfs_name']  # CHANGEASSERT
         if 'ipfs_cids' in obj_local['settings']:
             for key in obj_local['settings']['ipfs_cids'].keys():
-                assert obj_local['settings']['ipfs_cids'][key] 
+                assert obj_local['settings']['ipfs_cids'][key]  # CHANGEASSERT
                 cids_pinned.append (obj_local['settings']['ipfs_cids'][key] )
         
         for item in os.listdir(download_path+'/'+object_id):
@@ -289,7 +309,7 @@ class Migrator():
         missing = []
         for pin in cids_pinned:
             try:
-                assert pin in cids_downloaded
+                assert pin in cids_downloaded # CHANGEASSERT
             except:
                 missing.append(pin)
         if len(missing) > 0:
@@ -302,22 +322,22 @@ class Migrator():
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
 
-        assert obj_remote['self_id'] == obj_remote['self_id']
-        assert obj_remote['parent_id'] == obj_remote['parent_id']
-        assert obj_remote['dir_name'] == obj_remote['dir_name']
-        assert obj_remote['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid']
+        assert obj_remote['self_id'] == obj_remote['self_id'] # CHANGEASSERT
+        assert obj_remote['parent_id'] == obj_remote['parent_id'] # CHANGEASSERT
+        assert obj_remote['dir_name'] == obj_remote['dir_name'] # CHANGEASSERT
+        assert obj_remote['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid'] # CHANGEASSERT
         cids = [obj_remote['settings']['ipfs_cid']]
-        assert obj_remote['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name']
+        assert obj_remote['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name'] # CHANGEASSERT
         if 'ipfs_cids' in obj_remote['settings']:
             for key in obj_remote['settings']['ipfs_cids'].keys():
-                assert obj_remote['settings']['ipfs_cids'][key]
+                assert obj_remote['settings']['ipfs_cids'][key] # CHANGEASSERT
             cids.append(obj_remote['settings']['ipfs_cids'][key])
         for cid in cids:
             result = decw.net.check_pin_status({
                     'api_key':"UNDEFINED",
                     'connection_settings':connection_settings,
                     'cid': cid})
-            assert result == True
+            assert result == True # CHANGEASSERT
 
         return True
 
@@ -330,10 +350,10 @@ class Migrator():
             return {"error":"could not fine object.json in the selected path"}
             
         with open(download_path+'/'+obj_id+'/object.json','r') as f:
-            obj = json.loads(f.read())
-        assert 'settings' in obj
-        assert 'ipfs_cid' in obj['settings']
-        assert 'ipfs_cids' in obj['settings']
+            obj = json.loads(f.read()) 
+        assert 'settings' in obj # CHANGEASSERT
+        assert 'ipfs_cid' in obj['settings'] # CHANGEASSERT
+        assert 'ipfs_cids' in obj['settings'] # CHANGEASSERT
         #obj_cids = [obj['settings']['ipfs_cid']]
         obj_cids = []
         for path,cid in obj['settings']['ipfs_cids'].items():
@@ -344,7 +364,7 @@ class Migrator():
                 cid_record['root'] = True
             obj_cids.append(cid_record)
             print(cid_record)
-            assert os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')            
+            assert os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')   # CHANGEASSERT          
         #assert Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings) == True
         # TODO - create a Types package to share types
         # Create entity can take instances of itself as an upload. (Or, perhaps there is a "restore" entity)

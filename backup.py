@@ -55,8 +55,36 @@ for result in results.values():
         pprint.pprint(result)
 
 # TODO
+# SESSION 1
 # 1 - Have failure reasons that attach in a list
+
 # 2 - add ability to filter / search a snapshot by object IDs, or by paths
+# 3 - add in data about similarity between local and remote
+# 4 - add in a timestamp to all uploads, so it is obvious which is newer
+
+# SESSION 2
+# 5 - add in a tombstone upon file uploads, to store a record of an object even after deletion
+
+# SESSION 3
 # 3 - Add unit test to Corrupt a local, and restore from remote using pull & append
+
+# SESSION 4
 # 4 - Add unit test to Corrupt a remote, and restore from local using push
+
+# SESSION 5
+# 5 - Add unit test to Update a remote, and then update local from remote
+
+# SESSION 6
+# 6 - Add unit test to Update a local, and then push the update to remote
+
+# SESSION 7
+# 7 - Add in a unit test that can clean local orphans
+
+# SESSION 8
+# 7 - Add in a unit test that can clean remote orphans
+# 6b - the update should be impossible, if the updater is not the owner
+# 6b - the update should be possible, if the updater is not the owner
+# 6b - the update should be possible, if the file is just missing
+
+        
 # 5 - 
