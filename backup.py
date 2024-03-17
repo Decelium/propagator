@@ -10,6 +10,8 @@ import shutil
 import pprint
 
 def run_snapshot_job(func):
+    # wallet = '../.wallet.dec'
+    
     decw = core()
     with open('../.wallet.dec','r') as f:
         data = f.read()
@@ -19,6 +21,7 @@ def run_snapshot_job(func):
     assert loaded == True
     user_context = {
             'api_key':decw.dw.pubk()}
+    
     connection_settings = {'host': "devdecelium.com",
                             'port':5001,
                             'protocol':"http"}
@@ -37,54 +40,72 @@ def run_snapshot_job(func):
     found_objs = func(decw, connection_settings, backup_path, limit, offset)
     objs = found_objs
     offset = offset + limit
-    #return objs
+    # return objs
     while (len(found_objs) >= limit):
         found_objs = func(decw, connection_settings, backup_path, limit, offset)
         offset = offset + limit
         objs = {**objs , **found_objs}
         #pprint.pprint(objs)
     return objs
-# def validate_backup()
-# validate_local_object(decw,object_id,download_path,connection_settings):
-# create_backup(Snapshot.append_from_remote)
-results = run_snapshot_job(Snapshot.validate_snapshot)
-#import pprint
-#pprint.pprint(results)
-for result in results.values():
-    if result['remote']==True:
-        pprint.pprint(result)
+# FULL SYNC
+#run_snapshot_job(Snapshot.append_from_remote)
+run_snapshot_job(Snapshot.push_to_remote)
+# run_snapshot_job(Snapshot.prune_snapshot) # Delete any corrupt object
+# run_snapshot_job(Snapshot.prune_remote) # Delete any corrupt object
+# 1. validate should record status flags
+# - metadata status
+# - local status
+
+import sys
+sys.exit()
+
+
+#results = run_snapshot_job(Snapshot.validate_snapshot)
+#with open('results.json','w') as f:
+#    f.write(json.dumps(results))
+
+with open('results.json','r') as lf:
+    loaded_results = json.loads(lf.read())
+
+import pandas as pd
+df = pd.DataFrame(loaded_results).T
+
+#print(list(df.keys()))
+
+df_local_remote = df[df['remote']==True]
+df_local_remote = df_local_remote[df_local_remote['local']==True]
+import pprint
+
+pprint.pprint(list(df_local_remote[['self_id']].to_dict().values()))
+
+# pprint.pprint(df.iloc[5].to_dict())
+# If it is invalid, it should still download
 
 # TODO
-# SESSION 1
-# 1 - Have failure reasons that attach in a list
+# Validate current status
+# Download Fresh data
+# Restore missing data
+# filter: {SOME-FILTER}
 
-# 2 - add ability to filter / search a snapshot by object IDs, or by paths
-# 3 - add in data about similarity between local and remote
-# 4 - add in a timestamp to all uploads, so it is obvious which is newer
+# local
+# - items: 127
+# - invalid: 120
+# - correct_data: 12
+# - correct_meta_data: 20
+# - correct_meta_data: 20
 
-# SESSION 2
-# 5 - add in a tombstone upon file uploads, to store a record of an object even after deletion
+# remote_invalid: 180
+# 
 
-# SESSION 3
 # 3 - Add unit test to Corrupt a local, and restore from remote using pull & append
-
-# SESSION 4
 # 4 - Add unit test to Corrupt a remote, and restore from local using push
-
-# SESSION 5
 # 5 - Add unit test to Update a remote, and then update local from remote
-
-# SESSION 6
 # 6 - Add unit test to Update a local, and then push the update to remote
-
-# SESSION 7
 # 7 - Add in a unit test that can clean local orphans
-
-# SESSION 8
+# 4 - add in a timestamp to all uploads, so it is obvious which is newer
+# 5 - add in a tombstone upon file uploads, to store a record of an object even after deletion
+# X - COMPARE SIMILARITY
 # 7 - Add in a unit test that can clean remote orphans
 # 6b - the update should be impossible, if the updater is not the owner
 # 6b - the update should be possible, if the updater is not the owner
 # 6b - the update should be possible, if the file is just missing
-
-        
-# 5 - 
