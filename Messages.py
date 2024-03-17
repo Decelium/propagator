@@ -15,7 +15,7 @@ class ObjectMessages():
             self.errors = []
 
     def append(self,messages):
-        self.errors = self.errors + messages.errors()
+        self.errors = self.errors + messages.get_error_messages()
         return True
     
     def add_assert(self,assert_condition,error_message,tags=None):

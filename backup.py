@@ -98,7 +98,7 @@ pprint.pprint(list(df_local_remote[['self_id']].to_dict().values()))
 # 2. implement pull from remote
 # 2. test append again
 # 2. update old unit tests
-
+# push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
 # Write end-to-end test
 # - push to remote
 # - append

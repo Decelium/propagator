@@ -458,14 +458,7 @@ def test_simple_snapshot():
     obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
     assert 'obj-' in obj['self_id']
 
-
-    # TODO -- Add support for repairing corrupt items
-    # - [ ] Need to track "last updates"
-    # - [ ] If last updated is old, then the newest version is used
-    # - [ ] Ideally key object data is signed by some authority (like a validator?) So the data can ve verified / unverified
-    # - [ ]
-
-    # Corrupt the data
+    # TEST CASE: Corrupt the data
     singed_req = decw.dw.sr({**user_context, ## 
             'self_id':obj['self_id'],
             'attrib':{'dir_name':"test_folder2.ipfs"}
@@ -482,14 +475,21 @@ def test_simple_snapshot():
             file_path = os.path.join(backup_path+'/'+obj['self_id'], filename)
             os.remove(file_path)
             print(f"Deleted: {file_path}")
-    had_exception = False
-    try:
-        length = len(Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0))
-    except:
-        had_exception = True
-        length = len(Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=True))
-    assert had_exception
-    assert length == 1
+
+    results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0)
+    import pprint
+    pprint.pprint(results[obj['self_id']])
+    print(type(results[obj['self_id']]))
+    assert results[obj['self_id']]['local'] == False
+    print("Next")
+    assert len(results[obj['self_id']]['local_message']) > 0 
+    assert len(results) == 1
+    
+    results = len(Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=True))
+    assert results[obj['self_id']]['local'] == True
+    assert len(results[obj['self_id']]['local_message']) == 0 
+    assert len(results) == 1
+
     obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
     assert obj_updated['dir_name'] == "test_folder2.ipfs"
 

@@ -5,6 +5,11 @@ from Migrator import Migrator
 from Messages import ObjectMessages
 import traceback as tb
 
+# TODO Refactors
+# - Move Type related code into data soruces
+# - Systemize Iterators, and move out of action related functions
+# - Establish source / destination logic somewhere
+
 class Snapshot:  
 
     @staticmethod
@@ -41,7 +46,10 @@ class Snapshot:
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
-        local_object_ids = os.listdir(download_path)
+        local_object_ids = []
+
+        if os.path.exists(download_path):
+            local_object_ids = os.listdir(download_path)
 
         found_objs = Migrator.find_batch_object_ids(decw,offset,limit,filter)
         needed_objs = found_objs
@@ -55,24 +63,24 @@ class Snapshot:
             if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
                 try:
                     object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                    result = object_results[obj_id][0]
                     if object_results[obj_id][0] == True:
+                        print("saving ",obj_id)
                         messages = object_results[obj_id][1]
-                        results[obj_id] = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
+                        results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
                     else:
+                        print("corrupt ",obj_id)
                         result = False
                         messages = object_results[obj_id][1]
                         results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
-                    if result == True:
-                        print("saving ",obj_id)
-                    else:
-                        print("corrupt ",obj_id)
+
                 except:
                     print("exception ",obj_id)
                     print(tb.format_exc())
                     results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
             if overwrite == False:
                 print("Validating "+ obj_id)
-                results[obj_id] = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'localhost')
+                results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
         return results
 
     @staticmethod
@@ -116,11 +124,13 @@ class Snapshot:
             query,upload_messages = Migrator.upload_object_query(decw,obj_id,download_path,connection_settings)
             messages.append(upload_messages)
             if len(upload_messages.get_error_messages()) > 0:
+                results[obj_id] = (False,messages)
+                continue
 
-                result = decw.net.create_entity(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-                if messages.add_assert('obj-' in result,"Upload did not secceed at all",)==False:
-                    continue
-                obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+            result = decw.net.create_entity(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+            if messages.add_assert('obj-' in result,"Upload did not secceed at all",)==False:
+                continue
+            obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
             obj_cids = []
 
             # ---------
@@ -140,19 +150,20 @@ class Snapshot:
             results[obj_id]= (remote_result,remote_validation_messages.get_error_messages())
 
         return results
-
+    
     @staticmethod
     # TODO / Verify
     def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
         object_ids = os.listdir(download_path)
-        found_objs = []
+        found_objs = {}
         current_offset = 0
         for obj_id in object_ids:
             if current_offset < offset:
                 current_offset += 1
                 continue            
             filter = {'attrib':{'self_id':obj_id}}
-            found_objs = found_objs + Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite)            
+            object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite)      
+            found_objs.update(object_results)       
             current_offset += 1
         return found_objs
     
@@ -168,8 +179,8 @@ class Snapshot:
                 continue
             print (obj_id)
             results[obj_id] = {'self_id':obj_id}       
-            local_results = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
-            remote_results = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote')
+            local_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
+            remote_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote')
             results[obj_id].update(local_results)
             results[obj_id].update(remote_results)
 
@@ -177,4 +188,4 @@ class Snapshot:
             if current_offset >= limit+offset:
                 break
         return results
-
+    

@@ -339,7 +339,9 @@ class Migrator():
         '''
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
-            messages.add_assert(k in obj_remote and obj_remote[k] != None, "missing {k} for {object_id}")
+            if messages.add_assert(k in obj_remote and obj_remote[k] != None, "missing {k} for {object_id}") == False:
+                return False, messages
+        
         if messages.add_assert('ipfs_cid' in obj_remote['settings'], "missing settings.ipfs_cid for {object_id}"):
             cids_pinned.append (obj_remote['settings']['ipfs_cid'] )
 
@@ -365,8 +367,8 @@ class Migrator():
             Validates the object, and generates a query to reupload the exact object
         '''
         messages = ObjectMessages("Migrator.upload_object_query(for {"+obj_id+"})")
-        if not os.path.isfile(download_path+'/'+obj_id+'/object.json'):
-            return {"error":"could not fine object.json in the selected path"}
+        if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
+            return False,messages
             
         with open(download_path+'/'+obj_id+'/object.json','r') as f:
             obj = json.loads(f.read()) 
@@ -399,7 +401,7 @@ class Migrator():
             'file_type':'ipfs',
             'payload_type':'ipfs_pin_list',
             'payload':obj_cids}
-        return query
+        return query,messages
 
     @staticmethod
     def backup_directory_dag(client, cid, path=""):
