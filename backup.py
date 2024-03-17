@@ -86,6 +86,31 @@ pprint.pprint(list(df_local_remote[['self_id']].to_dict().values()))
 # Download Fresh data
 # Restore missing data
 # filter: {SOME-FILTER}
+# 1 finish     object_validation_status refactor
+'''
+        results[obj_id] = {'self_id':obj_id}       
+            local_results = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
+            remote_results = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote')
+            results[obj_id].update(local_results)
+            results[obj_id].update(remote_results)
+'''
+# 2. implement push to remote
+# 2. implement pull from remote
+# 2. test append again
+# 2. update old unit tests
+
+# Write end-to-end test
+# - push to remote
+# - append
+# - remove file
+# - append
+# - remote change
+# - pull
+# - delete remote
+# - push
+# - end
+
+
 
 # local
 # - items: 127

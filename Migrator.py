@@ -4,7 +4,7 @@ import os
 import json
 import pprint
 import pandas
-from Messages import Messages
+from Messages import ObjectMessages
 
 class Migrator():
     @staticmethod
@@ -206,7 +206,7 @@ class Migrator():
                     'payload_type':payload_type,
                     'payload':file_path})
             
-            messages = Messages("Migrator.upload_ipfs_data")
+            messages = ObjectMessages("Migrator.upload_ipfs_data")
             messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
         return cids,messages
@@ -217,7 +217,7 @@ class Migrator():
             object_ids = [object_ids]
         results = {}
         for obj_id in object_ids:
-            messages = Messages("Migrator.download_object(for {obj_id})")
+            messages = ObjectMessages("Migrator.download_object(for {obj_id})")
             try:
                 obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
 
@@ -248,7 +248,7 @@ class Migrator():
 
     @staticmethod
     def validate_local_against_remote_object(decw,object_id,download_path,connection_settings):
-        messages = Messages("Migrator.validate_local_against_remote_object(for {object_id})")
+        messages = ObjectMessages("Migrator.validate_local_against_remote_object(for {object_id})")
 
         # Compares the local object with the remote
         obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
@@ -291,7 +291,7 @@ class Migrator():
     @staticmethod
     def validate_local_object(decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
-        messages = Messages("Migrator.validate_local_object(for {object_id})")
+        messages = ObjectMessages("Migrator.validate_local_object(for {object_id})")
         with open(download_path+'/'+object_id+'/object.json','r') as f:
             obj_local = json.loads(f.read())
 
@@ -322,7 +322,7 @@ class Migrator():
     @staticmethod
     def validate_remote_object(decw,object_id,download_path,connection_settings,obj_remote = None):
         # Compares the local object with the remote
-        messages = Messages("Migrator.validate_remote_object(for {"+object_id+"})")
+        messages = ObjectMessages("Migrator.validate_remote_object(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         '''
@@ -364,7 +364,7 @@ class Migrator():
         '''
             Validates the object, and generates a query to reupload the exact object
         '''
-        messages = Messages("Migrator.upload_object_query(for {"+obj_id+"})")
+        messages = ObjectMessages("Migrator.upload_object_query(for {"+obj_id+"})")
         if not os.path.isfile(download_path+'/'+obj_id+'/object.json'):
             return {"error":"could not fine object.json in the selected path"}
             

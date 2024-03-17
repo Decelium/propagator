@@ -2,25 +2,43 @@ import os
 import json
 import shutil
 from Migrator import Migrator
-class Snapshot:
+from Messages import ObjectMessages
+import traceback as tb
 
-    #@staticmethod
-    #def init_snapshot(download_path,filter= None):
-    #    if filter == None:
-    #        filter = {'attrib':{'file_type':'ipfs'}}
-    #    assert type(snapshot_desc["filter"]) == dict #
-    #
-    #    snapshot_desc = {"filter":filter}
-    #    if not os.path.exists(os.path.join(download_path,"snapshot.json")):
-    #        with open(os.path.join(download_path,"snapshot.json"),'w') as f:
-    #            f.write(json.dumps(snapshot_desc))
-    #    with open(os.path.join(download_path,"snapshot.json"),'r') as f:
-    #        snapshot_desc = json.loads(f.read())
-    #    assert "filter" in snapshot_desc
-    #    return snapshot_desc
+class Snapshot:  
+
+    @staticmethod
+    def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
+            result = {}
+            result[prefix] = status
+            result[prefix+"_message"] = message
+            result[prefix+"_error"] = tb.format_exc()
+            return result
     
     @staticmethod
-    
+    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
+        result_json = {}
+        result_json["self_id"] = obj_id
+        validation_set = {'local':{'func':Migrator.validate_local_object,
+                                   'prefix':'local'
+                                   },
+                           'remote':{'func':Migrator.validate_remote_object,
+                                   'prefix':'remote'
+                                     }
+                           }
+        prefix = validation_set[datasource]['prefix']
+        func = validation_set[datasource]['func']
+        try:
+            result,messages = func(decw,obj_id,download_path,connection_settings)
+            if previous_messages:
+                messages.append(previous_messages)
+            result_json = Snapshot.format_object_status_json(obj_id,prefix,result,messages.get_error_messages(),"")
+        except:
+            result_json = Snapshot.format_object_status_json(obj_id,prefix,False,previous_messages,tb.format_exc())
+        return   result_json,messages      
+
+
+    @staticmethod
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
@@ -35,38 +53,27 @@ class Snapshot:
             return {}
         
         for obj_id in needed_objs:
-
             if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
                 try:
                     object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
                     if object_results[obj_id][0] == True:
                         messages = object_results[obj_id][1]
-                        result, messages_new = Migrator.validate_local_object(decw,obj_id,download_path,connection_settings)
-                        messages.append(messages_new)
+                        results[obj_id] = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
                     else:
                         result = False
                         messages = object_results[obj_id][1]
-
-                    results[obj_id] = {'self_id':obj_id,"local":result,"local_errors":messages.get_error_messages()}
+                        results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
                     if result == True:
                         print("saving ",obj_id)
                     else:
                         print("corrupt ",obj_id)
                 except:
                     print("exception ",obj_id)
-                    import traceback as tb
                     print(tb.format_exc())
-                    results[obj_id] = {'self_id':obj_id,"local":False,"local_errors":tb.format_exc()}
+                    results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
             if overwrite == False:
                 print("Validating "+ obj_id)
-                try:
-                    result, messages = Migrator.validate_local_object(decw,obj_id, download_path, connection_settings)
-                    result['local'] = result
-                    result['local_errors'] = messages.get_error_messages()
-                    results[obj_id] = result
-                except:
-                    import traceback as tb
-                    results[obj_id] = {"local":result,"local_errors":tb.format_exc()}
+                results[obj_id] = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'localhost')
         return results
 
     @staticmethod
@@ -84,14 +91,20 @@ class Snapshot:
         # TODO - Now: 1) Verify all data, 2) Push up data, 3) Verify it got pushed up
         ipfs_cids = []
         all_cids =  Migrator.ipfs_pin_list( connection_settings)
+        messages = ObjectMessages("Snapshot.push_to_remote")
         for obj_id in object_ids:
             obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
             if type(obj) == dict and 'error' in obj:
-                query,messages = Migrator.upload_object_query(decw,obj_id,download_path,connection_settings)
-                if len(messages.get_error_messages()) == 0:
-                    result = decw.net.create_entity(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-                    assert 'obj-' in result
-                    obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+                result, validation_messages = Migrator.validate_local_object(decw,obj_id, download_path, connection_settings)
+                messages.append(validation_messages)
+                if result == True:
+                    query,upload_messages = Migrator.upload_object_query(decw,obj_id,download_path,connection_settings)
+                    messages.append(upload_messages)
+                    if len(upload_messages.get_error_messages()) == 0:
+                        result = decw.net.create_entity(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+                        if messages.add_assert('obj-' in result,"Upload did not secceed at all",)==False:
+                            continue
+                        obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
             assert 'settings' in obj
             assert 'ipfs_cid' in obj['settings']
             assert 'ipfs_cids' in obj['settings']
@@ -107,6 +120,7 @@ class Snapshot:
         return missing_cids
 
     @staticmethod
+    # TODO / Verify
     def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
         object_ids = os.listdir(download_path)
         found_objs = []
@@ -125,40 +139,17 @@ class Snapshot:
         object_ids = os.listdir(download_path)
         found_objs = []
         results = {}
-        # print(object_ids)
         current_offset = 0
         for obj_id in object_ids:
             if current_offset < offset:
                 current_offset += 1
-                continue               
+                continue
             print (obj_id)
-            results[obj_id] = {'self_id':obj_id,'local':None,'remote':None}          
-            
-            try:
-                result,messages = Migrator.validate_remote_object(decw,obj_id,download_path,connection_settings)
-                results[obj_id]["local"] = result
-                results[obj_id]["local_message"] = messages.get_error_messages()
-                results[obj_id]["local_error"] = ""
-            except:
-                results[obj_id]["local"] = False
-                results[obj_id]["local_message"] = "Local Errror"
-                import traceback as tb
-                results[obj_id]["local_error"] = tb.format_exc()
-            
-            try:
-                result,messages = Migrator.validate_remote_object(decw,obj_id,download_path,connection_settings)
-                results[obj_id]["remote"] = result
-                results[obj_id]["remote_message"] = messages.get_error_messages()
-                results[obj_id]["remote_error"] = ""
-            except:
-                results[obj_id]["remote"] = False
-                results[obj_id]["remote_message"] = "Connection Errror"
-                import traceback as tb
-                results[obj_id]["remote_error"] = tb.format_exc()
-            results[obj_id]["compare"] = False
-            if results[obj_id]["remote"] == True and results[obj_id]["local"] == True:
-                results[obj_id]["compare"] = True
-                
+            results[obj_id] = {'self_id':obj_id}       
+            local_results = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
+            remote_results = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote')
+            results[obj_id].update(local_results)
+            results[obj_id].update(remote_results)
 
             current_offset += 1
             if current_offset >= limit+offset:
