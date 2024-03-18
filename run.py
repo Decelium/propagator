@@ -439,6 +439,7 @@ def test_simple_snapshot():
     for new_cid in obj['settings']['ipfs_cids'].values():
         new_cids.append(new_cid)
     assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
+    assert obj['dir_name'] == "test_folder.ipfs"
 
 
 
@@ -484,8 +485,11 @@ def test_simple_snapshot():
     print("Next")
     assert len(results[obj['self_id']]['local_message']) > 0 
     assert len(results) == 1
+
+    obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
+    assert obj_updated['dir_name'] == "test_folder.ipfs"
     
-    results = len(Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=True))
+    results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=True)
     assert results[obj['self_id']]['local'] == True
     assert len(results[obj['self_id']]['local_message']) == 0 
     assert len(results) == 1
