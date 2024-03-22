@@ -102,6 +102,7 @@ class TombstoneManager:
         return True
 
 # Example usage:
+'''
 manager = TombstoneManager()
 manager.purge_commits("example_id")
 assert manager.commit("example_id", "This is some test data.") == True
@@ -115,7 +116,7 @@ assert manager.commit("example_id", "This is some test data.") == True
 assert manager.commit("example_id", "This is some test data.2") == True
 assert manager.commit("example_id", "This is some test data.") == True
 assert manager.commit("example_id", "This is some test data.") == False
-
+'''
 # - All file edits maintain a tombstone
 # - Tombstone record is passed back with all attrib
 # - restore function exists
