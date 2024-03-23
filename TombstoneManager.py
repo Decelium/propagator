@@ -6,35 +6,38 @@ import base64
 class TombstoneArchive:
 
     @staticmethod
-    def initalize(self_id,initial_commit):
-        file_name = f"{self_id}.tombstone.json"
+    def initalize(repo,self_id,initial_commit):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
+        print(file_name)
         if not os.path.exists(file_name):
+            print(2)
             with open(file_name, "w") as file:
+                print(3)
                 json.dump([initial_commit], file, indent=4)
 
     @staticmethod
-    def delete(self_id):
-        file_name = f"{self_id}.tombstone.json"
+    def delete(repo,self_id):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
         if os.path.exists(file_name):
             os.remove(file_name) 
         return True
     
     @staticmethod
-    def get_records(self_id):
-        file_name = f"{self_id}.tombstone.json"
+    def get_records(repo,self_id):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
         with open(file_name, "r") as file:
             commits = json.load(file)
         return commits
     @staticmethod
-    def length(self_id):
-        file_name = f"{self_id}.tombstone.json"
+    def length(repo,self_id):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
         with open(file_name, "r") as file:
             commits = json.load(file)
         return len(commits)
 
     @staticmethod
-    def append(self_id,commit_data):
-        file_name = f"{self_id}.tombstone.json"
+    def append(repo,self_id,commit_data):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
         with open(file_name, "r") as file:
             existing_data = json.load(file)
         existing_data.append(commit_data)
@@ -45,18 +48,13 @@ class TombstoneArchive:
         return False
     
 class TombstoneManager:
-    _instance = None
 
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(TombstoneManager, cls).__new__(cls, *args, **kwargs)
-        return cls._instance
-
-    def __init__(self, hash_algo='sha256'):
+    def __init__(self,repo, hash_algo='sha256'):
+        self.repo = repo
         self.hash_function = getattr(hashlib, hash_algo, hashlib.sha256)
 
     def purge_commits(self, self_id):
-        return TombstoneArchive.delete(self_id)
+        return TombstoneArchive.delete(self.repo,self_id)
 
     def _generate_hash(self, raw_data):
         data = self.encode_data(raw_data) # A reversable encoding
@@ -64,10 +62,10 @@ class TombstoneManager:
         hash_obj.update(data.encode('utf-8'))
         return hash_obj.hexdigest()
     def commit_len(self, self_id,):
-        return TombstoneArchive.length(self_id)
+        return TombstoneArchive.length(self.repo,self_id)
     
     def get_commit(self, self_id,index):
-        commits = TombstoneArchive.get_records(self_id)
+        commits = TombstoneArchive.get_records(self.repo,self_id)
         if index >= len(commits):
             index = len(commits)-1
         if index < 0:
@@ -134,7 +132,7 @@ class TombstoneManager:
 
     
     def commit(self, self_id, data):
-        TombstoneArchive.initalize(self_id,{"hash":self.encode_data("initial_commit")})
+        TombstoneArchive.initalize(self.repo,self_id,{"hash":self.encode_data("initial_commit")})
 
         latest_index = self.commit_len(self_id) - 1
         previous_index = latest_index-1
@@ -148,7 +146,7 @@ class TombstoneManager:
         commit_data = {
             "hash": self.generate_hash(self_id,data,latest_index),
         }
-        TombstoneArchive.append(self_id,commit_data)
+        TombstoneArchive.append(self.repo,self_id,commit_data)
         return commit_data['hash']
 
 # Example usage:
