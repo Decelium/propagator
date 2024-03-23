@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import base64
 
 class TombstoneArchive:
 
@@ -57,7 +58,8 @@ class TombstoneManager:
     def purge_commits(self, self_id):
         return TombstoneArchive.delete(self_id)
 
-    def _generate_hash(self, data):
+    def _generate_hash(self, raw_data):
+        data = self.encode_data(raw_data) # A reversable encoding
         hash_obj = self.hash_function()
         hash_obj.update(data.encode('utf-8'))
         return hash_obj.hexdigest()
@@ -84,22 +86,70 @@ class TombstoneManager:
         this_hash = self._generate_hash(json.dumps(commit_data))
         return this_hash
 
+    def decode_data(self, encoded_data):
+        # Decode the base64 encoded string to bytes
+        data_bytes = base64.b64decode(encoded_data)
+        
+        # Decode bytes to string
+        decoded_string = data_bytes.decode()
+        
+        # Extract the prefix and the data
+        method,prefix, data_string = decoded_string.split(":", 2)
+        if method != "01":
+            raise ValueError("Unsupported encoding mode")
+        
+        # Convert the data back to its original type based on the prefix
+        if prefix == "str":
+            return data_string
+        elif prefix == "int":
+            return int(data_string)
+        elif prefix == "dict":
+            return json.loads(data_string)
+        elif prefix == "list":
+            return json.loads(data_string)
+        else:
+            raise ValueError("Unsupported type prefix")
+
+
+    def encode_data(self,raw_data,method="01"):
+        # Determine the type prefix and encode the data appropriately
+        if isinstance(raw_data, str):
+            data_bytes = ("01:str:" + raw_data).encode()
+        elif isinstance(raw_data, int):
+            data_bytes = ("01:int:" + str(raw_data)).encode()
+        elif isinstance(raw_data, dict):
+            data_bytes = ("01:dict:" + json.dumps(raw_data)).encode()
+        elif isinstance(raw_data, list):
+            data_bytes = ("01:list:" + json.dumps(raw_data)).encode()
+        else:
+            raise ValueError("Unsupported data type")
+        
+        # Base64 encode the bytes
+        encoded_data = base64.b64encode(data_bytes)
+        
+        # Decode the base64 encoded bytes to a string
+        final_encoding = encoded_data.decode()
+        
+        return final_encoding
+
+    
     def commit(self, self_id, data):
-        TombstoneArchive.initalize(self_id,{"hash":"initial_commit"})
+        TombstoneArchive.initalize(self_id,{"hash":self.encode_data("initial_commit")})
 
         latest_index = self.commit_len(self_id) - 1
         previous_index = latest_index-1
 
         is_duplicate = False
-        if self.generate_hash(self_id,data,previous_index) ==  self.get_commit(self_id,latest_index)['hash']:
+        last_hash = self.get_commit(self_id,latest_index)['hash']
+        if self.generate_hash(self_id,data,previous_index) ==  last_hash:
             is_duplicate = True
         if is_duplicate:
-            return False
+            return last_hash
         commit_data = {
             "hash": self.generate_hash(self_id,data,latest_index),
         }
         TombstoneArchive.append(self_id,commit_data)
-        return True
+        return commit_data['hash']
 
 # Example usage:
 '''
