@@ -8,11 +8,8 @@ class TombstoneArchive:
     @staticmethod
     def initalize(repo,self_id,initial_commit):
         file_name = os.path.join(repo,self_id+".tombstone.json")
-        print(file_name)
         if not os.path.exists(file_name):
-            print(2)
             with open(file_name, "w") as file:
-                print(3)
                 json.dump([initial_commit], file, indent=4)
 
     @staticmethod
@@ -111,6 +108,14 @@ class TombstoneManager:
 
     def encode_data(self,raw_data,method="01"):
         # Determine the type prefix and encode the data appropriately
+        
+        if isinstance(raw_data, str):
+            if raw_data[0] == "{"  or raw_data[0] == "[" :
+                try:
+                    raw_data = json.loads(raw_data)
+                except:
+                    pass
+                
         if isinstance(raw_data, str):
             data_bytes = ("01:str:" + raw_data).encode()
         elif isinstance(raw_data, int):
@@ -127,7 +132,6 @@ class TombstoneManager:
         
         # Decode the base64 encoded bytes to a string
         final_encoding = encoded_data.decode()
-        
         return final_encoding
         
     def verify(self, self_id, data):
@@ -135,6 +139,7 @@ class TombstoneManager:
         previous_index = latest_index-1
         
         last_hash = self.get_commit(self_id,latest_index)['hash']
+                
         if self.generate_hash(self_id,data,previous_index) ==  last_hash:
             return True
         return False
@@ -147,6 +152,8 @@ class TombstoneManager:
 
         is_duplicate = False
         last_hash = self.get_commit(self_id,latest_index)['hash']
+        
+        
         if self.generate_hash(self_id,data,previous_index) ==  last_hash:
             is_duplicate = True
         if is_duplicate:
