@@ -129,8 +129,16 @@ class TombstoneManager:
         final_encoding = encoded_data.decode()
         
         return final_encoding
-
-    
+        
+    def verify(self, self_id, data):
+        latest_index = self.commit_len(self_id) - 1
+        previous_index = latest_index-1
+        
+        last_hash = self.get_commit(self_id,latest_index)['hash']
+        if self.generate_hash(self_id,data,previous_index) ==  last_hash:
+            return True
+        return False
+        
     def commit(self, self_id, data):
         TombstoneArchive.initalize(self.repo,self_id,{"hash":self.encode_data("initial_commit")})
 
