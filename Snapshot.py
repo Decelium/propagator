@@ -127,11 +127,22 @@ class Snapshot:
                 results[obj_id] = (False,messages)
                 continue
 
-            result = decw.net.create_entity(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-            if messages.add_assert('obj-' in result,"Upload did not secceed at all",)==False:
+            result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+            if messages.add_assert('obj-' in result,"a. Upload did not secceed at all",)==False:
+                results[obj_id]= (False,messages.get_error_messages())
                 continue
+
             obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+            if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ obj['error'],)==False:
+                results[obj_id]= (False,messages.get_error_messages())
+                continue
+
             obj_cids = []
+            remote_result, remote_validation_messages = Migrator.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            messages.append(remote_validation_messages)
+            if remote_result == False:
+                results[obj_id]= (False,messages.get_error_messages())
+                continue
 
             # ---------
             # Upload cids
@@ -142,11 +153,15 @@ class Snapshot:
             missing_cids = list(set(all_cids) - set(obj_cids))
             if(len(missing_cids) > 0):
                 Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
-                assert Migrator.ipfs_has_cids(decw,obj_cids, connection_settings) == True
+                if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings) == True,
+                                       "Could not find the file in IPFS post re-upload",)==False:
+                    results[obj_id]= (False,messages.get_error_messages())
+                    continue
 
             # ---------
             # Verify Upload was successful
             remote_result, remote_validation_messages = Migrator.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            messages.append(remote_validation_messages)
             results[obj_id]= (remote_result,remote_validation_messages.get_error_messages())
 
         return results

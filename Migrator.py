@@ -65,8 +65,8 @@ class Migrator():
         is_subset = set(new_cids) <= set(all_cids)
         return is_subset
 
-    def ipfs_has_cids(decw,new_cids, connection_settings):
-        all_cids = Migrator.ipfs_pin_list( connection_settings)
+    def ipfs_has_cids(decw,new_cids, connection_settings,refresh=False):
+        all_cids = Migrator.ipfs_pin_list( connection_settings,refresh=False)
         is_subset = set(new_cids) <= set(all_cids)
         return is_subset
 
@@ -143,7 +143,7 @@ class Migrator():
             return new_cids
 
     @staticmethod
-    def ipfs_pin_list( connection_settings):
+    def ipfs_pin_list( connection_settings,refresh=False):
         c = connection_settings
         ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
 
@@ -394,13 +394,9 @@ class Migrator():
             if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
                 return False,messages
 
-        query ={
-            'parent_id':obj['parent_id'],
-            'self_id':obj['self_id'],
-            'name':obj['dir_name'],
-            'file_type':'ipfs',
-            'payload_type':'ipfs_pin_list',
-            'payload':obj_cids}
+        query = {
+            'attrib':obj
+        }
         return query,messages
 
     @staticmethod

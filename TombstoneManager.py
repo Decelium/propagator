@@ -163,25 +163,126 @@ class TombstoneManager:
         }
         TombstoneArchive.append(self.repo,self_id,commit_data)
         return commit_data['hash']
-
-# Example usage:
 '''
-manager = TombstoneManager()
-manager.purge_commits("example_id")
-assert manager.commit("example_id", "This is some test data.") == True
-assert manager.commit("example_id", "This is some test data.") == False
-assert manager.commit("example_id", "This is some test data.2") == True
-assert manager.commit("example_id", "This is some test data.") == True
-assert manager.commit("example_id", "This is some test data.") == False
+import sys
+import pandas as pd
+import unittest    
+import uuid    
+    
+import json
 
-manager.purge_commits("example_id")
-assert manager.commit("example_id", "This is some test data.") == True
-assert manager.commit("example_id", "This is some test data.2") == True
-assert manager.commit("example_id", "This is some test data.") == True
-assert manager.commit("example_id", "This is some test data.") == False
+sys.path.append('../../')
+sys.path.append('../')
+from conf.conf import conf
+import pandas as pd
+import requests
+import matplotlib.pyplot as plt
+import datetime,time
+import unittest
+import uuid
+from propagator.TombstoneManager import TombstoneManager 
+
+
+import paxdk.PaxFinancialAPI as paxdk
+from conf.conf import conf
+
+class TestsTombstone():
+    def test_tombstones(self,pq = None,api_key=None,remote=True):
+        manager = TombstoneManager('/app/database/tombstone/')
+        manager.purge_commits("example_id")
+        first= manager.commit("example_id", "This is some test data.") 
+        second = manager.commit("example_id", "This is some test data.") 
+        third = manager.commit("example_id", "This is some test data.2")
+        assert manager.verify("example_id","This is some test data.2") == True
+        assert manager.verify("example_id","This is some test data.") == False
+        
+        fourth= manager.commit("example_id", "This is some test data.")
+        fifth =  manager.commit("example_id", "This is some test data.")
+        assert manager.verify("example_id","This is some test data.") == True
+        
+        assert first == second
+        assert second != third
+        assert third != fourth
+        assert fourth == fifth
+        # manager.purge_commits("example_id")
+        assert manager.decode_data(manager.encode_data(10) ) == 10
+        assert manager.decode_data(manager.encode_data("hello") ) == "hello"
+        assert manager.decode_data(manager.encode_data({'some_dict':"test"}) ) == {'some_dict':"test"}
+        assert manager.decode_data(manager.encode_data([{'some_dict':"test"}]) ) == [{'some_dict':"test"}]
+        
+    def test_create(self,pq = None,api_key=None,remote=True):
+        path = '/example/' 
+        print("-------------------RUNNING TEST "+ path)
+        name ='test_file_execute.py'
+        edited_name = 'test_file_edited_execute.py'
+        full_path =path+name 
+        source_data = "Random data"
+        
+        # TEST BASIC UPLOAD DOWNLOAD DOWNLOAD
+        for i in range(1,4):
+            data  = pq.delete_entity({'api_key':api_key,'path':full_path ,},remote=remote,show_errors=True)
+
+        fil  = pq.create_entity({'api_key':api_key,
+                               'path':path,
+                               'name':name,
+                               'file_type':'file',
+                               'payload':source_data,
+                              },remote=remote,show_errors=True)
+        # Ensure tomstone ex
+        assert 'obj-' in fil
+        self_id = fil
+
+        
+        data  = pq.download_entity({'api_key':api_key,'path':full_path , },remote=remote,show_errors=True)
+        attrib  = pq.download_entity({'api_key':api_key,'path':full_path ,'attrib':True },remote=remote,show_errors=True)
+        
+        
+        manager = TombstoneManager('/app/database/tombstone/')
+        assert manager.verify(self_id,"This is some test data.2") == False
+        assert manager.verify(self_id,attrib) == True
+        
+        assert attrib['dir_name'] == name
+        
+        data  = pq.edit_entity({'api_key':api_key,
+                                'path':full_path, 
+                                'attrib':{'dir_name':edited_name},
+                               },remote=remote,show_errors=True)
+        
+        print("Did the edit",data)
+        attrib_edited  = pq.download_entity({'api_key':api_key,'path':full_path ,'attrib':True },remote=remote,show_errors=True)
+        print(attrib_edited)
+        assert attrib_edited['dir_name'] == edited_name
+        assert manager.verify(self_id,attrib_edited) == True
+        
+        data  = pq.edit_entity({'api_key':api_key,
+                                'path':full_path, 
+                                'attrib':{'dir_name':name},
+                               },remote=remote,show_errors=True)
+
+        attrib  = pq.download_entity({'api_key':api_key,'path':full_path ,'attrib':True },remote=remote,show_errors=True)
+        assert attrib['dir_name'] == name
+        
+        assert manager.verify(self_id,attrib) == True        
+        data  = pq.download_entity({'api_key':api_key, 'path':full_path , },remote=remote)
+        
+        assert data == source_data
+        data  = pq.delete_entity({'api_key':api_key, 'path':full_path , },remote=remote)        
+        data  = pq.download_entity({'api_key':api_key, 'path':full_path , },remote=remote)
+
+        assert 'error' in data
+        assert manager.verify(self_id,attrib) == True
+        restore_fail  = pq.restore_attrib({'api_key':api_key, 'attrib':attrib_edited , },remote=remote)
+        assert 'error' in restore_fail
+        restore_success  = pq.restore_attrib({'api_key':api_key, 'attrib':attrib , },remote=remote)
+        print(restore_success)
+        
+        assert 'self_id' in restore_success
+        attrib  = pq.download_entity({'api_key':api_key,'path':full_path ,'attrib':True },remote=remote,show_errors=True)
+        assert manager.verify(self_id,attrib) == True        
+        
+    
+
+if __name__ == '__main__':
+    unittest.main()
+# python3 run_single_test.py
 '''
-# - All file edits maintain a tombstone
-# - Tombstone record is passed back with all attrib
-# - restore function exists
-# - delete has function to purge all data
-# - can access tombstone of deleted item, until purged
