@@ -130,7 +130,7 @@ class Snapshot:
                 continue
 
             result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-            if messages.add_assert('obj-' in result,"a. Upload did not secceed at all:"+str(result),)==False:
+            if messages.add_assert('obj-' in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
 
