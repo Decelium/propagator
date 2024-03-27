@@ -457,6 +457,7 @@ def test_simple_snapshot():
     #                      (decw,api_key, connection_settings, download_path,limit=20, offset=0):
     results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
     pprint.pprint(results[obj['self_id']])
+    assert results[obj['self_id']] == True
     assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
     obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
     assert 'obj-' in obj['self_id']
