@@ -8,7 +8,14 @@ from Snapshot import Snapshot
 import pandas
 import shutil
 import pprint
+# System Backup and restore
+# [ ] Can restore all object types
+# [ ] Can restore backed up object
+# [ ] ---- When objects are uploaded, a hash gets stored on the server
+# [ ] ---- if hash exists, restore_entity will function correctly
+# [ ] ---- Some types
 
+# ---------------
 # [ ] - Refactor Snapshot Unit test for completeness and clarity
 # [ ] - Push data source code into data sources
 # [ ] - Create Snapshot Summary builders
@@ -101,12 +108,12 @@ def run_snapshot_job(func):
     backup_path = "../decelium_backup/"
 
     limit = 10
-    offset = 0
+    offset = 30
     objs = []
     found_objs = func(decw, connection_settings, backup_path, limit, offset)
     objs = found_objs
     offset = offset + limit
-    # return objs
+    return objs
     while (len(found_objs) >= limit):
         found_objs = func(decw, connection_settings, backup_path, limit, offset)
         offset = offset + limit
@@ -115,31 +122,9 @@ def run_snapshot_job(func):
     return objs
 # FULL SYNC
 #run_snapshot_job(Snapshot.append_from_remote)
-run_snapshot_job(Snapshot.push_to_remote)
-# run_snapshot_job(Snapshot.prune_snapshot) # Delete any corrupt object
-# run_snapshot_job(Snapshot.prune_remote) # Delete any corrupt object
-# 1. validate should record status flags
-# - metadata status
-# - local status
-
-import sys
-sys.exit()
+objs = run_snapshot_job(Snapshot.push_to_remote)
 
 
-#results = run_snapshot_job(Snapshot.validate_snapshot)
-#with open('results.json','w') as f:
-#    f.write(json.dumps(results))
-
-with open('results.json','r') as lf:
-    loaded_results = json.loads(lf.read())
-
-import pandas as pd
-df = pd.DataFrame(loaded_results).T
-
-#print(list(df.keys()))
-
-df_local_remote = df[df['remote']==True]
-df_local_remote = df_local_remote[df_local_remote['local']==True]
 import pprint
-
-pprint.pprint(list(df_local_remote[['self_id']].to_dict().values()))
+pprint.pprint(objs)
+# obj-916eccd6-6958-4dc6-990d-669e34f9325f

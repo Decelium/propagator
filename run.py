@@ -7,6 +7,7 @@ from Migrator import Migrator
 from Snapshot import Snapshot
 import pandas
 import shutil
+
 '''
 Backups are likely the MOST important aspect of Decelium.
 This file tests the Migrator, a small utility that is the powerhouse behind creating and restoring backup data from the
@@ -454,7 +455,8 @@ def test_simple_snapshot():
     # C --- test restore_remote_objects & Validate---
     # Push the local data you have to the server -
     #                      (decw,api_key, connection_settings, download_path,limit=20, offset=0):
-    Snapshot.push_to_remote(decw,user_context['api_key'], connection_settings, backup_path,limit=100, offset=0)
+    results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+    pprint.pprint(results[obj['self_id']])
     assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
     obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
     assert 'obj-' in obj['self_id']
@@ -478,7 +480,6 @@ def test_simple_snapshot():
             print(f"Deleted: {file_path}")
 
     results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0)
-    import pprint
     pprint.pprint(results[obj['self_id']])
     print(type(results[obj['self_id']]))
     assert results[obj['self_id']]['local'] == False

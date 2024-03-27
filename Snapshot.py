@@ -5,11 +5,6 @@ from Migrator import Migrator
 from Messages import ObjectMessages
 import traceback as tb
 
-# TODO Refactors
-# - Move Type related code into data soruces
-# - Systemize Iterators, and move out of action related functions
-# - Establish source / destination logic somewhere
-
 class Snapshot:  
 
     @staticmethod
@@ -92,12 +87,19 @@ class Snapshot:
         return obj_attrib
 
     @staticmethod
-    def push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
-        object_ids = os.listdir(download_path)
-        # (later) TODO Implement limit and offset
-        # TODO - Now: 1) Verify all data, 2) Push up data, 3) Verify it got pushed up
-        results = {}
+    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
+        # def push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
+        api_key = decw.dw.pubk("admin")
+        print(api_key)
+        print(download_path)
+
         messages = ObjectMessages("Snapshot.push_to_remote")
+        object_ids = os.listdir(download_path)
+        object_ids = object_ids[offset:offset+limit]
+        results = {}
+        if len(object_ids) == 0:
+            return results        
+        
         for obj_id in object_ids:
             
             # ---------
@@ -112,7 +114,7 @@ class Snapshot:
             # b) Make sure the local is complete
             local_result, local_validation_messages = Migrator.validate_local_object(decw,obj_id, download_path, connection_settings)
             if local_result == False: # and remote_result == False:
-                results[obj_id] = (False,[])
+                results[obj_id] = (False,local_validation_messages.get_error_messages())
                 continue
 
             # ---------
@@ -128,7 +130,7 @@ class Snapshot:
                 continue
 
             result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-            if messages.add_assert('obj-' in result,"a. Upload did not secceed at all",)==False:
+            if messages.add_assert('obj-' in result,"a. Upload did not secceed at all:"+str(result),)==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
 
@@ -166,20 +168,19 @@ class Snapshot:
 
         return results
     
+    
     @staticmethod
     # TODO / Verify
     def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
         object_ids = os.listdir(download_path)
+        object_ids = object_ids[offset:offset+limit]
         found_objs = {}
-        current_offset = 0
+        if len(object_ids) == 0:
+            return found_objs
         for obj_id in object_ids:
-            if current_offset < offset:
-                current_offset += 1
-                continue            
             filter = {'attrib':{'self_id':obj_id}}
             object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite)      
             found_objs.update(object_results)       
-            current_offset += 1
         return found_objs
     
     @staticmethod

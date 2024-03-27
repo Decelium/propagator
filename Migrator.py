@@ -292,8 +292,12 @@ class Migrator():
     def validate_local_object(decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
         messages = ObjectMessages("Migrator.validate_local_object(for {object_id})")
-        with open(download_path+'/'+object_id+'/object.json','r') as f:
-            obj_local = json.loads(f.read())
+        try:
+            with open(download_path+'/'+object_id+'/object.json','r') as f:
+                obj_local = json.loads(f.read())
+        except:
+            messages.add_assert(False==True, "Could not add file")
+            return False,messages
 
         cids_pinned = []
         cids_downloaded = []
@@ -316,7 +320,7 @@ class Migrator():
                 cids_downloaded.append(item.split('.')[0])
         missing = []
         for pin in cids_pinned:
-            messages.add_assert(pin in cids_downloaded, "a local pin from pinned object for {object_id}")
+            messages.add_assert(pin in cids_downloaded, "a local pin from pinned object for "+object_id+" was not downloaded")
         return len(messages.get_error_messages())== 0,messages
     
     @staticmethod
