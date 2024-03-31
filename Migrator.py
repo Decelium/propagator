@@ -66,8 +66,11 @@ class Migrator():
         return is_subset
 
     def ipfs_has_cids(decw,new_cids, connection_settings,refresh=False):
-        all_cids = Migrator.ipfs_pin_list( connection_settings,refresh=False)
+        all_cids = Migrator.ipfs_pin_list( connection_settings,refresh)
         is_subset = set(new_cids) <= set(all_cids)
+        if not is_subset:
+            print("Missing some CIDS from subset")
+            print(set(new_cids) - set(all_cids))
         return is_subset
 
     @staticmethod
@@ -95,9 +98,10 @@ class Migrator():
 
     def backup_ipfs_entity(item,current_pins,download_path,client,overwrite=False):
         new_cids = []
+        assert 'cid' in item
         cid = item['cid']
         file_path = os.path.join(download_path, cid)
-
+        
         # Check if the file already exists to avoid double writing
         if (os.path.exists(file_path+".file") or os.path.exists(file_path+".dag")) and overwrite == False:
             print(f"CID {cid} already exists in {file_path}")
@@ -155,6 +159,7 @@ class Migrator():
             except:
                 print(f"Error checking pin status")
                 return []
+            
     def download_ipfs_data(docs, download_path, connection_settings,overwrite=False):
         c = connection_settings
         # Ensure the download directory exists
@@ -199,17 +204,88 @@ class Migrator():
                 payload_type = 'ipfs_pin_list'
             else:
                 continue
+            print("Uploading CID"+ file_path)
             result = decw.net.create_ipfs({
                     'api_key':"UNDEFINED",
                     'file_type':'ipfs', 
                     'connection_settings':connection_settings,
                     'payload_type':payload_type,
                     'payload':file_path})
-            
+            print("upload result"+ str(result))
             messages = ObjectMessages("Migrator.upload_ipfs_data")
             messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
         return cids,messages
+    @staticmethod
+    def load_entity(filter,download_path):
+        assert 'self_id' in filter
+        assert 'attrib' in filter and filter['attrib'] == True
+        try:
+            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
+                obj_attrib = json.loads(f.read())
+            return obj_attrib
+        except:
+            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+            
+    def __merge_attrib_from_remote(decw,obj_id,download_path, overwrite):
+        # Load local. If the local has a problem
+        # TODO - Validate the object before commiting to a local merge. As if a Decelium miner is broken, one could end up destroying a backup.
+        # TODO - Handle merges both ways (could be used by push and pull as an underlying mechanism)
+        remote_obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+        local_obj = Migrator.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+        priority = 'local' if overwrite == False else 'remote'        
+        assert 'error'  in remote_obj or 'self_id' in remote_obj
+        assert 'error'  in local_obj or 'self_id' in local_obj
+        merge_messages = ObjectMessages("Migrator.__merge_attrib_from_remote(for obj_id)"+str(obj_id) )
+
+        if priority == 'local':
+            if  'error' in local_obj and 'error' in remote_obj:
+                merged_object =  None
+                do_write = False
+            elif  'self_id' in local_obj and 'error' in remote_obj:
+                merged_object = local_obj
+                do_write = False
+            elif 'error' in local_obj and 'self_id' in remote_obj: 
+                merged_object =  remote_obj
+                do_write = True
+            elif 'self_id' in local_obj and 'self_id' in remote_obj: 
+                merged_object = local_obj
+                do_write = False
+
+        if priority == 'remote':
+            if  'error' in local_obj and 'error' in remote_obj:
+                merged_object =  None
+                do_write = False
+            elif 'self_id' in local_obj and 'error' in remote_obj:
+                merged_object = local_obj
+                do_write = False
+            elif 'error' in local_obj and 'self_id' in remote_obj: 
+                merged_object =  remote_obj
+                do_write = True
+            elif 'self_id' in local_obj and 'self_id' in remote_obj: 
+                merged_object = local_obj
+                if str(local_obj) != str(remote_obj):
+                    merged_object = remote_obj
+                    do_write = True
+
+        if merge_messages.add_assert(merged_object != None,"There is no local or remote object to consider during pull" ) == True:
+            return False,None,merge_messages
+
+        if do_write == True and merged_object:
+            with open(download_path+'/'+obj_id+'/object.json','w') as f:
+                f.write(json.dumps(merged_object))       
+            return True,merged_object,merge_messages
+    
+    def __merge_payload_from_remote(decw,obj,download_path,connection_settings, overwrite,messages):
+        merge_messages = ObjectMessages("Migrator.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+
+        new_cids = [obj['settings']['ipfs_cid']]
+        if 'ipfs_cids' in obj['settings']:
+            for cid in obj['settings']['ipfs_cids'].values():
+                new_cids.append(cid)
+        
+        result = Migrator.download_ipfs_data(new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+        return result
 
     @staticmethod
     def download_object(decw,object_ids,download_path,connection_settings, overwrite=False):
@@ -219,23 +295,14 @@ class Migrator():
         for obj_id in object_ids:
             messages = ObjectMessages("Migrator.download_object(for {obj_id})")
             try:
-                obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+                success,merged_object,merge_messages = Migrator.__merge_attrib_from_remote(decw,obj_id,download_path, overwrite,messages)
+                messages.append(merge_messages)
 
-                if messages.add_assert('settings' in obj,"Settings not present in "+obj_id ) == False:
-                    results[obj_id] = (False,messages)
-                    continue
-                if messages.add_assert('ipfs_cid' in obj['settings'],"Core IPFS CID not present in "+obj_id )  == False:
-                    results[obj_id] = (False,messages)
-                    continue
-
-                new_cids = [obj['settings']['ipfs_cid']]
-                if 'ipfs_cids' in obj['settings']:
-                    for cid in obj['settings']['ipfs_cids'].values():
-                        new_cids.append(cid)
-                result = Migrator.download_ipfs_data(new_cids, download_path+'/'+obj_id, connection_settings,overwrite)
-                # messages.append(download_messages)
-                with open(download_path+'/'+obj_id+'/object.json','w') as f:
-                    f.write(json.dumps(obj))
+                if success:
+                    if merge_messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == True:
+                        raise Exception("Halt Now. The data is corrupt.")
+                    
+                    Migrator.__merge_payload_from_remote(decw,obj,download_path,connection_settings, overwrite,messages)
                 results[obj_id] = (True,messages)
             except:
                 import traceback as tb

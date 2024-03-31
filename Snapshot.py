@@ -50,41 +50,55 @@ class Snapshot:
         needed_objs = found_objs
 
         results = {}
-        print("append_from_remote 2")
         if len(needed_objs) <= 0:
             return {}
         
         for obj_id in needed_objs:
-            if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
-                try:
-                    object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
-                    result = object_results[obj_id][0]
-                    if object_results[obj_id][0] == True:
-                        print("saving ",obj_id)
-                        messages = object_results[obj_id][1]
-                        results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
-                    else:
-                        print("corrupt ",obj_id)
-                        result = False
-                        messages = object_results[obj_id][1]
-                        results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
+            #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
+            try:
+                object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                result = object_results[obj_id][0]
+                if object_results[obj_id][0] == True:
+                    print("saving ",obj_id)
+                    messages = object_results[obj_id][1]
+                    results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
+                else:
+                    print("corrupt ",obj_id)
+                    result = False
+                    messages = object_results[obj_id][1]
+                    results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
 
-                except:
-                    print("exception ",obj_id)
-                    print(tb.format_exc())
-                    results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
-            if overwrite == False:
-                print("Validating "+ obj_id)
-                results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
+            except:
+                print("exception ",obj_id)
+                print(tb.format_exc())
+                results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
+            #if overwrite == False:
+            #    print("Validating "+ obj_id)
+            #    results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
         return results
 
     @staticmethod
     def load_entity(filter,download_path):
         assert 'self_id' in filter
         assert 'attrib' in filter and filter['attrib'] == True
-        with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
-            obj_attrib = json.loads(f.read())
-        return obj_attrib
+        try:
+            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
+                obj_attrib = json.loads(f.read())
+            return obj_attrib
+        except:
+            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+
+    @staticmethod
+    def remove_entity(filter,download_path):
+        assert 'self_id' in filter
+        assert 'attrib' in filter and filter['attrib'] == True
+        try:
+            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
+                obj_attrib = json.loads(f.read())
+            return obj_attrib
+        except:
+            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+
 
     @staticmethod
     def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
@@ -151,12 +165,19 @@ class Snapshot:
             for path,cid in obj['settings']['ipfs_cids'].items():
                 obj_cids.append(cid)
 
-            all_cids =  Migrator.ipfs_pin_list( connection_settings)
-            missing_cids = list(set(all_cids) - set(obj_cids))
+            all_cids =  Migrator.ipfs_pin_list( connection_settings,refresh=True)
+            missing_cids = list(set(obj_cids) - set(all_cids))
+            print("This missing CIDS:")
+            print(missing_cids)
+            print("")
+            print("")
             if(len(missing_cids) > 0):
-                Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
-                if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings) == True,
-                                       "Could not find the file in IPFS post re-upload",)==False:
+                reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
+                print("Apparently we reuploaded ")
+                print(reupload_cids)
+                messages.append(upload_messages)
+                if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
+                                       "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
 
