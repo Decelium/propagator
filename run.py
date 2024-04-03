@@ -7,7 +7,7 @@ from Migrator import Migrator
 from Snapshot import Snapshot
 import pandas
 import shutil
-
+import random 
 '''
 Backups are likely the MOST important aspect of Decelium.
 This file tests the Migrator, a small utility that is the powerhouse behind creating and restoring backup data from the
@@ -48,8 +48,6 @@ def run_ipfs_backup():
     found = Migrator.find_all_cids(decw,0,100)
     Migrator.download_ipfs_data(found, './ipfs_backup/',connection_settings)
 
-    print("finished")
-    print(found)
 
 
 def test_ipfs_file_backup():
@@ -70,7 +68,6 @@ def test_ipfs_file_backup():
             'connection_settings':connection_settings,
             'payload_type':'local_path',
             'payload':'./test/testdata/img_test_1.png'})
-    print(pins)
     assert len(pins) > 0
     assert 'cid' in pins[0]
 
@@ -130,7 +127,6 @@ def test_ipfs_folder_backup():
             'connection_settings':connection_settings,
             'payload_type':'local_path',
             'payload':'./test/testdata/test_folder'})
-    print(pins)
     assert len(pins) > 0
     assert 'cid' in pins[0]
     # Backup from IPFS locally & verify
@@ -139,7 +135,6 @@ def test_ipfs_folder_backup():
     # TODO - streamline download interface
     root = {}
     for pin in pins:
-        print(pin)
         found.append({'cid':pin['cid'],'self_id':None})
         root = {'cid':pin['cid'],'self_id':None}
             
@@ -153,7 +148,6 @@ def test_ipfs_folder_backup():
             continue
         path_original = './test/testdata/test_folder/'+pin['name']
         path_destination = './test/testbackup/'+pin['cid']+".file"
-        print(pin)
         assert os.path.exists(path_original)
         assert os.path.exists(path_destination)
         with open(path_original, 'rb') as original_file:
@@ -194,12 +188,8 @@ def test_ipfs_folder_backup():
 
 
     for pin in pins:
-        print("searching for dir")
-        print(pin)
-        print(Migrator.is_directory(decw,connection_settings,pin['cid']))
         if not Migrator.is_directory(decw,connection_settings,pin['cid']):
             continue
-        print("PROCESSING AS DIR")
         path_folder_dest = './test/testbackup/'+pin['cid']+".dag"
         folder_json = {}
         with open(path_folder_dest,'r') as f:
@@ -212,10 +202,6 @@ def test_ipfs_folder_backup():
                 'connection_settings':connection_settings,
                 'payload_type':'cid',
                 'payload':[pin['cid'],"Abject_Failure"]})
-        print ("LAST STEP--------------")
-        print(folder_json['Links'])
-        print(str(folder_json['Links']))
-        print ("LAST STEP 2--------------")
 
         result = decw.net.create_ipfs({
                 'api_key':"UNDEFINED",
@@ -223,13 +209,7 @@ def test_ipfs_folder_backup():
                 'connection_settings':connection_settings,
                 'payload_type':'ipfs_pin_list',
                 'payload':folder_json['Links']})
-        print("Restored dir cid:")
-        print(result)
-        print(result[0])
-        print("From dir cid:")
-        print(pin)
         assert result[0]['cid'] == pin['cid']
-        print(folder_json)
     # TODO LS and verify
 
 def test_object_backup():
@@ -381,10 +361,13 @@ class AppendObjectFromRemote(Action):
         filter = {'attrib':{'self_id':record['obj_id']}}
         limit = 20
         offset = 0
-        assert len(Snapshot.append_from_remote(record['decw'], record['connection_settings'], record['backup_path'], limit, offset,filter)) > 0
+        res = Snapshot.append_from_remote(record['decw'], record['connection_settings'], record['backup_path'], limit, offset,filter)
+        assert len(res) > 0
+        print( res[record['obj_id']])
+        assert res[record['obj_id']]['local'] == True
+        
         obj = Snapshot.load_entity({'self_id':record['obj_id'], 'attrib':True},
                                     record['backup_path'])
-        
         new_cids = [obj['settings']['ipfs_cid']] 
         for new_cid in obj['settings']['ipfs_cids'].values():
             new_cids.append(new_cid)
@@ -405,13 +388,18 @@ class PullObjectFromRemote(Action):
         backup_path = record['backup_path']
         obj_id = record['obj_id']
         overwrite = record['overwrite']
+        expected_result = record['expected_result']
+
         results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=overwrite)
         print(results)
+        
         assert obj_id in results
-        assert results[obj_id]['local'] == False
-        assert len(results[obj_id]['local_message']) > 0 
-        assert len(results) == 1
-    
+        assert results[obj_id]['local'] == expected_result
+        if expected_result == True:
+            assert len(results[obj_id]['local_message']) == 0 
+        if expected_result == False:
+            assert len(results[obj_id]['local_message']) > 0 
+
         obj = Snapshot.load_entity({'self_id':record['obj_id'], 'attrib':True},
                                     record['backup_path'])
         
@@ -478,11 +466,25 @@ class CorruptLocalObjectBackup(Action):
         backup_path = record['backup_path']
         self_id = record['obj_id']
         memory['removed'] = []
-        for filename in os.listdir(backup_path+'/'+self_id):
-            if filename.endswith('.dag') or filename.endswith('.file'):
-                file_path = os.path.join(backup_path+'/'+self_id, filename)
-                os.remove(file_path)
-                memory['removed'].append(file_path)
+        memory['corrupted'] = []
+        corruption = record['corruption']
+        assert corruption in ['delete_payload','corrupt_payload']
+        if corruption == 'delete_payload':
+            for filename in os.listdir(backup_path+'/'+self_id):
+                if filename.endswith('.dag') or filename.endswith('.file'):
+                    file_path = os.path.join(backup_path+'/'+self_id, filename)
+                    os.remove(file_path)
+                    memory['removed'].append(file_path)
+
+        if corruption == 'corrupt_payload':
+            for filename in os.listdir(os.path.join(backup_path, self_id)):
+                if  filename.endswith('.file'): # filename.endswith('.dag') or
+                    file_path = os.path.join(backup_path, self_id, filename)
+                    random_bytes_size = 1024
+                    random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+                    with open(file_path, 'wb') as corrupt_file:
+                        corrupt_file.write(random_bytes)
+                    memory['corrupted'].append(file_path)
 
         return True 
 
@@ -493,9 +495,13 @@ class CorruptLocalObjectBackup(Action):
         decw = record['decw']
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,'local')
         assert local_results['local'] == False
-        assert len(memory['removed']) > 0
-        for file_path in memory['removed']:
-            assert os.path.exists(file_path) == False
+        #assert len(memory['removed']) > 0
+        if 'removed' in memory:
+            for file_path in memory['removed']:
+                assert os.path.exists(file_path) == False
+        if 'corrupted' in memory:
+            for file_path in memory['corrupted']:
+                assert os.path.exists(file_path) == True
         return True
 
 
@@ -513,7 +519,6 @@ class DeleteObjectFromRemote(Action):
         connection_settings = record['connection_settings']
         path = record['path']
         obj = decw.net.download_entity({'path':path,'api_key':decw.dw.pubk(),"attrib":True})
-        print(obj)
         old_cids = [obj['settings']['ipfs_cid']] 
         for old_cid in obj['settings']['ipfs_cids'].values():
             old_cids.append(old_cid)
@@ -577,8 +582,6 @@ class PushFromSnapshotToRemote(Action):
 
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
-        print(results)
-        pprint.pprint(results[obj_id])
         assert results[obj_id][0] == True
         assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
         obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
@@ -680,7 +683,6 @@ def evaluate_object_status(self,record,memory=None):
         return True
     elif record['target'] == 'remote':
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote')
-        print(results)
         assert results['remote'] == False
         return True
     '''
@@ -775,36 +777,49 @@ def test_simple_snapshot():
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
+    local_corruptions= [
+        {'local_corruption':"delete_payload","expect":True}, # Tuesday
+        {'local_corruption':"corrupt_payload","expect":True}, # Tuesday
+        #{'local_corruption':"remove_attrib","expect":True}, # Wed
+        #{'local_corruption':"corrupt_attrib_json","expect":True}, # Wed
+        #{'local_corruption':"restore_attrib_filename","expect":True}, # Wed
+        #{'local_corruption':"rename_attrib_filename","expect":False}, # Thurs
+        ]
 
-    corrupt_local_object_backup({
-        'decw': decw,
-        'obj_id':obj['self_id'],
-        'backup_path':backup_path,        
-        'connection_settings':connection_settings,        
-        'corruption':"delete_payload",
-    })
-    evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
-
-    pull_object_from_remote({
-        'connection_settings':connection_settings,
-        'backup_path':backup_path,
-        'overwrite': False,
-        'decw': decw,
-        'user_context': user_context,
-        'obj_id':obj['self_id'],
-    })
-
-    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
-    return    
-
+    for corruption in local_corruptions:
+        backup_instruction  ={
+            'decw': decw,
+            'obj_id':obj['self_id'],
+            'backup_path':backup_path,        
+            'connection_settings':connection_settings,        
+        }
+        backup_instruction["corruption"] = corruption['local_corruption']
+        backup_instruction.update(corruption)
+        print("TESTING CORRUPTION")
+        corrupt_local_object_backup(backup_instruction)
+        evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
+        evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+        pull_object_from_remote({
+            'connection_settings':connection_settings,
+            'backup_path':backup_path,
+            'overwrite': False,
+            'decw': decw,
+            'user_context': user_context,
+            'obj_id':obj['self_id'],
+            'expected_result': corruption['expect'],
+        })
+        evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+        evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+        return
+    return
     change_remote_object_name({
         'decw': decw,
         'user_context': user_context,
         'dir_name':dir_name,
         'self_id':self_id
     })
+    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
 
     obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)

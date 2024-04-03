@@ -54,23 +54,30 @@ class Snapshot:
             return {}
         
         for obj_id in needed_objs:
+            print ("Pulling ")
+            print(obj_id)
+
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
                 object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                print ("Downloaded ")
+                print(obj_id)
+                messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
-                    print("saving ",obj_id)
+                    print("CHUNK A")
                     messages = object_results[obj_id][1]
+                    print(messages)
                     results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
                 else:
-                    print("corrupt ",obj_id)
+                    print("CHUNK B")
                     result = False
                     messages = object_results[obj_id][1]
                     results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
 
             except:
-                print("exception ",obj_id)
-                print(tb.format_exc())
+                print("CHUNK C")
+
                 results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
             #if overwrite == False:
             #    print("Validating "+ obj_id)
@@ -104,8 +111,6 @@ class Snapshot:
     def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         # def push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
         api_key = decw.dw.pubk("admin")
-        print(api_key)
-        print(download_path)
 
         messages = ObjectMessages("Snapshot.push_to_remote")
         object_ids = os.listdir(download_path)
@@ -167,14 +172,8 @@ class Snapshot:
 
             all_cids =  Migrator.ipfs_pin_list( connection_settings,refresh=True)
             missing_cids = list(set(obj_cids) - set(all_cids))
-            print("This missing CIDS:")
-            print(missing_cids)
-            print("")
-            print("")
             if(len(missing_cids) > 0):
                 reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
-                print("Apparently we reuploaded ")
-                print(reupload_cids)
                 messages.append(upload_messages)
                 if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
                                        "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
@@ -214,7 +213,6 @@ class Snapshot:
             if current_offset < offset:
                 current_offset += 1
                 continue
-            print (obj_id)
             results[obj_id] = {'self_id':obj_id}       
             local_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
             remote_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote')

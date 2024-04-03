@@ -6,6 +6,11 @@ import pprint
 import pandas
 from Messages import ObjectMessages
 
+import cid
+import multihash
+import traceback as tb
+import hashlib
+
 class Migrator():
     @staticmethod
     def is_directory(decw,connection_settings,hash):
@@ -15,7 +20,6 @@ class Migrator():
         object_info = object_info['Objects'][0]
         # print(object_info)
         if object_info and 'Links' in object_info:
-            print("Inspecting links")
             for link in object_info['Links']:
                 if len(link['Name']) > 0:
                     return True
@@ -29,9 +33,6 @@ class Migrator():
         filter['limit'] = limit
         filter['offset'] = offset
         docs = decw.net.list(filter)
-        print("Searching for objs")
-        # print(filter)
-        # print(docs)
         obj_ids = []
         for doc in docs:
             obj_ids.append(doc['self_id'])
@@ -68,9 +69,9 @@ class Migrator():
     def ipfs_has_cids(decw,new_cids, connection_settings,refresh=False):
         all_cids = Migrator.ipfs_pin_list( connection_settings,refresh)
         is_subset = set(new_cids) <= set(all_cids)
-        if not is_subset:
-            print("Missing some CIDS from subset")
-            print(set(new_cids) - set(all_cids))
+        #if not is_subset:
+        #    print("Missing some CIDS from subset")
+        #    print(set(new_cids) - set(all_cids))
         return is_subset
 
     @staticmethod
@@ -95,7 +96,18 @@ class Migrator():
             offset = offset + limit
             found = found + docs
         return found
-
+    
+    def generate_file_hash(file_path):
+        hasher = hashlib.sha256()
+        
+        with open(file_path, 'rb') as f:
+            chunk = f.read(4096)  
+            while chunk:
+                hasher.update(chunk)
+                chunk = f.read(4096)
+        
+        return hasher.hexdigest().encode('utf-8')
+    
     def backup_ipfs_entity(item,current_pins,download_path,client,overwrite=False):
         new_cids = []
         assert 'cid' in item
@@ -103,9 +115,16 @@ class Migrator():
         file_path = os.path.join(download_path, cid)
         
         # Check if the file already exists to avoid double writing
-        if (os.path.exists(file_path+".file") or os.path.exists(file_path+".dag")) and overwrite == False:
-            print(f"CID {cid} already exists in {file_path}")
-            return new_cids
+        for relevant_file in  [file_path+".file",file_path+".dag"]:
+            if os.path.exists(relevant_file) and overwrite == False:
+                if Migrator.compare_file_hash(relevant_file) == True:
+                    return new_cids
+                else:
+                    print ("SHOULD BE RE-DOWNLOADING DATA")
+                    print ("SHOULD BE RE-DOWNLOADING DATA")
+                    print ("SHOULD BE RE-DOWNLOADING DATA")
+                    print ("SHOULD BE RE-DOWNLOADING DATA")
+                    print ("SHOULD BE RE-DOWNLOADING DATA")
         cids = current_pins
         if type(current_pins) == dict:
             cids = current_pins['Keys']
@@ -115,18 +134,23 @@ class Migrator():
             if cid in cids:
                 pinned = True
             if not pinned:
-                print(f"CID {cid} IS NOT PINNED {file_path}")
                 return new_cids
 
             # If pinned, proceed to download
             try:
                 res = client.cat(cid)
-                with open(file_path+".file", 'wb') as f:
-                    f.write(res)
-                print(f"Downloaded {cid} to file {file_path}")
+                #with open(file_path+".file", 'wb') as f:
+                #    f.write(res)
+                with open(file_path + ".file", 'wb') as f:
+                    for chunk in client.cat(cid, stream=True):
+                        f.write(chunk)
+
+                current_hash = Migrator.generate_file_hash(file_path+ ".file")
+                with open(file_path + ".file.hash", 'wb') as f:
+                        f.write(current_hash)
+                
             except Exception as e:
                 if "is a directory" in str(e):
-                    print(f"Downloaded {cid} to dir {file_path}")
                     dir_json = Migrator.backup_directory_dag(client,cid)
                     for new_item in dir_json['Links']:
                         #print(item)
@@ -136,12 +160,15 @@ class Migrator():
                     # print(json.dumps(dict(dir_json)))
                     with open(file_path+".dag", 'w') as f:
                         f.write(json.dumps(dir_json))
+                    current_hash = Migrator.generate_file_hash(file_path+ ".dag")
+                    with open(file_path + ".dag.hash", 'wb') as f:
+                            f.write(current_hash)
+
                     print("Finished Directory")
                 else:
                     raise e
             return new_cids
         except Exception as e:
-            import traceback as tb
             print(f"Error downloading {cid}: {e}")
             print(tb.format_exc())
             return new_cids
@@ -181,6 +208,7 @@ class Migrator():
                     dic = item
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
+                    print("BACKING UP CID"+str(item))
                     new_pins = Migrator.backup_ipfs_entity(dic,pins,download_path,client,overwrite)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
@@ -204,14 +232,12 @@ class Migrator():
                 payload_type = 'ipfs_pin_list'
             else:
                 continue
-            print("Uploading CID"+ file_path)
             result = decw.net.create_ipfs({
                     'api_key':"UNDEFINED",
                     'file_type':'ipfs', 
                     'connection_settings':connection_settings,
                     'payload_type':payload_type,
                     'payload':file_path})
-            print("upload result"+ str(result))
             messages = ObjectMessages("Migrator.upload_ipfs_data")
             messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
@@ -232,12 +258,11 @@ class Migrator():
         # TODO - Validate the object before commiting to a local merge. As if a Decelium miner is broken, one could end up destroying a backup.
         # TODO - Handle merges both ways (could be used by push and pull as an underlying mechanism)
         remote_obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
-        local_obj = Migrator.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+        local_obj = Migrator.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         priority = 'local' if overwrite == False else 'remote'        
         assert 'error'  in remote_obj or 'self_id' in remote_obj
         assert 'error'  in local_obj or 'self_id' in local_obj
         merge_messages = ObjectMessages("Migrator.__merge_attrib_from_remote(for obj_id)"+str(obj_id) )
-
         if priority == 'local':
             if  'error' in local_obj and 'error' in remote_obj:
                 merged_object =  None
@@ -268,15 +293,23 @@ class Migrator():
                     merged_object = remote_obj
                     do_write = True
 
-        if merge_messages.add_assert(merged_object != None,"There is no local or remote object to consider during pull" ) == True:
-            return False,None,merge_messages
+        if merge_messages.add_assert(merged_object != None,"There is no local or remote object to consider during pull" ) == False:
+            return False,merged_object,merge_messages
 
         if do_write == True and merged_object:
-            with open(download_path+'/'+obj_id+'/object.json','w') as f:
+            dir_path = os.path.join(download_path, obj_id)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+            file_path = os.path.join(dir_path, 'object.json')
+            with open(file_path,'w') as f:
                 f.write(json.dumps(merged_object))       
             return True,merged_object,merge_messages
+        
+        if do_write == False and merged_object:
+            return True,merged_object,merge_messages
+        raise Exception("Should never reach the end of this function.")
     
-    def __merge_payload_from_remote(decw,obj,download_path,connection_settings, overwrite,messages):
+    def __merge_payload_from_remote(decw,obj,download_path,connection_settings, overwrite):
         merge_messages = ObjectMessages("Migrator.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
 
         new_cids = [obj['settings']['ipfs_cid']]
@@ -295,17 +328,20 @@ class Migrator():
         for obj_id in object_ids:
             messages = ObjectMessages("Migrator.download_object(for {obj_id})")
             try:
-                success,merged_object,merge_messages = Migrator.__merge_attrib_from_remote(decw,obj_id,download_path, overwrite,messages)
+                success,merged_object,merge_messages = Migrator.__merge_attrib_from_remote(decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
-
+                print ("Merge success ")
+                print(success)
                 if success:
-                    if merge_messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == True:
+                    if messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == False:
                         raise Exception("Halt Now. The data is corrupt.")
-                    
-                    Migrator.__merge_payload_from_remote(decw,obj,download_path,connection_settings, overwrite,messages)
-                results[obj_id] = (True,messages)
+                    print ("Merging payload ")
+                    Migrator.__merge_payload_from_remote(decw,merged_object,download_path,connection_settings, overwrite)
+                    print ("Finished payload ")
+                    results[obj_id] = (True,messages)
+                else:
+                    results[obj_id] = (False,messages)
             except:
-                import traceback as tb
                 exc = tb.format_exc()
                 with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
                     f.write(exc)
@@ -363,7 +399,7 @@ class Migrator():
             with open(download_path+'/'+object_id+'/object.json','r') as f:
                 obj_local = json.loads(f.read())
         except:
-            messages.add_assert(False==True, "Could not add file")
+            messages.add_assert(False==True, "Could not validate presense of file file")
             return False,messages
 
         cids_pinned = []
@@ -379,10 +415,21 @@ class Migrator():
             for key in obj_local['settings']['ipfs_cids'].keys():
                 if messages.add_assert(key in obj_local['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
                     cids_pinned.append (obj_local['settings']['ipfs_cids'][key] )
-        
+        invalid_list = []
         for item in os.listdir(download_path+'/'+object_id):
             # Construct the full path of the item-
             file_path = os.path.join(download_path+'/'+object_id, item)
+            
+            if item.endswith('.file') or item.endswith('.dag'):
+                try:
+                    valido_hasho = Migrator.compare_file_hash(file_path, hash_func='sha2-256')
+                    if valido_hasho != True:
+                        invalid_list.append(item.split('.')[0])
+                        messages.add_assert(False, "Encountered A bad hash for cid:"+file_path)
+
+                except:
+                    messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
+            
             if item.endswith('.file') or item.endswith('.dag'):
                 cids_downloaded.append(item.split('.')[0])
         missing = []
@@ -482,3 +529,16 @@ class Migrator():
         }
 
         return item_details
+        
+    @staticmethod
+    def compare_file_hash(file_path, hash_func='sha2-256'):
+        current_hash = Migrator.generate_file_hash(file_path)
+        if not os.path.exists(file_path+".hash"):
+            return None
+        with open(file_path + ".hash", 'rb') as f:
+                stored_hash = f.read()
+        if stored_hash == current_hash:
+            return True
+        return False
+
+
