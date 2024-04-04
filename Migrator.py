@@ -108,6 +108,11 @@ class Migrator():
         
         return hasher.hexdigest().encode('utf-8')
     
+    def overwrite_file_hash(file_path):
+        current_hash = Migrator.generate_file_hash(file_path)
+        with open(file_path + ".hash", 'wb') as f:
+                f.write(current_hash)        
+
     def backup_ipfs_entity(item,current_pins,download_path,client,overwrite=False):
         new_cids = []
         assert 'cid' in item
@@ -119,12 +124,7 @@ class Migrator():
             if os.path.exists(relevant_file) and overwrite == False:
                 if Migrator.compare_file_hash(relevant_file) == True:
                     return new_cids
-                else:
-                    print ("SHOULD BE RE-DOWNLOADING DATA")
-                    print ("SHOULD BE RE-DOWNLOADING DATA")
-                    print ("SHOULD BE RE-DOWNLOADING DATA")
-                    print ("SHOULD BE RE-DOWNLOADING DATA")
-                    print ("SHOULD BE RE-DOWNLOADING DATA")
+
         cids = current_pins
         if type(current_pins) == dict:
             cids = current_pins['Keys']
@@ -160,10 +160,7 @@ class Migrator():
                     # print(json.dumps(dict(dir_json)))
                     with open(file_path+".dag", 'w') as f:
                         f.write(json.dumps(dir_json))
-                    current_hash = Migrator.generate_file_hash(file_path+ ".dag")
-                    with open(file_path + ".dag.hash", 'wb') as f:
-                            f.write(current_hash)
-
+                    Migrator.overwrite_file_hash(file_path+ ".dag")
                     print("Finished Directory")
                 else:
                     raise e
@@ -259,6 +256,16 @@ class Migrator():
         # TODO - Handle merges both ways (could be used by push and pull as an underlying mechanism)
         remote_obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
         local_obj = Migrator.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
+        file_path = os.path.join(download_path,obj_id,'object.json')
+        # Is the local accurate?
+        print("TRYING TO COMPUTE A HASH")
+        local_is_valid = Migrator.compare_file_hash(file_path)
+        print("FINISHED HASH TO COMPUTE")
+        print(local_is_valid)
+        if local_is_valid != True:
+            local_obj = {'error':'__merge_attrib_from_remote() found that the object is invalid using compare_file_hash() '}
+
+
         priority = 'local' if overwrite == False else 'remote'        
         assert 'error'  in remote_obj or 'self_id' in remote_obj
         assert 'error'  in local_obj or 'self_id' in local_obj
@@ -302,7 +309,9 @@ class Migrator():
                 os.makedirs(dir_path)
             file_path = os.path.join(dir_path, 'object.json')
             with open(file_path,'w') as f:
-                f.write(json.dumps(merged_object))       
+                f.write(json.dumps(merged_object)) 
+
+            Migrator.overwrite_file_hash(file_path)
             return True,merged_object,merge_messages
         
         if do_write == False and merged_object:
@@ -396,8 +405,13 @@ class Migrator():
         # Validate the local representation of an object
         messages = ObjectMessages("Migrator.validate_local_object(for {object_id})")
         try:
-            with open(download_path+'/'+object_id+'/object.json','r') as f:
+            file_path_test = download_path+'/'+object_id+'/object.json'
+            with open(file_path_test,'r') as f:
                 obj_local = json.loads(f.read())
+            valido_hasho = Migrator.compare_file_hash(file_path_test)
+            if valido_hasho != True:
+                False,messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+
         except:
             messages.add_assert(False==True, "Could not validate presense of file file")
             return False,messages
@@ -532,6 +546,8 @@ class Migrator():
         
     @staticmethod
     def compare_file_hash(file_path, hash_func='sha2-256'):
+        if not os.path.exists(file_path):
+            return None
         current_hash = Migrator.generate_file_hash(file_path)
         if not os.path.exists(file_path+".hash"):
             return None

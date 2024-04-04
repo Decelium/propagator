@@ -90,15 +90,16 @@ class Action():
             response = self.run(record,memory)
             assert self.postvalid(record,response,memory)
             return response
-        except:
+        except Exception as e :
             # Package up a highly detailed exception log for record keeping
             exc = tb.format_exc()
             goal_text = self.explain(record,memory)
             err_str = "Encountered an exception when seeking action:\n\n "
             err_str += goal_text
-            err_str += "Exception:\n\n"
-            err_str += exc
-            raise Exception(err_str)
+            #err_str += "Exception:\n\n"
+            #err_str += exc
+            print(err_str)
+            raise e
 
     def test(self):
         return True
