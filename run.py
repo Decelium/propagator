@@ -440,7 +440,8 @@ class ChangeRemoteObjectName(Action):
                 })
         edit_try = decw.net.edit_entity(singed_req)
         return edit_try
-    
+
+'''    
 class CorruptLocalObjectBackup(Action):    
     def explain(self,record,memory):
         return """
@@ -508,6 +509,118 @@ class CorruptLocalObjectBackup(Action):
                         corrupt_file.write(random_bytes)
                     memory['corrupted'].append(file_path)
 
+        return True 
+
+    def postvalid(self,record,response,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        connection_settings = record['connection_settings']
+        decw = record['decw']
+        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,'local')
+        assert local_results['local'] == False
+        #assert len(memory['removed']) > 0
+        if 'removed' in memory:
+            for file_path in memory['removed']:
+                assert os.path.exists(file_path) == False
+        if 'corrupted' in memory:
+            for file_path in memory['corrupted']:
+                assert os.path.exists(file_path) == True
+        return True
+'''
+class CorruptObject(Action):    
+    def explain(self,record,memory):
+        return """
+        CorruptObject
+
+        This is an action which purposely corrupts a local file backup. This is to simulate various corruption methods
+        such that the file can be restored and validated afterward. The complete version of this process ensures
+        a) pre: The backup is complete before corruption
+        b) complete a corruption
+        c) post: The corruption is reported correctly by the validation tools
+        """
+    @staticmethod
+    def corrupt_local_delete_payload(record,memory):
+        print(record)
+        print(memory)
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        for filename in os.listdir(os.path.join(backup_path,self_id)):
+            if filename.endswith('.dag') or filename.endswith('.file'):
+                file_path = os.path.join(backup_path,self_id, filename)
+                os.remove(file_path)
+                memory['removed'].append(file_path)
+        
+    @staticmethod
+    def corrupt_local_remove_attrib(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        file_path = os.path.join(backup_path, self_id, 'object.json')
+        os.remove(file_path)
+        memory['removed'].append(file_path)
+
+    @staticmethod
+    def corrupt_local_corrupt_attrib(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        file_path = os.path.join(backup_path, self_id, 'object.json')
+        random_bytes_size = 1024
+        random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+        with open(file_path, 'wb') as corrupt_file:
+            corrupt_file.write(random_bytes)
+        memory['corrupted'].append(file_path)
+
+    @staticmethod
+    def corrupt_local_rename_attrib_filename(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        file_path = os.path.join(backup_path, self_id, 'object.json')
+        with open(file_path, 'r') as f:
+            correct_json = json.loads(f.read())
+        correct_json['dir_name'] = "corrupt_name"
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(correct_json))
+        
+    @staticmethod
+    def corrupt_local_corrupt_payload(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        for filename in os.listdir(os.path.join(backup_path, self_id)):
+            if  filename.endswith('.file'): # filename.endswith('.dag') or
+                file_path = os.path.join(backup_path, self_id, filename)
+                random_bytes_size = 1024
+                random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+                with open(file_path, 'wb') as corrupt_file:
+                    corrupt_file.write(random_bytes)
+                memory['corrupted'].append(file_path)    
+
+    def run_corruption(self,mode: str, corruption: str, record: dict, memory: dict):
+        method_name = "corrupt_" + mode + "_" + corruption
+        method = getattr(CorruptObject, method_name, None)
+        if method:
+            method(record, memory)
+        else:
+            raise Exception(f"Method {method_name} not found.")
+
+    def prevalid(self,record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        connection_settings = record['connection_settings']
+        decw = record['decw']
+        mode = record['mode']
+        assert mode in ['local','remote']
+        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
+        assert local_results['local'] == True
+        return True
+
+    def run(self,record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        memory['removed'] = []
+        memory['corrupted'] = []
+        corruption = record['corruption']
+        mode = record['mode']
+        assert corruption in ['delete_payload','corrupt_payload','remove_attrib','corrupt_attrib','rename_attrib_filename']
+        self.run_corruption(mode, corruption, record, memory)
         return True 
 
     def postvalid(self,record,response,memory):
@@ -665,14 +778,6 @@ def upload_directory_to_remote(self,record,memory=None):
     obj_id = decw.net.create_entity(singed_req)
     assert 'obj-' in obj_id    
 
-
-
-    #assert Migrator.ipfs_has_cids(decw,new_cids, record['ipfs_req_context']['connection_settings']) == False    
-    #new_cids = [response['settings']['ipfs_cid']] 
-    #for new_cid in response['settings']['ipfs_cids'].values():
-    #    new_cids.append(new_cid)
-    #assert Migrator.ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
-
     return obj_id
 
 
@@ -721,7 +826,7 @@ def test_simple_snapshot():
     append_object_from_remote = AppendObjectFromRemote()
     delete_object_from_remote = DeleteObjectFromRemote()
     push_from_snapshot_to_remote = PushFromSnapshotToRemote()
-    corrupt_local_object_backup = CorruptLocalObjectBackup()
+    corrupt_local_object_backup = CorruptObject()
     change_remote_object_name = ChangeRemoteObjectName()
     pull_object_from_remote = PullObjectFromRemote()
 
@@ -799,12 +904,12 @@ def test_simple_snapshot():
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
-    local_corruptions= [
-        #{'local_corruption':"delete_payload","expect":True}, # Tuesday
-        #{'local_corruption':"corrupt_payload","expect":True}, # Tuesday
-        # {'local_corruption':"remove_attrib","expect":True}, # Wed
-        #{'local_corruption':"corrupt_attrib","expect":True}, # Wed
-        {'local_corruption':"rename_attrib_filename","expect":True}, # Thurs
+    local_corruptions= [ 
+        {'local_corruption':"delete_payload","expect":True, "mode":'local'}, 
+        {'local_corruption':"corrupt_payload","expect":True, "mode":'local'}, 
+        {'local_corruption':"remove_attrib","expect":True, "mode":'local'}, 
+        {'local_corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
+        {'local_corruption':"rename_attrib_filename","expect":True, "mode":'local'},
         ]
 
     for corruption in local_corruptions:
@@ -815,8 +920,8 @@ def test_simple_snapshot():
             'connection_settings':connection_settings,        
         }
         backup_instruction["corruption"] = corruption['local_corruption']
+        backup_instruction["mode"] = corruption['mode']
         backup_instruction.update(corruption)
-        print("TESTING CORRUPTION")
         corrupt_local_object_backup(backup_instruction)
         evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
         evaluate_object_status({**eval_context,'target':'remote','status':['complete']}) 
@@ -832,8 +937,7 @@ def test_simple_snapshot():
         })
         evaluate_object_status({**eval_context,'target':'local','status':['complete']})
         evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
-        return
-    
+
 
     return
     change_remote_object_name({
