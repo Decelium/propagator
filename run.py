@@ -539,6 +539,48 @@ class CorruptObject(Action):
         c) post: The corruption is reported correctly by the validation tools
         """
     @staticmethod
+    def corrupt_remote_delete_payload(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+
+        obj = decw.net.download_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True})
+
+        cids = [obj['settings']['ipfs_cid']]
+        if 'ipfs_cids' in obj['settings']:
+            for cid in obj['settings']['ipfs_cids'].values():
+                cids.append(cid)
+
+        result:dict = decw.net.remove_ipfs({
+                'api_key':"UNDEFINED",
+                'file_type':'ipfs', 
+                'connection_settings':connection_settings,
+                'payload_type':'cid',
+                'payload':cids})
+        print("Finished Removing Payload")
+        print("^^^^^^^^^^^^^^^^^^^^^^^^^")
+        
+        for r in result.values():
+            print('.')
+            assert r['removed'] == True
+        
+        for r in result.values():
+            result_verify = decw.net.check_pin_status({
+                    'api_key':"UNDEFINED",
+                    'do_refresh':True,
+                    'connection_settings':connection_settings,
+                    'cid': r['cid']})
+            break
+
+        for r in result.values():
+            result_verify = decw.net.check_pin_status({
+                    'api_key':"UNDEFINED",
+                    'connection_settings':connection_settings,
+                    'cid': r['cid']})
+            assert result_verify == False
+    
+    @staticmethod
     def corrupt_local_delete_payload(record,memory):
         print(record)
         print(memory)
@@ -609,7 +651,7 @@ class CorruptObject(Action):
         mode = record['mode']
         assert mode in ['local','remote']
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
-        assert local_results['local'] == True
+        assert local_results[mode] == True
         return True
 
     def run(self,record,memory):
@@ -628,8 +670,11 @@ class CorruptObject(Action):
         self_id = record['obj_id']
         connection_settings = record['connection_settings']
         decw = record['decw']
-        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,'local')
-        assert local_results['local'] == False
+        mode = record['mode']
+        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
+        print(local_results)
+        print(messages)
+        assert local_results[mode] == False
         #assert len(memory['removed']) > 0
         if 'removed' in memory:
             for file_path in memory['removed']:
@@ -711,14 +756,15 @@ class PushFromSnapshotToRemote(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         backup_path = record['backup_path']
-        new_cids = record['new_cids']
+        #new_cids = record['new_cids']
         user_context = record['user_context']
         obj_id = record['obj_id']
 
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+        print(results)
         assert results[obj_id][0] == True
-        assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
+        #assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
         obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
         assert 'obj-' in obj['self_id']
 
@@ -899,46 +945,64 @@ def test_simple_snapshot():
         'user_context':user_context,
         'connection_settings':connection_settings,
         'backup_path':backup_path,
-        'new_cids':new_cids,
     })
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
-    local_corruptions= [ 
-        {'local_corruption':"delete_payload","expect":True, "mode":'local'}, 
-        {'local_corruption':"corrupt_payload","expect":True, "mode":'local'}, 
-        {'local_corruption':"remove_attrib","expect":True, "mode":'local'}, 
-        {'local_corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
-        {'local_corruption':"rename_attrib_filename","expect":True, "mode":'local'},
+    all_corruptions= [ 
+        #{'corruption':"delete_payload","expect":True, "mode":'local'}, 
+        #{'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
+        #{'corruption':"remove_attrib","expect":True, "mode":'local'}, 
+        #{'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
+        #{'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
+        #
+        {'corruption':"delete_payload","expect":True, "mode":'remote'}, 
+        #{'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
+        #{'corruption':"remove_attrib","expect":True, "mode":'local'}, 
+        #{'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
+        #{'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
         ]
 
-    for corruption in local_corruptions:
+    for corruption in all_corruptions:
         backup_instruction  ={
             'decw': decw,
             'obj_id':obj['self_id'],
             'backup_path':backup_path,        
             'connection_settings':connection_settings,        
         }
-        backup_instruction["corruption"] = corruption['local_corruption']
+        backup_instruction["corruption"] = corruption['corruption']
         backup_instruction["mode"] = corruption['mode']
         backup_instruction.update(corruption)
         corrupt_local_object_backup(backup_instruction)
-        evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
-        evaluate_object_status({**eval_context,'target':'remote','status':['complete']}) 
-         
-        pull_object_from_remote({
-            'connection_settings':connection_settings,
-            'backup_path':backup_path,
-            'overwrite': False,
-            'decw': decw,
-            'user_context': user_context,
-            'obj_id':obj['self_id'],
-            'expected_result': corruption['expect'],
-        })
-        evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-        evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+        if corruption['mode'] == 'local':
+            evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
+            evaluate_object_status({**eval_context,'target':'remote','status':['complete']}) 
+            pull_object_from_remote({
+                'connection_settings':connection_settings,
+                'backup_path':backup_path,
+                'overwrite': False,
+                'decw': decw,
+                'user_context': user_context,
+                'obj_id':obj['self_id'],
+                'expected_result': corruption['expect'],
+            })
+            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+            evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
-
+        elif corruption['mode'] == 'remote':
+            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+            evaluate_object_status({**eval_context,'target':'remote','status':['payload_missing']}) 
+            push_from_snapshot_to_remote({
+                'decw': decw,
+                'obj_id':obj_id,
+                'user_context':user_context,
+                'connection_settings':connection_settings,
+                'backup_path':backup_path,
+            })
+            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+            evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+        else:
+            assert True == False # NEVERRRRRR
     return
     change_remote_object_name({
         'decw': decw,

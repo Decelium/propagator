@@ -28,14 +28,15 @@ class Snapshot:
                            }
         prefix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
-        try:
-            result,messages = func(decw,obj_id,download_path,connection_settings)
-            if previous_messages:
-                messages.append(previous_messages)
-            result_json = Snapshot.format_object_status_json(obj_id,prefix,result,messages.get_error_messages(),"")
-        except:
-            result_json = Snapshot.format_object_status_json(obj_id,prefix,False,previous_messages,tb.format_exc())
+        #try:
+        result,messages = func(decw,obj_id,download_path,connection_settings)
+        if previous_messages:
+            messages.append(previous_messages)
+        result_json = Snapshot.format_object_status_json(obj_id,prefix,result,messages.get_error_messages(),"")
         return   result_json,messages      
+        #except:
+        #    result_json = Snapshot.format_object_status_json(obj_id,prefix,False,previous_messages,tb.format_exc())
+        #    return   result_json,messages      
 
     @staticmethod
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
@@ -152,6 +153,9 @@ class Snapshot:
             if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
+            print("Result of push operartion")
+            print("Result of push operartion")
+            print(result)
 
             obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
             if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ str(obj))==False:
@@ -163,22 +167,30 @@ class Snapshot:
             messages.append(remote_validation_messages)
             if remote_result == False:
                 results[obj_id]= (False,messages.get_error_messages())
-                continue
+                # ---------
+                # Upload cids
+                print("PROCESSING CIDS")
+                print("PROCESSING CIDS")
 
-            # ---------
-            # Upload cids
-            for path,cid in obj['settings']['ipfs_cids'].items():
-                obj_cids.append(cid)
+                for path,cid in obj['settings']['ipfs_cids'].items():
+                    obj_cids.append(cid)
 
-            all_cids =  Migrator.ipfs_pin_list( connection_settings,refresh=True)
-            missing_cids = list(set(obj_cids) - set(all_cids))
-            if(len(missing_cids) > 0):
-                reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
-                messages.append(upload_messages)
-                if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
-                                       "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
-                    results[obj_id]= (False,messages.get_error_messages())
-                    continue
+                all_cids =  Migrator.ipfs_pin_list( connection_settings,refresh=True)
+                missing_cids = list(set(obj_cids) - set(all_cids))
+                print(missing_cids)
+                print("Reuploading!")
+                if(len(missing_cids) > 0):
+                    reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
+                    messages.append(upload_messages)
+                    if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
+                                        "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
+                        results[obj_id]= (False,messages.get_error_messages())
+                        continue
+            else:
+                print("NOT PROCESSING CIDS")
+                print("NOT PROCESSING CIDS")
+                print("NOT PROCESSING CIDS")
+                print("NOT PROCESSING CIDS")
 
             # ---------
             # Verify Upload was successful

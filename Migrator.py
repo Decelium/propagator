@@ -67,7 +67,7 @@ class Migrator():
         return is_subset
 
     def ipfs_has_cids(decw,new_cids, connection_settings,refresh=False):
-        all_cids = Migrator.ipfs_pin_list( connection_settings,refresh)
+        all_cids = Migrator.ipfs_pin_list(decw, connection_settings,refresh)
         is_subset = set(new_cids) <= set(all_cids)
         #if not is_subset:
         #    print("Missing some CIDS from subset")
@@ -126,8 +126,10 @@ class Migrator():
                     return new_cids
 
         cids = current_pins
-        if type(current_pins) == dict:
-            cids = current_pins['Keys']
+        # print("FAILING ON KEYS")
+        #print(cids)         
+        #if type(current_pins) == dict:
+        #    cids = current_pins['Keys']
         try:
             # Check if the item is pinned on this node
             pinned = False
@@ -171,20 +173,15 @@ class Migrator():
             return new_cids
 
     @staticmethod
-    def ipfs_pin_list( connection_settings,refresh=False):
-        c = connection_settings
-        ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
-
-        with ipfshttpclient.connect(ipfs_string) as client:
-            try:
-                pin_response = client.pin.ls(type='recursive')
-                pins = pin_response['Keys']
-                return pins
-            except:
-                print(f"Error checking pin status")
-                return []
-            
-    def download_ipfs_data(docs, download_path, connection_settings,overwrite=False):
+    def ipfs_pin_list(decw, connection_settings,refresh=False):
+        pins = decw.net.download_pin_status({
+                'api_key':"UNDEFINED",
+                'do_refresh':refresh,
+                'connection_settings':connection_settings})        
+        assert not 'error' in pins
+        return pins
+    
+    def download_ipfs_data(decw,docs, download_path, connection_settings,overwrite=False):
         c = connection_settings
         # Ensure the download directory exists
         if not os.path.exists(download_path):
@@ -198,7 +195,7 @@ class Migrator():
         #        pins = client.pin.ls(type='recursive')
         #    except Exception as pin_check_error:
         #        print(f"Error checking pin status for {cid}: {pin_check_error}")
-        pins = Migrator.ipfs_pin_list( connection_settings)
+        pins = Migrator.ipfs_pin_list(decw, connection_settings)
         with ipfshttpclient.connect(ipfs_string) as client:
             while len(current_docs) > 0:
                 for item in current_docs:
@@ -238,6 +235,7 @@ class Migrator():
             messages = ObjectMessages("Migrator.upload_ipfs_data")
             messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
+            all_cids = Migrator.ipfs_pin_list(decw, connection_settings,True)            
         return cids,messages
     @staticmethod
     def load_entity(filter,download_path):
@@ -326,7 +324,7 @@ class Migrator():
             for cid in obj['settings']['ipfs_cids'].values():
                 new_cids.append(cid)
         
-        result = Migrator.download_ipfs_data(new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+        result = Migrator.download_ipfs_data(decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
         return result
 
     @staticmethod
@@ -482,13 +480,13 @@ class Migrator():
             for key in obj_remote['settings']['ipfs_cids'].keys():
                 if messages.add_assert(key in obj_remote['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
                     cids_pinned.append (obj_remote['settings']['ipfs_cids'][key] )
-
         for cid in cids_pinned:
             result = decw.net.check_pin_status({
                     'api_key':"UNDEFINED",
                     'connection_settings':connection_settings,
                     'cid': cid})
             messages.add_assert(result == True, "cid is missing from remote "+cid)
+        print("Migrator Finished")
 
 
         return len(messages.get_error_messages()) == 0, messages
