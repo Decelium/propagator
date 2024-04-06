@@ -441,92 +441,6 @@ class ChangeRemoteObjectName(Action):
         edit_try = decw.net.edit_entity(singed_req)
         return edit_try
 
-'''    
-class CorruptLocalObjectBackup(Action):    
-    def explain(self,record,memory):
-        return """
-        CorruptLocalObjectBackup
-
-        This is an action which purposely corrupts a local file backup. This is to simulate various corruption methods
-        such that the file can be restored and validated afterward. The complete version of this process ensures
-        a) pre: The backup is complete before corruption
-        b) complete a corruption
-        c) post: The corruption is reported correctly by the validation tools
-        """
-    
-    def prevalid(self,record,memory):
-        backup_path = record['backup_path']
-        self_id = record['obj_id']
-        connection_settings = record['connection_settings']
-        decw = record['decw']
-        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,'local')
-        assert local_results['local'] == True
-        return True
-
-    def run(self,record,memory):
-        backup_path = record['backup_path']
-        self_id = record['obj_id']
-        memory['removed'] = []
-        memory['corrupted'] = []
-        corruption = record['corruption']
-        assert corruption in ['delete_payload','corrupt_payload','remove_attrib','corrupt_attrib','rename_attrib_filename']
-        if corruption == 'delete_payload':
-            for filename in os.listdir(os.path.join(backup_path,self_id)):
-                if filename.endswith('.dag') or filename.endswith('.file'):
-                    file_path = os.path.join(backup_path,self_id, filename)
-                    os.remove(file_path)
-                    memory['removed'].append(file_path)
-        
-        if corruption == 'remove_attrib':
-            file_path = os.path.join(backup_path, self_id, 'object.json')
-            os.remove(file_path)
-            memory['removed'].append(file_path)
-
-        if corruption == 'corrupt_attrib':
-            file_path = os.path.join(backup_path, self_id, 'object.json')
-            random_bytes_size = 1024
-            random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-            with open(file_path, 'wb') as corrupt_file:
-                corrupt_file.write(random_bytes)
-            memory['corrupted'].append(file_path)
-
-        if corruption == 'rename_attrib_filename':
-            file_path = os.path.join(backup_path, self_id, 'object.json')
-            with open(file_path, 'r') as f:
-                correct_json = json.loads(f.read())
-            correct_json['dir_name'] = "corrupt_name"
-            with open(file_path, 'w') as f:
-                f.write(json.dumps(correct_json))
-
-
-        if corruption == 'corrupt_payload':
-            for filename in os.listdir(os.path.join(backup_path, self_id)):
-                if  filename.endswith('.file'): # filename.endswith('.dag') or
-                    file_path = os.path.join(backup_path, self_id, filename)
-                    random_bytes_size = 1024
-                    random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-                    with open(file_path, 'wb') as corrupt_file:
-                        corrupt_file.write(random_bytes)
-                    memory['corrupted'].append(file_path)
-
-        return True 
-
-    def postvalid(self,record,response,memory):
-        backup_path = record['backup_path']
-        self_id = record['obj_id']
-        connection_settings = record['connection_settings']
-        decw = record['decw']
-        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,'local')
-        assert local_results['local'] == False
-        #assert len(memory['removed']) > 0
-        if 'removed' in memory:
-            for file_path in memory['removed']:
-                assert os.path.exists(file_path) == False
-        if 'corrupted' in memory:
-            for file_path in memory['corrupted']:
-                assert os.path.exists(file_path) == True
-        return True
-'''
 class CorruptObject(Action):    
     def explain(self,record,memory):
         return """
@@ -537,7 +451,49 @@ class CorruptObject(Action):
         a) pre: The backup is complete before corruption
         b) complete a corruption
         c) post: The corruption is reported correctly by the validation tools
+         ['delete_payload','remove_attrib','rename_attrib_filename']
         """
+    @staticmethod
+    def corrupt_remote_corrupt_payload(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload"},["admin"]))
+        pins = decw.net.download_pin_status({
+                'api_key':"UNDEFINED",
+                'do_refresh':True,
+                'connection_settings':connection_settings})    
+
+        print("corrupt_entity corrupt_payload")
+        print(obj)
+    @staticmethod
+    def corrupt_remote_remove_attrib(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"remove_attrib"},["admin"]))
+
+    @staticmethod
+    def corrupt_remote_rename_attrib_filename(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj1 = decw.net.download_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True})
+
+        success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
+        obj2 = decw.net.download_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True})
+        print("Corruption Result")
+        print("Corruption Result")
+        print("Corruption Result")
+        print("Corruption Result")
+        print("Corruption Result")
+        print(success)
+        print(obj1)
+        print(obj2)
+        assert success == True
     @staticmethod
     def corrupt_remote_delete_payload(record,memory):
         backup_path = record['backup_path']
@@ -711,9 +667,7 @@ class DeleteObjectFromRemote(Action):
         user_context = record['user_context']
         connection_settings = record['connection_settings']
         path = record['path']
-
-        singed_req = decw.dw.sr({**user_context, **{
-                'path':path}})
+        singed_req = decw.dw.sr({**user_context, **{ 'path':path}})
         del_try = decw.net.delete_entity(singed_req)
         assert del_try == True
         return del_try
@@ -761,10 +715,12 @@ class PushFromSnapshotToRemote(Action):
         #new_cids = record['new_cids']
         user_context = record['user_context']
         obj_id = record['obj_id']
-
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
         print(results)
+        obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
+        print(obj)
+
         assert results[obj_id][0] == True
         #assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
         obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
@@ -817,13 +773,14 @@ def upload_directory_to_remote(self,record,memory=None):
     singed_req = decw.dw.sr({**user_context, **{
             'path':record['decelium_path']}})
     del_try = decw.net.delete_entity(singed_req)
-
+    #print(del_try)
     singed_req = decw.dw.sr({**user_context, **{
             'path':record['decelium_path'],
             'file_type':'ipfs',
             'payload_type':'ipfs_pin_list',
             'payload':pins}})
     obj_id = decw.net.create_entity(singed_req)
+    print(obj_id)
     assert 'obj-' in obj_id    
 
     return obj_id
@@ -958,11 +915,10 @@ def test_simple_snapshot():
         #{'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
         #{'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
         #
-        {'corruption':"delete_payload","expect":True, "mode":'remote'}, 
-        #{'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
-        #{'corruption':"remove_attrib","expect":True, "mode":'local'}, 
-        #{'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
-        #{'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
+        #{'corruption':"delete_payload","expect":True, "mode":'remote'}, 
+        #{'corruption':"corrupt_payload","expect":True, "mode":'remote'}, 
+        #{'corruption':"remove_attrib","expect":True, "mode":'remote'},  ####
+        {'corruption':"rename_attrib_filename","expect":True, "mode":'remote'}, ####
         ]
 
     for corruption in all_corruptions:
@@ -1005,62 +961,7 @@ def test_simple_snapshot():
             evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
         else:
             assert True == False # NEVERRRRRR
-    return
-    change_remote_object_name({
-        'decw': decw,
-        'user_context': user_context,
-        'dir_name':dir_name,
-        'self_id':self_id
-    })
-    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
-
-    obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
-    assert obj_updated['dir_name'] == "test_folder.ipfs"
-
-    pull_object_from_remote({
-        'connection_settings':connection_settings,
-        'backup_path':backup_path,
-        'overwrite': True,
-        'decw': decw,
-        'user_context': user_context,
-        'self_id':self_id
-    })
-
-    return
-    # TODO -- Move into pull:
-    # Validate all files present
-    # Validate all names are equal
-    # ETC
-    assert results[obj['self_id']]['local'] == True
-    assert len(results[obj['self_id']]['local_message']) == 0 
-    assert len(results) == 1
-    obj_updated = Snapshot.load_entity({'self_id':obj_id,'attrib':True},backup_path)
-    assert obj_updated['dir_name'] == "test_folder2.ipfs"
-
-
-    backedup_cids = [obj['settings']['ipfs_cid']] 
-    for backedup_cid in obj['settings']['ipfs_cids'].values():
-        backedup_cids.append(backedup_cid)
-    local_ids = []
-    for filename in os.listdir(backup_path+'/'+obj['self_id']):
-        if filename.endswith('.dag') or filename.endswith('.file'):
-            local_ids.append(filename.split('.')[0])
-    print("Compare lists")
-
-    print(local_ids)
-    print(backedup_cids)
-
-    assert set(local_ids) <= set(backedup_cids)
-    assert set(backedup_cids) <= set(local_ids)
-
-
-    singed_req = decw.dw.sr({**user_context, ## 
-            'self_id':obj['self_id'],
-            'attrib':{'name':"test_folder.ipfs"}})
-    edit_try = decw.net.edit_entity(singed_req)
-    assert edit_try == True
 
 # TODO - All entities need a checksum system / sig system
 # TODO - 

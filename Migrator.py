@@ -455,18 +455,17 @@ class Migrator():
         messages = ObjectMessages("Migrator.validate_remote_object(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
-        '''
-        assert obj_remote['self_id'] == obj_remote['self_id'] # CHANGEASSERT
-        assert obj_remote['parent_id'] == obj_remote['parent_id'] # CHANGEASSERT
-        assert obj_remote['dir_name'] == obj_remote['dir_name'] # CHANGEASSERT
-        assert obj_remote['settings']['ipfs_cid'] == obj_remote['settings']['ipfs_cid'] # CHANGEASSERT
-        cids = [obj_remote['settings']['ipfs_cid']]
-        assert obj_remote['settings']['ipfs_name'] == obj_remote['settings']['ipfs_name'] # CHANGEASSERT
-        if 'ipfs_cids' in obj_remote['settings']:
-            for key in obj_remote['settings']['ipfs_cids'].keys():
-                assert obj_remote['settings']['ipfs_cids'][key] # CHANGEASSERT
-            cids.append(obj_remote['settings']['ipfs_cids'][key])
-        '''
+        obj_valid = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id})
+        print("obj_valid")
+        print("obj_valid")
+        print("obj_valid")
+        print("obj_valid")
+        print("obj_valid")
+        print("obj_valid")
+        print(obj_valid)
+        print("-----")
+        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by validate_entity") == False:
+            return False, messages        
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
             if messages.add_assert(k in obj_remote and obj_remote[k] != None, "missing {k} for {object_id}") == False:
@@ -480,6 +479,7 @@ class Migrator():
             for key in obj_remote['settings']['ipfs_cids'].keys():
                 if messages.add_assert(key in obj_remote['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
                     cids_pinned.append (obj_remote['settings']['ipfs_cids'][key] )
+        
         for cid in cids_pinned:
             result = decw.net.check_pin_status({
                     'api_key':"UNDEFINED",
