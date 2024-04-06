@@ -177,7 +177,7 @@ class Migrator():
         pins = decw.net.download_pin_status({
                 'api_key':"UNDEFINED",
                 'do_refresh':refresh,
-                'connection_settings':connection_settings})        
+                'connection_settings':connection_settings})       
         assert not 'error' in pins
         return pins
     

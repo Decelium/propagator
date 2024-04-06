@@ -175,7 +175,7 @@ class Snapshot:
                 for path,cid in obj['settings']['ipfs_cids'].items():
                     obj_cids.append(cid)
 
-                all_cids =  Migrator.ipfs_pin_list( connection_settings,refresh=True)
+                all_cids =  Migrator.ipfs_pin_list(decw, connection_settings,refresh=True)
                 missing_cids = list(set(obj_cids) - set(all_cids))
                 print(missing_cids)
                 print("Reuploading!")

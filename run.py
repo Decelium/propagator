@@ -724,7 +724,9 @@ class DeleteObjectFromRemote(Action):
         connection_settings = record['connection_settings']
 
         # B TODO - Check IPFS to validate the files are gone
-        assert Migrator.ipfs_has_cids(decw, memory['old_cids'], connection_settings) == False
+        print("Found Old CIDS")
+        print(memory['old_cids'])
+        assert Migrator.ipfs_has_cids(decw, memory['old_cids'], connection_settings,refresh=True) == False
         return True
 
 
