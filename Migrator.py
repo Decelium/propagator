@@ -163,7 +163,6 @@ class Migrator():
                     with open(file_path+".dag", 'w') as f:
                         f.write(json.dumps(dir_json))
                     Migrator.overwrite_file_hash(file_path+ ".dag")
-                    print("Finished Directory")
                 else:
                     raise e
             return new_cids
@@ -202,11 +201,9 @@ class Migrator():
                     dic = item
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
-                    print("BACKING UP CID"+str(item))
                     new_pins = Migrator.backup_ipfs_entity(dic,pins,download_path,client,overwrite)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
-                print("Moving to new batch-------------")
                 current_docs = next_batch
                 next_batch = []
 
@@ -256,10 +253,7 @@ class Migrator():
         local_obj = Migrator.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         file_path = os.path.join(download_path,obj_id,'object.json')
         # Is the local accurate?
-        print("TRYING TO COMPUTE A HASH")
         local_is_valid = Migrator.compare_file_hash(file_path)
-        print("FINISHED HASH TO COMPUTE")
-        print(local_is_valid)
         if local_is_valid != True:
             local_obj = {'error':'__merge_attrib_from_remote() found that the object is invalid using compare_file_hash() '}
 
@@ -337,14 +331,10 @@ class Migrator():
             try:
                 success,merged_object,merge_messages = Migrator.__merge_attrib_from_remote(decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
-                print ("Merge success ")
-                print(success)
                 if success:
                     if messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == False:
                         raise Exception("Halt Now. The data is corrupt.")
-                    print ("Merging payload ")
                     Migrator.__merge_payload_from_remote(decw,merged_object,download_path,connection_settings, overwrite)
-                    print ("Finished payload ")
                     results[obj_id] = (True,messages)
                 else:
                     results[obj_id] = (False,messages)
@@ -456,14 +446,6 @@ class Migrator():
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         obj_valid = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id})
-        print("obj_valid")
-        print("obj_valid")
-        print("obj_valid")
-        print("obj_valid")
-        print("obj_valid")
-        print("obj_valid")
-        print(obj_valid)
-        print("-----")
         if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by validate_entity") == False:
             return False, messages        
         cids_pinned = []
@@ -486,7 +468,6 @@ class Migrator():
                     'connection_settings':connection_settings,
                     'cid': cid})
             messages.add_assert(result == True, "cid is missing from remote "+cid)
-        print("Migrator Finished")
 
 
         return len(messages.get_error_messages()) == 0, messages

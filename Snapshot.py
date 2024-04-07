@@ -49,35 +49,26 @@ class Snapshot:
 
         found_objs = Migrator.find_batch_object_ids(decw,offset,limit,filter)
         needed_objs = found_objs
-
         results = {}
         if len(needed_objs) <= 0:
             return {}
         
         for obj_id in needed_objs:
-            print ("Pulling ")
-            print(obj_id)
 
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
                 object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
-                print ("Downloaded ")
-                print(obj_id)
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
-                    print("CHUNK A")
                     messages = object_results[obj_id][1]
-                    print(messages)
                     results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
                 else:
-                    print("CHUNK B")
                     result = False
                     messages = object_results[obj_id][1]
                     results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
 
             except:
-                print("CHUNK C")
 
                 results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
             #if overwrite == False:
@@ -166,16 +157,12 @@ class Snapshot:
                 results[obj_id]= (False,messages.get_error_messages())
                 # ---------
                 # Upload cids
-                print("PROCESSING CIDS")
-                print("PROCESSING CIDS")
 
                 for path,cid in obj['settings']['ipfs_cids'].items():
                     obj_cids.append(cid)
 
                 all_cids =  Migrator.ipfs_pin_list(decw, connection_settings,refresh=True)
                 missing_cids = list(set(obj_cids) - set(all_cids))
-                print(missing_cids)
-                print("Reuploading!")
                 if(len(missing_cids) > 0):
                     reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
                     messages.append(upload_messages)
@@ -183,11 +170,6 @@ class Snapshot:
                                         "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                         results[obj_id]= (False,messages.get_error_messages())
                         continue
-            else:
-                print("NOT PROCESSING CIDS")
-                print("NOT PROCESSING CIDS")
-                print("NOT PROCESSING CIDS")
-                print("NOT PROCESSING CIDS")
 
             # ---------
             # Verify Upload was successful
