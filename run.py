@@ -909,15 +909,14 @@ def test_simple_snapshot():
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
     all_corruptions= [ 
-        #{'corruption':"delete_payload","expect":True, "mode":'local'}, 
-        #{'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
-        #{'corruption':"remove_attrib","expect":True, "mode":'local'}, 
-        #{'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
-        #{'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
-        #
-        #{'corruption':"delete_payload","expect":True, "mode":'remote'}, 
-        #{'corruption':"corrupt_payload","expect":True, "mode":'remote'}, 
-        #{'corruption':"remove_attrib","expect":True, "mode":'remote'},  ####
+        {'corruption':"delete_payload","expect":True, "mode":'local'}, 
+        {'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
+        {'corruption':"remove_attrib","expect":True, "mode":'local'}, 
+        {'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
+        {'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
+        {'corruption':"delete_payload","expect":True, "mode":'remote'}, 
+        {'corruption':"corrupt_payload","expect":True, "mode":'remote'}, 
+        {'corruption':"remove_attrib","expect":True, "mode":'remote'},  ####
         {'corruption':"rename_attrib_filename","expect":True, "mode":'remote'}, ####
         ]
 

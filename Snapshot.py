@@ -148,14 +148,11 @@ class Snapshot:
             if len(upload_messages.get_error_messages()) > 0:
                 results[obj_id] = (False,messages)
                 continue
-
+            
             result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
             if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
-            print("Result of push operartion")
-            print("Result of push operartion")
-            print(result)
 
             obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
             if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ str(obj))==False:
