@@ -169,7 +169,7 @@ class AppendObjectFromRemote(Action):
         obj = response[0]
         new_cids = response[1]
 
-        assert Migrator.ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
+        assert TpIPFSDecelium.ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
         assert obj['dir_name'] == "test_folder.ipfs"
         return True
 
@@ -432,7 +432,7 @@ class DeleteObjectFromRemote(Action):
         old_cids = [obj['settings']['ipfs_cid']] 
         for old_cid in obj['settings']['ipfs_cids'].values():
             old_cids.append(old_cid)
-        assert Migrator.ipfs_has_cids(decw,old_cids, connection_settings) == True
+        assert TpIPFSDecelium.ipfs_has_cids(decw,old_cids, connection_settings) == True
         memory['old_cids'] = old_cids
         return True
 
@@ -452,7 +452,7 @@ class DeleteObjectFromRemote(Action):
         connection_settings = record['connection_settings']
 
         # B TODO - Check IPFS to validate the files are gone
-        assert Migrator.ipfs_has_cids(decw, memory['old_cids'], connection_settings,refresh=True) == False
+        assert TpIPFSDecelium.ipfs_has_cids(decw, memory['old_cids'], connection_settings,refresh=True) == False
         return True
 
 

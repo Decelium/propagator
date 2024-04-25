@@ -61,7 +61,7 @@ class Migrator():
                     # print(json.dumps(dict(dir_json)))
                     with open(file_path+".dag", 'w') as f:
                         f.write(json.dumps(dir_json))
-                    cls.overwrite_file_hash(file_path+ ".dag")
+                    TpIPFSLocal.overwrite_file_hash(file_path+ ".dag")
                 else:
                     raise e
             return new_cids
