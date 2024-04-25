@@ -1,0 +1,143 @@
+import decelium_wallet.core as core
+import pandas
+from Messages import ObjectMessages
+import traceback as tb
+
+class TpIPFSDecelium():
+    @classmethod
+    def backup_directory_dag(cls,client, cid, path=""):
+        item_details_response = client.object.get(cid)
+        item_details = {
+            'Links': [{
+                'Name': link['Name'],
+                'Hash': link['Hash'],
+                'Size': link['Size']
+            } for link in item_details_response['Links']]
+        }
+        return item_details
+        
+    @classmethod
+    def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        # Compares the local object with the remote
+        messages = ObjectMessages("Migrator.validate_remote_object(for {"+object_id+"})")
+        if obj_remote == None:
+            obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
+        obj_valid = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id})
+        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by validate_entity") == False:
+            return False, messages        
+        cids_pinned = []
+        for k in ['self_id','parent_id','dir_name','settings']:
+            if messages.add_assert(k in obj_remote and obj_remote[k] != None, "missing {k} for {object_id}") == False:
+                return False, messages
+        
+        if messages.add_assert('ipfs_cid' in obj_remote['settings'], "missing settings.ipfs_cid for {object_id}"):
+            cids_pinned.append (obj_remote['settings']['ipfs_cid'] )
+
+        messages.add_assert('ipfs_name' in obj_remote['settings'], "missing settings.ipfs_name for {object_id}")
+        if 'ipfs_cids' in obj_remote['settings']:
+            for key in obj_remote['settings']['ipfs_cids'].keys():
+                if messages.add_assert(key in obj_remote['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
+                    cids_pinned.append (obj_remote['settings']['ipfs_cids'][key] )
+        
+        for cid in cids_pinned:
+            result = decw.net.check_pin_status({
+                    'api_key':"UNDEFINED",
+                    'connection_settings':connection_settings,
+                    'cid': cid})
+            messages.add_assert(result == True, "cid is missing from remote "+cid)
+
+
+        return len(messages.get_error_messages()) == 0, messages    
+    @classmethod
+    def ipfs_pin_list(cls,decw, connection_settings,refresh=False):
+        pins = decw.net.download_pin_status({
+                'api_key':"UNDEFINED",
+                'do_refresh':refresh,
+                'connection_settings':connection_settings})       
+        assert not 'error' in pins
+        return pins
+
+    @classmethod
+    def find_download_entity(cls,decw,offset=0,limit=20):
+        found = []
+        returned = limit
+        while returned >= limit:
+            print('.',end="")
+            docs,returned = cls.find_batch_cids(decw,offset,limit)
+            offset = offset + limit
+            found = found + docs
+        return found
+        
+    @classmethod
+    def is_directory(cls,decw,connection_settings,hash):
+        # Example pseudocode for IPFS. You'll need to adapt this based on your IPFS client library or command line usage
+        _,ipfs_api = decw.net.create_ipfs_connection(connection_settings)
+        object_info = ipfs_api.ls(hash)
+        object_info = object_info['Objects'][0]
+        # print(object_info)
+        if object_info and 'Links' in object_info:
+            for link in object_info['Links']:
+                if len(link['Name']) > 0:
+                    return True
+            # return len(object_info['Links']) > 0  # Has links, likely a directory
+        return False  # No links, likely a file    pass
+    
+    @classmethod
+    def find_batch_object_ids(cls,decw,offset,limit,filter=None):
+        if filter ==None:
+            filter ={'attrib':{'file_type':'ipfs'}}
+        filter['limit'] = limit
+        filter['offset'] = offset
+        docs = decw.net.list(filter)
+        obj_ids = []
+        for doc in docs:
+            obj_ids.append(doc['self_id'])
+        return obj_ids
+    
+    @classmethod
+    def find_batch_cids(cls,decw,offset,limit,filter=None):
+        found = []
+        if filter ==None:
+            filter ={'attrib':{'file_type':'ipfs'}}
+        filter['limit'] = limit
+        filter['offset'] = offset
+        docs = decw.net.list(filter)
+        returned = len(docs)
+        for doc in docs:
+            if 'settings' in doc.keys():
+                if 'ipfs_cid' in doc['settings'].keys():
+                    rec = {"self_id":doc['self_id']}
+                    rec['cid'] = doc['settings']['ipfs_cid']
+                    found.append(rec)
+                if 'ipfs_cids' in doc['settings'].keys():
+                    for pin in doc['settings']['ipfs_cids'].values():
+                        rec = {"self_id":doc['self_id'],"cid":pin}
+                        found.append(rec)                
+        return found,returned
+    @classmethod
+    def decelium_has_cids(cls,decw,new_cids):
+        all_cids = cls.find_all_cids(decw)
+        df = pandas.DataFrame(all_cids)
+        all_cids = list(df['cid'])
+        is_subset = set(new_cids) <= set(all_cids)
+        return is_subset
+    
+    @classmethod
+    def ipfs_has_cids(cls,decw,new_cids, connection_settings,refresh=False):
+        all_cids = cls.ipfs_pin_list(decw, connection_settings,refresh)
+        is_subset = set(new_cids) <= set(all_cids)
+        #if not is_subset:
+        #    print("Missing some CIDS from subset")
+        #    print(set(new_cids) - set(all_cids))
+        return is_subset
+    
+    @classmethod
+    def find_all_cids(cls,decw,offset=0,limit=20): #find all cids on decelium
+        found = []
+        returned = limit
+        while returned >= limit:
+            print('.',end="")
+            docs,returned = cls.find_batch_cids(decw,offset,limit)
+            offset = offset + limit
+            found = found + docs
+        return found

@@ -4,6 +4,9 @@ import os
 import json
 import pprint
 from Migrator import Migrator
+from datasource.TpIPFSDecelium import TpIPFSDecelium
+from datasource.TpIPFSLocal import TpIPFSLocal
+
 from Snapshot import Snapshot
 import pandas
 import shutil
@@ -45,7 +48,7 @@ def run_ipfs_backup():
                             'port':5001,
                             'protocol':"http"}
     connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",api_key="UNDEFINED")
-    found = Migrator.find_all_cids(decw,0,100)
+    found = TpIPFSDecelium.find_all_cids(decw,0,100)
     Migrator.download_ipfs_data(found, './ipfs_backup/',connection_settings)
 
 
@@ -73,7 +76,7 @@ def test_ipfs_file_backup():
 
     # Backup from IPFS locally & verify
     found = [{'cid':pins[0]['cid'],'self_id':None}]
-    Migrator.download_ipfs_data(found, './test/testbackup',connection_settings)
+    TpIPFSDecelium.download_ipfs_data(found, './test/testbackup',connection_settings)
     file_path = './test/testbackup/'+pins[0]['cid']+'.file'
 
     # Assert the file exists 
@@ -144,7 +147,7 @@ def test_ipfs_folder_backup():
     # Assert all the files exist & match  -
     assert len(pins) == 6
     for pin in pins:
-        if Migrator.is_directory(decw,connection_settings,pin['cid']):
+        if TpIPFSDecelium.is_directory(decw,connection_settings,pin['cid']):
             continue
         path_original = './test/testdata/test_folder/'+pin['name']
         path_destination = './test/testbackup/'+pin['cid']+".file"
@@ -188,7 +191,7 @@ def test_ipfs_folder_backup():
 
 
     for pin in pins:
-        if not Migrator.is_directory(decw,connection_settings,pin['cid']):
+        if not TpIPFSDecelium.is_directory(decw,connection_settings,pin['cid']):
             continue
         path_folder_dest = './test/testbackup/'+pin['cid']+".dag"
         folder_json = {}
@@ -270,7 +273,7 @@ def test_object_backup():
     for cid in obj['settings']['ipfs_cids'].values():
         new_cids.append(cid)
 
-    all_cids = Migrator.find_all_cids(decw)
+    all_cids = TpIPFSDecelium.find_all_cids(decw)
     df = pandas.DataFrame(all_cids)
     all_cids = list(df['cid'])
     is_subset = set(new_cids) <= set(all_cids)
@@ -298,7 +301,7 @@ def test_object_backup():
 
     
     # -- Verify Pin Missing --
-    all_cids = Migrator.find_all_cids(decw)
+    all_cids = TpIPFSDecelium.find_all_cids(decw)
     df = pandas.DataFrame(all_cids)
     all_cids = list(df['cid'])
     is_subset = set(new_cids) <= set(all_cids)
@@ -307,7 +310,7 @@ def test_object_backup():
     # TODO -- Verify the CIDS are also off IPFS
     
     # -- Upload IPFS only Backup & Verify Correctness -- 
-    cids_reuploaded =  Migrator.upload_ipfs_data(decw,download_obj_path+'/'+obj_id,connection_settings) 
+    cids_reuploaded =  TpIPFSDecelium.upload_ipfs_data(decw,download_obj_path+'/'+obj_id,connection_settings) 
     assert len(cids_reuploaded) > 0
     
     #result = decw.net.remove_ipfs({
@@ -333,7 +336,7 @@ def test_object_backup():
     # assert 'error' in success
     #success = Migrator.upload_object(decw,obj_id, download_obj_path+'/'+obj_id, connection_settings)
     # assert success == True
-    all_cids = Migrator.find_all_cids(decw)
+    all_cids = TpIPFSDecelium.find_all_cids(decw)
     df = pandas.DataFrame(all_cids)
     all_cids = list(df['cid'])
     is_subset = set(new_cids) <= set(all_cids)
