@@ -6,6 +6,57 @@ import traceback as tb
 import hashlib
 
 class TpIPFSLocal():
+
+    @classmethod
+    def backup_ipfs_entity(cls,TpSource,item,pinned_cids,download_path,client,overwrite=False):
+        new_cids = []
+        assert 'cid' in item
+        root_cid = item['cid']
+        if not os.path.exists(download_path):
+            os.makedirs(download_path)
+
+        file_path = os.path.join(download_path, root_cid)
+        # Check if root the file already exists to avoid double writing
+        if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
+            return new_cids
+        try:
+            # Check if the item is pinned on this node
+            pinned = False
+            if root_cid in pinned_cids:
+                pinned = True
+            if not pinned:
+                return new_cids
+            #TpIPFSDecelium.ipfs_has_cids(decw,)
+            # If pinned, proceed to download
+            try:
+                res = client.cat(root_cid)
+                #with open(file_path+".file", 'wb') as f:
+                #    f.write(res)
+                with open(file_path + ".file", 'wb') as f:
+                    for chunk in TpSource.get_cid_read_stream(client,root_cid):
+                        f.write(chunk)
+
+                current_hash = cls.generate_file_hash(file_path+ ".file")
+                with open(file_path + ".file.hash", 'wb') as f:
+                        f.write(current_hash)
+                
+            except Exception as e:
+                if "is a directory" in str(e):
+                    dir_json = TpSource.download_directory_dag(client,root_cid)
+                    for new_item in dir_json['Links']:
+                        new_cids.append({'self_id':item['self_id'],'cid':new_item['Hash']})
+                    # dir_json = client.object.get(cid)
+                    # print(json.dumps(dict(dir_json)))
+                    with open(file_path+".dag", 'w') as f:
+                        f.write(json.dumps(dir_json))
+                    TpIPFSLocal.overwrite_file_hash(file_path+ ".dag")
+                else:
+                    raise e
+            return new_cids
+        except Exception as e:
+            print(f"Error downloading {cid}: {e}")
+            print(tb.format_exc())
+            return new_cids    
     @classmethod
     def compare_file_hash(cls,file_path, hash_func='sha2-256'):
         if not os.path.exists(file_path):

@@ -1,5 +1,4 @@
 import decelium_wallet.core as core
-import ipfshttpclient
 import os
 import json
 import pprint
@@ -13,93 +12,11 @@ import cid
 import multihash
 import traceback as tb
 import hashlib
-
+# - Remove all raw IPFS / Decelium code
 class Migrator():
-    @classmethod
-    def backup_ipfs_entity(cls,item,pinned_cids,download_path,client,overwrite=False):
-        new_cids = []
-        assert 'cid' in item
-        root_cid = item['cid']
-
-        file_path = os.path.join(download_path, root_cid)
-        
-        # Check if root the file already exists to avoid double writing
-        if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
-            return new_cids
-
-        try:
-            # Check if the item is pinned on this node
-            pinned = False
-            if root_cid in pinned_cids:
-                pinned = True
-            if not pinned:
-                return new_cids
-            #TpIPFSDecelium.ipfs_has_cids(decw,)
-            # If pinned, proceed to download
-            try:
-                res = client.cat(root_cid)
-                #with open(file_path+".file", 'wb') as f:
-                #    f.write(res)
-                with open(file_path + ".file", 'wb') as f:
-                    for chunk in client.cat(root_cid, stream=True):
-                        f.write(chunk)
-
-                current_hash = TpIPFSLocal.generate_file_hash(file_path+ ".file")
-                with open(file_path + ".file.hash", 'wb') as f:
-                        f.write(current_hash)
-                
-            except Exception as e:
-                if "is a directory" in str(e):
-                    dir_json = TpIPFSDecelium.backup_directory_dag(client,root_cid)
-                    for new_item in dir_json['Links']:
-                        #print(item)
-                        #print(dir_json)
-                        new_cids.append({'self_id':item['self_id'],'cid':new_item['Hash']})
-                    # dir_json = client.object.get(cid)
-                    # print(json.dumps(dict(dir_json)))
-                    with open(file_path+".dag", 'w') as f:
-                        f.write(json.dumps(dir_json))
-                    TpIPFSLocal.overwrite_file_hash(file_path+ ".dag")
-                else:
-                    raise e
-            return new_cids
-        except Exception as e:
-            print(f"Error downloading {cid}: {e}")
-            print(tb.format_exc())
-            return new_cids
-
-    @classmethod
-    def download_ipfs_data(cls,decw,cids, download_path, connection_settings,overwrite=False):
-        # Cids of format [{'cid':CID1,'self_id':None}....{'cid':CIDN,'self_id':None}]
-        c = connection_settings
-
-        # Ensure the download directory exists
-        if not os.path.exists(download_path):
-            os.makedirs(download_path)
-        ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
-
-        current_docs = cids
-        next_batch = []
-
-        all_pins = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings)
-        with ipfshttpclient.connect(ipfs_string) as client:
-            while len(current_docs) > 0:
-                for item in current_docs:
-                    dic = None
-                    if type(item) == dict:
-                        dic = item.copy()
-                    if type(item) == str:
-                        dic = {'cid':item,'self_id':None}
-                    new_pins = cls.backup_ipfs_entity(dic,all_pins,download_path,client,overwrite)
-                    if len(new_pins) > 0:
-                        next_batch = next_batch + new_pins
-                current_docs = next_batch
-                next_batch = []
-
 
     @classmethod
     def upload_ipfs_data(cls,decw,download_path,connection_settings):
-        uploaded_something = False
         cids = [] 
         for item in os.listdir(download_path):
             # Construct the full path of the item-
@@ -190,6 +107,7 @@ class Migrator():
         if do_write == False and merged_object:
             return True,merged_object,merge_messages
         raise Exception("Should never reach the end of this function.")
+    
     @classmethod
     def __merge_payload_from_remote(cls,decw,obj,download_path,connection_settings, overwrite):
         merge_messages = ObjectMessages("Migrator.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
@@ -199,7 +117,7 @@ class Migrator():
             for cid in obj['settings']['ipfs_cids'].values():
                 new_cids.append(cid)
         
-        result = cls.download_ipfs_data(decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+        result = TpIPFSDecelium.download_ipfs_data(TpIPFSLocal,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
         return result
 
     @classmethod

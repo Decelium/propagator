@@ -2,8 +2,40 @@ import decelium_wallet.core as core
 import pandas
 from Messages import ObjectMessages
 import traceback as tb
+import ipfshttpclient
 
 class TpIPFSDecelium():
+
+    @classmethod
+    def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False):
+        # Cids of format [{'cid':CID1,'self_id':None}....{'cid':CIDN,'self_id':None}]
+        c = connection_settings
+
+        # Ensure the download directory exists
+        ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
+
+        current_docs = cids
+        next_batch = []
+
+        all_pins = cls.ipfs_pin_list(decw, connection_settings)
+        with ipfshttpclient.connect(ipfs_string) as client:
+            while len(current_docs) > 0:
+                for item in current_docs:
+                    dic = None
+                    if type(item) == dict:
+                        dic = item.copy()
+                    if type(item) == str:
+                        dic = {'cid':item,'self_id':None}
+                    new_pins = TpDestination.backup_ipfs_entity(TpIPFSDecelium,dic,all_pins,download_path,client,overwrite)
+                    if len(new_pins) > 0:
+                        next_batch = next_batch + new_pins
+                current_docs = next_batch
+                next_batch = []
+
+    @classmethod
+    def get_cid_read_stream(cls,client,root_cid):
+        return client.cat(root_cid, stream=True)    
+    
     @classmethod
     def load_entity(cls,query,decw):
         assert 'api_key' in query
@@ -12,10 +44,7 @@ class TpIPFSDecelium():
         return decw.net.download_entity(query)
 
     @classmethod
-    def backup_directory_dag(cls,client, cid, path=""):
-        print("-------")
-        print(cid)
-        print("-------")
+    def download_directory_dag(cls,client, cid, path=""):
         item_details_response = client.object.get(cid)
         item_details = {
             'Links': [{
