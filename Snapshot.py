@@ -60,7 +60,7 @@ class Snapshot:
 
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
-                object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                object_results = TpIPFSLocal.download_object(TpIPFSDecelium,decw,[obj_id], download_path, connection_settings,overwrite )
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
@@ -137,7 +137,7 @@ class Snapshot:
 
             # ---------
             # Upload metadata
-            query,upload_messages = Migrator.upload_object_query(decw,obj_id,download_path,connection_settings)
+            query,upload_messages = TpIPFSLocal.upload_object_query(obj_id,download_path,connection_settings)
             messages.append(upload_messages)
             if len(upload_messages.get_error_messages()) > 0:
                 results[obj_id] = (False,messages)

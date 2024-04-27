@@ -6,6 +6,45 @@ import traceback as tb
 import hashlib
 
 class TpIPFSLocal():
+    @classmethod
+    def download_object(cls,TpSource,decw,object_ids,download_path,connection_settings, overwrite=False):
+        if type(object_ids) == str:
+            object_ids = [object_ids]
+        results = {}
+        for obj_id in object_ids:
+            messages = ObjectMessages("Migrator.download_object(for {obj_id})")
+            try:
+                success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
+                messages.append(merge_messages)
+                if success:
+                    if messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == False:
+                        raise Exception("Halt Now. The data is corrupt.")
+                    cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
+                    results[obj_id] = (True,messages)
+                else:
+                    results[obj_id] = (False,messages)
+            except:
+                exc = tb.format_exc()
+                if not os.path.exists(download_path+'/'+obj_id):
+                    os.makedirs(download_path+'/'+obj_id)
+               
+                with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
+                    f.write(exc)
+                messages.add_assert(False,"Exception encountered for "+obj_id+": "+exc ) 
+                results[obj_id] = (False,messages)
+        return results
+    
+    @classmethod
+    def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
+        merge_messages = ObjectMessages("Migrator.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+
+        new_cids = [obj['settings']['ipfs_cid']]
+        if 'ipfs_cids' in obj['settings']:
+            for cid in obj['settings']['ipfs_cids'].values():
+                new_cids.append(cid)
+        
+        result = TpSource.download_ipfs_data(cls,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+        return result
 
     @classmethod        
     def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
@@ -231,6 +270,42 @@ class TpIPFSLocal():
         except:
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
 
+    @classmethod
+    def upload_object_query(cls,obj_id,download_path,connection_settings):
+        '''
+            Validates the object, and generates a query to reupload the exact object
+        '''
+        messages = ObjectMessages("Migrator.upload_object_query(for {"+obj_id+"})")
+        if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
+            return False,messages
+            
+        obj = cls.load_entity({'self_id':obj_id,'attrib':True},download_path)
+        if messages.add_assert('settings' in obj, "no settings in "+obj_id) == False:
+            return False,messages
+        if messages.add_assert('ipfs_cid' in obj['settings'], "ipfs_cid is missing from local object. It is invalid. "+obj_id) == False:
+            return False,messages
+        if messages.add_assert('ipfs_cids' in obj['settings'], "ipfs_cids is missing from local object. It is invalid. "+obj_id) == False:
+            return False,messages
+        
+        #obj_cids = [obj['settings']['ipfs_cid']]
+        obj_cids = []
+        for path,cid in obj['settings']['ipfs_cids'].items():
+            cid_record = { 'cid':cid,
+                           'name':path }
+            cid_record['name'] = cid_record['name'].replace(obj_id+'/',"")
+            if len(path) > 0:
+                cid_record['root'] = True
+            obj_cids.append(cid_record)
+            #print(cid_record)
+            file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
+            if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
+                return False,messages
+
+        query = {
+            'attrib':obj
+        }
+        return query,messages
+    
     @classmethod
     def generate_file_hash(cls,file_path):
         hasher = hashlib.sha256()

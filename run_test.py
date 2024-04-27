@@ -287,7 +287,7 @@ def test_object_backup():
     except:
         pass
     # Migrator.download_ipfs_data(new_cids, download_path, connection_settings)
-    Migrator.download_object(decw,obj_id, download_obj_path, connection_settings)
+    TpIPFSLocal.download_object(TpIPFSDecelium,decw,obj_id, download_obj_path, connection_settings)
     
 
     # -- Remove Object --
