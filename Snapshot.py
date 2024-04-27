@@ -2,6 +2,9 @@ import os
 import json
 import shutil
 from Migrator import Migrator
+from datasource.TpIPFSDecelium import TpIPFSDecelium
+from datasource.TpIPFSLocal import TpIPFSLocal
+
 from Messages import ObjectMessages
 import traceback as tb
 
@@ -19,10 +22,10 @@ class Snapshot:
     def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
         result_json = {}
         result_json["self_id"] = obj_id
-        validation_set = {'local':{'func':Migrator.validate_local_object,
+        validation_set = {'local':{'func':TpIPFSLocal.validate_local_object,
                                    'prefix':'local'
                                    },
-                           'remote':{'func':Migrator.validate_remote_object,
+                           'remote':{'func':TpIPFSDecelium.validate_remote_object,
                                    'prefix':'remote'
                                      }
                            }
@@ -47,7 +50,7 @@ class Snapshot:
         if os.path.exists(download_path):
             local_object_ids = os.listdir(download_path)
 
-        found_objs = Migrator.find_batch_object_ids(decw,offset,limit,filter)
+        found_objs = TpIPFSDecelium.find_batch_object_ids(decw,offset,limit,filter)
         needed_objs = found_objs
         results = {}
         if len(needed_objs) <= 0:
@@ -57,7 +60,7 @@ class Snapshot:
 
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
-                object_results = Migrator.download_object(decw,[obj_id], download_path, connection_settings,overwrite )
+                object_results = TpIPFSLocal.download_object(TpIPFSDecelium,decw,[obj_id], download_path, connection_settings,overwrite )
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
@@ -116,14 +119,14 @@ class Snapshot:
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            remote_result, remote_validation_messages = Migrator.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
             if remote_result == True:
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
 
             # ---------
             # b) Make sure the local is complete
-            local_result, local_validation_messages = Migrator.validate_local_object(decw,obj_id, download_path, connection_settings)
+            local_result, local_validation_messages = TpIPFSLocal.validate_local_object(decw,obj_id, download_path, connection_settings)
             if local_result == False: # and remote_result == False:
                 results[obj_id] = (False,local_validation_messages.get_error_messages())
                 continue
@@ -134,7 +137,7 @@ class Snapshot:
 
             # ---------
             # Upload metadata
-            query,upload_messages = Migrator.upload_object_query(decw,obj_id,download_path,connection_settings)
+            query,upload_messages = TpIPFSLocal.upload_object_query(obj_id,download_path,connection_settings)
             messages.append(upload_messages)
             if len(upload_messages.get_error_messages()) > 0:
                 results[obj_id] = (False,messages)
@@ -145,13 +148,13 @@ class Snapshot:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
 
-            obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+            obj = TpIPFSDecelium.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},decw)
             if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ str(obj))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
 
             obj_cids = []
-            remote_result, remote_validation_messages = Migrator.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
             if remote_result == False:
                 results[obj_id]= (False,messages.get_error_messages())
@@ -161,19 +164,19 @@ class Snapshot:
                 for path,cid in obj['settings']['ipfs_cids'].items():
                     obj_cids.append(cid)
 
-                all_cids =  Migrator.ipfs_pin_list(decw, connection_settings,refresh=True)
+                all_cids =  TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,refresh=True)
                 missing_cids = list(set(obj_cids) - set(all_cids))
                 if(len(missing_cids) > 0):
-                    reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
+                    reupload_cids,upload_messages = TpIPFSLocal.upload_ipfs_data(TpIPFSDecelium,decw,download_path+'/'+obj_id,connection_settings)
                     messages.append(upload_messages)
-                    if messages.add_assert(Migrator.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
+                    if messages.add_assert(TpIPFSDecelium.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
                                         "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                         results[obj_id]= (False,messages.get_error_messages())
                         continue
 
             # ---------
             # Verify Upload was successful
-            remote_result, remote_validation_messages = Migrator.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
             results[obj_id]= (remote_result,remote_validation_messages.get_error_messages())
 
