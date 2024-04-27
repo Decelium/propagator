@@ -5,7 +5,17 @@ import traceback as tb
 
 class TpIPFSDecelium():
     @classmethod
+    def load_entity(cls,query,decw):
+        assert 'api_key' in query
+        assert 'self_id' in query or 'path' in query 
+        assert 'attrib' in query
+        return decw.net.download_entity(query)
+
+    @classmethod
     def backup_directory_dag(cls,client, cid, path=""):
+        print("-------")
+        print(cid)
+        print("-------")
         item_details_response = client.object.get(cid)
         item_details = {
             'Links': [{

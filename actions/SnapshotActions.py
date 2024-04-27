@@ -155,6 +155,7 @@ class AppendObjectFromRemote(Action):
         limit = 20
         offset = 0
         res = Snapshot.append_from_remote(record['decw'], record['connection_settings'], record['backup_path'], limit, offset,filter)
+        print(res)
         assert len(res) > 0
         assert res[record['obj_id']]['local'] == True
         
@@ -212,7 +213,8 @@ class ChangeRemoteObjectName(Action):
         self_id = record['self_id']
         dir_name = record['dir_name']
         assert response == True
-        obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':self_id,'attrib':True})
+        obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":self_id,'attrib':True},decw)
+
         assert obj['dir_name'] == dir_name   
         return True
 
@@ -269,10 +271,8 @@ class CorruptObject(Action):
         self_id = record['obj_id']
         decw = record['decw']
         connection_settings = record['connection_settings']
-        obj1 = decw.net.download_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True})
 
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
-        obj2 = decw.net.download_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True})
         assert success == True
     @staticmethod
     def corrupt_remote_delete_payload(record,memory):
@@ -281,7 +281,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
 
-        obj = decw.net.download_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True})
+        obj = TpIPFSDecelium.load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
 
         cids = [obj['settings']['ipfs_cid']]
         if 'ipfs_cids' in obj['settings']:
@@ -428,7 +428,7 @@ class DeleteObjectFromRemote(Action):
         user_context = record['user_context']
         connection_settings = record['connection_settings']
         path = record['path']
-        obj = decw.net.download_entity({'path':path,'api_key':decw.dw.pubk(),"attrib":True})
+        obj = TpIPFSDecelium.load_entity({'path':path,'api_key':decw.dw.pubk(),"attrib":True},decw)
         old_cids = [obj['settings']['ipfs_cid']] 
         for old_cid in obj['settings']['ipfs_cids'].values():
             old_cids.append(old_cid)
@@ -489,11 +489,9 @@ class PushFromSnapshotToRemote(Action):
         obj_id = record['obj_id']
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
-        obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
+        obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
 
         assert results[obj_id][0] == True
-        #assert Migrator.ipfs_has_cids(decw,new_cids, connection_settings) == True
-        obj = decw.net.download_entity({'api_key':'UNDEFINED','self_id':obj_id,'attrib':True})
         assert 'obj-' in obj['self_id']
 
     def postvalid(self,record,response,memory):

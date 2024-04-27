@@ -148,7 +148,7 @@ class Snapshot:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
 
-            obj = decw.net.download_entity({'api_key':api_key,"self_id":obj_id,'attrib':True})
+            obj = TpIPFSDecelium.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},decw)
             if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ str(obj))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue

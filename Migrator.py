@@ -7,43 +7,41 @@ import pandas
 from Messages import ObjectMessages
 from datasource.TpIPFSDecelium import TpIPFSDecelium
 from datasource.TpIPFSLocal import TpIPFSLocal
+from datasource.EntityData import EntityData
 
 import cid
 import multihash
 import traceback as tb
 import hashlib
 
-
 class Migrator():
     @classmethod
-    def backup_ipfs_entity(cls,item,current_pins,download_path,client,overwrite=False):
+    def backup_ipfs_entity(cls,item,pinned_cids,download_path,client,overwrite=False):
         new_cids = []
         assert 'cid' in item
-        cid = item['cid']
-        file_path = os.path.join(download_path, cid)
-        
-        # Check if the file already exists to avoid double writing
-        for relevant_file in  [file_path+".file",file_path+".dag"]:
-            if os.path.exists(relevant_file) and overwrite == False:
-                if TpIPFSLocal.compare_file_hash(relevant_file) == True:
-                    return new_cids
+        root_cid = item['cid']
 
-        cids = current_pins
+        file_path = os.path.join(download_path, root_cid)
+        
+        # Check if root the file already exists to avoid double writing
+        if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
+            return new_cids
+
         try:
             # Check if the item is pinned on this node
             pinned = False
-            if cid in cids:
+            if root_cid in pinned_cids:
                 pinned = True
             if not pinned:
                 return new_cids
-
+            #TpIPFSDecelium.ipfs_has_cids(decw,)
             # If pinned, proceed to download
             try:
-                res = client.cat(cid)
+                res = client.cat(root_cid)
                 #with open(file_path+".file", 'wb') as f:
                 #    f.write(res)
                 with open(file_path + ".file", 'wb') as f:
-                    for chunk in client.cat(cid, stream=True):
+                    for chunk in client.cat(root_cid, stream=True):
                         f.write(chunk)
 
                 current_hash = TpIPFSLocal.generate_file_hash(file_path+ ".file")
@@ -52,7 +50,7 @@ class Migrator():
                 
             except Exception as e:
                 if "is a directory" in str(e):
-                    dir_json = TpIPFSDecelium.backup_directory_dag(client,cid)
+                    dir_json = TpIPFSDecelium.backup_directory_dag(client,root_cid)
                     for new_item in dir_json['Links']:
                         #print(item)
                         #print(dir_json)
@@ -71,28 +69,33 @@ class Migrator():
             return new_cids
 
     @classmethod
-    def download_ipfs_data(cls,decw,docs, download_path, connection_settings,overwrite=False):
+    def download_ipfs_data(cls,decw,cids, download_path, connection_settings,overwrite=False):
+        # Cids of format [{'cid':CID1,'self_id':None}....{'cid':CIDN,'self_id':None}]
         c = connection_settings
+
         # Ensure the download directory exists
         if not os.path.exists(download_path):
             os.makedirs(download_path)
         ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
 
-        current_docs = docs
+        current_docs = cids
         next_batch = []
 
-        pins = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings)
+        all_pins = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings)
         with ipfshttpclient.connect(ipfs_string) as client:
             while len(current_docs) > 0:
                 for item in current_docs:
-                    dic = item
+                    dic = None
+                    if type(item) == dict:
+                        dic = item.copy()
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
-                    new_pins = cls.backup_ipfs_entity(dic,pins,download_path,client,overwrite)
+                    new_pins = cls.backup_ipfs_entity(dic,all_pins,download_path,client,overwrite)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
                 current_docs = next_batch
                 next_batch = []
+
 
     @classmethod
     def upload_ipfs_data(cls,decw,download_path,connection_settings):
@@ -116,7 +119,7 @@ class Migrator():
             messages = ObjectMessages("Migrator.upload_ipfs_data")
             messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
-            all_cids = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,True)            
+            # all_cids = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,True)            
         return cids,messages
     
 
@@ -125,7 +128,8 @@ class Migrator():
         # Load local. If the local has a problem
         # TODO - Validate the object before commiting to a local merge. As if a Decelium miner is broken, one could end up destroying a backup.
         # TODO - Handle merges both ways (could be used by push and pull as an underlying mechanism)
-        remote_obj = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True})
+
+        remote_obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
 
         local_obj = TpIPFSLocal.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         file_path = os.path.join(download_path,obj_id,'object.json')
@@ -217,6 +221,9 @@ class Migrator():
                     results[obj_id] = (False,messages)
             except:
                 exc = tb.format_exc()
+                if not os.path.exists(download_path+'/'+obj_id):
+                    os.makedirs(download_path+'/'+obj_id)
+               
                 with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
                     f.write(exc)
                 messages.add_assert(False,"Exception encountered for "+obj_id+": "+exc ) 

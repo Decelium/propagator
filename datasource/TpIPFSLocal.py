@@ -20,6 +20,16 @@ class TpIPFSLocal():
         return False
     
     @classmethod
+    def has_backedup_cid(cls,download_path,cid):
+        file_path = os.path.join(download_path, cid)        
+        for relevant_file in  [file_path+".file",file_path+".dag"]:
+            if os.path.exists(relevant_file):
+                if cls.compare_file_hash(relevant_file) == True:
+                    return True
+        return False
+     
+
+    @classmethod
     def validate_local_object(cls,decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
         messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
