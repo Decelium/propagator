@@ -6,6 +6,71 @@ import traceback as tb
 import hashlib
 
 class TpIPFSLocal():
+
+    @classmethod        
+    def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
+
+        remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
+        local_obj = TpIPFSLocal.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
+        file_path = os.path.join(download_path,obj_id,'object.json')
+        # Is the local accurate?
+        local_is_valid = TpIPFSLocal.compare_file_hash(file_path)
+        if local_is_valid != True:
+            local_obj = {'error':'__merge_attrib_from_remote() found that the object is invalid using compare_file_hash() '}
+
+
+        priority = 'local' if overwrite == False else 'remote'        
+        assert 'error'  in remote_obj or 'self_id' in remote_obj
+        assert 'error'  in local_obj or 'self_id' in local_obj
+        merge_messages = ObjectMessages("Migrator.__merge_attrib_from_remote(for obj_id)"+str(obj_id) )
+        if priority == 'local':
+            if  'error' in local_obj and 'error' in remote_obj:
+                merged_object =  None
+                do_write = False
+            elif  'self_id' in local_obj and 'error' in remote_obj:
+                merged_object = local_obj
+                do_write = False
+            elif 'error' in local_obj and 'self_id' in remote_obj: 
+                merged_object =  remote_obj
+                do_write = True
+            elif 'self_id' in local_obj and 'self_id' in remote_obj: 
+                merged_object = local_obj
+                do_write = False
+
+        if priority == 'remote':
+            if  'error' in local_obj and 'error' in remote_obj:
+                merged_object =  None
+                do_write = False
+            elif 'self_id' in local_obj and 'error' in remote_obj:
+                merged_object = local_obj
+                do_write = False
+            elif 'error' in local_obj and 'self_id' in remote_obj: 
+                merged_object =  remote_obj
+                do_write = True
+            elif 'self_id' in local_obj and 'self_id' in remote_obj: 
+                merged_object = local_obj
+                if str(local_obj) != str(remote_obj):
+                    merged_object = remote_obj
+                    do_write = True
+
+        if merge_messages.add_assert(merged_object != None,"There is no local or remote object to consider during pull" ) == False:
+            return False,merged_object,merge_messages
+
+        if do_write == True and merged_object:
+            dir_path = os.path.join(download_path, obj_id)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+            file_path = os.path.join(dir_path, 'object.json')
+            with open(file_path,'w') as f:
+                f.write(json.dumps(merged_object)) 
+
+            TpIPFSLocal.overwrite_file_hash(file_path)
+            return True,merged_object,merge_messages
+        
+        if do_write == False and merged_object:
+            return True,merged_object,merge_messages
+        raise Exception("Should never reach the end of this function.")
+        
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
         cids = [] 

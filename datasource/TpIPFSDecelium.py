@@ -104,7 +104,8 @@ class TpIPFSDecelium():
                 'connection_settings':connection_settings,
                 'payload_type':payload_type,
                 'payload':file_path})
-        
+        return result
+    
     @classmethod
     def find_download_entity(cls,decw,offset=0,limit=20):
         found = []
