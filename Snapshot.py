@@ -167,7 +167,7 @@ class Snapshot:
                 all_cids =  TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,refresh=True)
                 missing_cids = list(set(obj_cids) - set(all_cids))
                 if(len(missing_cids) > 0):
-                    reupload_cids,upload_messages = Migrator.upload_ipfs_data(decw,download_path+'/'+obj_id,connection_settings)
+                    reupload_cids,upload_messages = TpIPFSLocal.upload_ipfs_data(TpIPFSDecelium,decw,download_path+'/'+obj_id,connection_settings)
                     messages.append(upload_messages)
                     if messages.add_assert(TpIPFSDecelium.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
                                         "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:

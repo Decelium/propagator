@@ -95,7 +95,16 @@ class TpIPFSDecelium():
                 'connection_settings':connection_settings})       
         assert not 'error' in pins
         return pins
-
+    
+    @classmethod
+    def upload_path_to_ipfs(cls,decw,connection_settings,payload_type,file_path):
+        result = decw.net.create_ipfs({
+                'api_key':"UNDEFINED",
+                'file_type':'ipfs', 
+                'connection_settings':connection_settings,
+                'payload_type':payload_type,
+                'payload':file_path})
+        
     @classmethod
     def find_download_entity(cls,decw,offset=0,limit=20):
         found = []
