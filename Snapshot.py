@@ -93,13 +93,15 @@ class Snapshot:
     @staticmethod
     def remove_entity(filter,download_path):
         assert 'self_id' in filter
-        assert 'attrib' in filter and filter['attrib'] == True
         try:
-            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
-                obj_attrib = json.loads(f.read())
-            return obj_attrib
+            if os.path.exists(download_path+'/'+filter['self_id']):
+                os.rmdir(download_path+'/'+filter['self_id'])
+            if os.path.exists(download_path+'/'+filter['self_id']):
+                return {'error':'could not remove item'}
+            return True
         except:
-            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id']+'/object.json'}
+        return {'error':'uncaught control flow error.'}
 
 
     @staticmethod
