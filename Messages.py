@@ -25,7 +25,7 @@ class ObjectMessages():
             assert tag in ObjectMessages.allowed_tags
             self.tags[tag] = tag
         msg = {"result":assert_condition}
-        if assert_condition != True:
+        if assert_condition == False:
             msg['name'] = self.name
             msg['error'] = error_message
             msg['tags'] = tags
