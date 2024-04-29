@@ -1,6 +1,6 @@
 import decelium_wallet.core as core
 import pandas
-from Messages import ObjectMessages
+from ..Messages import ObjectMessages
 import traceback as tb
 import ipfshttpclient
 

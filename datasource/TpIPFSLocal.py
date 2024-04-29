@@ -1,7 +1,7 @@
 import decelium_wallet.core as core
 import os
 import json
-from Messages import ObjectMessages
+from ..Messages import ObjectMessages
 import traceback as tb
 import hashlib
 

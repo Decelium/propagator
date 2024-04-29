@@ -1,11 +1,10 @@
 import os
 import json
 import shutil
-from Migrator import Migrator
-from datasource.TpIPFSDecelium import TpIPFSDecelium
-from datasource.TpIPFSLocal import TpIPFSLocal
+from .datasource.TpIPFSDecelium import TpIPFSDecelium
+from .datasource.TpIPFSLocal import TpIPFSLocal
 
-from Messages import ObjectMessages
+from .Messages import ObjectMessages
 import traceback as tb
 
 class Snapshot:  

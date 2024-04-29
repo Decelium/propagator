@@ -1,9 +1,9 @@
 
 import traceback as tb
-from Snapshot import Snapshot
-from Migrator import Migrator
-from datasource.TpIPFSDecelium import TpIPFSDecelium
-from datasource.TpIPFSLocal import TpIPFSLocal
+from ..Snapshot import Snapshot
+from ..Migrator import Migrator
+from ..datasource.TpIPFSDecelium import TpIPFSDecelium
+from ..datasource.TpIPFSLocal import TpIPFSLocal
 
 import decelium_wallet.core as core
 import ipfshttpclient
