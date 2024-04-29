@@ -50,10 +50,10 @@ class TpIPFSLocal():
     def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
 
         remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
-        local_obj = TpIPFSLocal.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
+        local_obj = cls.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         file_path = os.path.join(download_path,obj_id,'object.json')
         # Is the local accurate?
-        local_is_valid = TpIPFSLocal.compare_file_hash(file_path)
+        local_is_valid = cls.compare_file_hash(file_path)
         if local_is_valid != True:
             local_obj = {'error':'__merge_attrib_from_remote() found that the object is invalid using compare_file_hash() '}
 
@@ -109,7 +109,7 @@ class TpIPFSLocal():
         if do_write == False and merged_object:
             return True,merged_object,merge_messages
         raise Exception("Should never reach the end of this function.")
-        
+    
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
         cids = [] 

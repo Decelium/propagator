@@ -1,15 +1,12 @@
 import os
 import json
 import shutil
-from Migrator import Migrator
 from datasource.TpIPFSDecelium import TpIPFSDecelium
 from datasource.TpIPFSLocal import TpIPFSLocal
-
 from Messages import ObjectMessages
 import traceback as tb
 
 class Snapshot:  
-
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
             result = {}
@@ -93,10 +90,11 @@ class Snapshot:
     @staticmethod
     def remove_entity(filter,download_path):
         assert 'self_id' in filter
-        assert 'attrib' in filter and filter['attrib'] == True
         try:
-            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
-                obj_attrib = json.loads(f.read())
+            if os.path.exists(download_path+'/'+filter['self_id']):
+                os.rmdir(download_path+'/'+filter['self_id'])
+            if os.path.exists(download_path+'/'+filter['self_id']):
+                return {'error':'could not remove item'}
             return obj_attrib
         except:
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
