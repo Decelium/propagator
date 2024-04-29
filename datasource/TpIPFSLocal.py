@@ -114,7 +114,6 @@ class TpIPFSLocal():
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
         cids = [] 
         for item in os.listdir(download_path):
-            # Construct the full path of the item-
             file_path = os.path.join(download_path, item)
             if file_path.endswith('.file'):
                 payload_type = 'local_path'
@@ -124,7 +123,12 @@ class TpIPFSLocal():
                 continue
             result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
             messages = ObjectMessages("Migrator.upload_ipfs_data")
-            messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
+            #print("Broken Result")
+            #print(result)
+            #if messages.add_assert(len (list(result.keys())) > 0,"Did not get a result for  "+file_path ) == False:
+            #    continue
+                    
+            messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
             # all_cids = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,True)            
         return cids,messages

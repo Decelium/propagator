@@ -95,9 +95,10 @@ class Snapshot:
                 os.rmdir(download_path+'/'+filter['self_id'])
             if os.path.exists(download_path+'/'+filter['self_id']):
                 return {'error':'could not remove item'}
-            return obj_attrib
+            return True
         except:
-            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id']+'/object.json'}
+        return {'error':'uncaught control flow error.'}
 
 
     @staticmethod

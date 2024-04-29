@@ -1,7 +1,7 @@
 
 import traceback as tb
+
 from Snapshot import Snapshot
-from Migrator import Migrator
 from datasource.TpIPFSDecelium import TpIPFSDecelium
 from datasource.TpIPFSLocal import TpIPFSLocal
 
@@ -547,8 +547,11 @@ def upload_directory_to_remote(self,record,memory=None):
             'payload_type':'ipfs_pin_list',
             'payload':pins}})
     obj_id = decw.net.create_entity(singed_req)
-    assert 'obj-' in obj_id    
-
+    try:
+        assert 'obj-' in obj_id    
+    except Exception as e:
+        print("Failing Object Id" + str(obj_id))
+        raise e
     return obj_id
 
 
