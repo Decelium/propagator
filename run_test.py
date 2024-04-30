@@ -337,11 +337,12 @@ def run_corruption_tests(decw,
             'connection_settings':connection_settings,        
         }
         backup_instruction["corruption"] = corruption['corruption']
+        backup_instruction["pre_status"] = corruption['pre_status']
         backup_instruction["mode"] = corruption['mode']
         backup_instruction.update(corruption)
         corrupt_local_object_backup(backup_instruction)
         if corruption['mode'] == 'local':
-            evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
+            evaluate_object_status({**eval_context,'target':'local','status':[backup_instruction["pre_status"]]})
             evaluate_object_status({**eval_context,'target':'remote','status':['complete']}) 
             pull_object_from_remote({
                 'connection_settings':connection_settings,
@@ -357,7 +358,7 @@ def run_corruption_tests(decw,
 
         elif corruption['mode'] == 'remote':
             evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['payload_missing']}) 
+            evaluate_object_status({**eval_context,'target':'remote','status':[backup_instruction["pre_status"]]}) 
             push_from_snapshot_to_remote({
                 'decw': decw,
                 'obj_id':obj['self_id'],
@@ -449,15 +450,15 @@ def test_simple_snapshot():
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
     all_corruptions= [ 
-        {'corruption':"delete_payload","expect":True, "mode":'local'}, 
-        {'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
-        {'corruption':"remove_attrib","expect":True, "mode":'local'}, 
-        {'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
-        {'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
-        {'corruption':"delete_payload","expect":True, "mode":'remote'}, 
-        {'corruption':"corrupt_payload","expect":True, "mode":'remote'}, 
-        {'corruption':"remove_attrib","expect":True, "mode":'remote'},  ####
-        {'corruption':"rename_attrib_filename","expect":True, "mode":'remote'}, ####
+        {'corruption':"delete_payload","expect":True, "mode":'local','pre_status':'payload_missing'}, 
+        {'corruption':"corrupt_payload","expect":True, "mode":'local','pre_status':'payload_missing'}, 
+        {'corruption':"remove_attrib","expect":True, "mode":'local','pre_status':'payload_missing'}, 
+        {'corruption':"corrupt_attrib","expect":True, "mode":'local','pre_status':'payload_missing'}, 
+        {'corruption':"rename_attrib_filename","expect":True, "mode":'local','pre_status':'payload_missing'},
+        {'corruption':"delete_payload","expect":True, "mode":'remote','pre_status':'payload_missing'}, 
+        {'corruption':"corrupt_payload","expect":True, "mode":'remote','pre_status':'payload_missing'}, 
+        {'corruption':"remove_attrib","expect":True, "mode":'remote','pre_status':'payload_missing'},  ####
+        {'corruption':"rename_attrib_filename","expect":True, "mode":'remote','pre_status':'payload_missing'}, ####
         ]    
     run_corruption_tests(decw,
                          obj,

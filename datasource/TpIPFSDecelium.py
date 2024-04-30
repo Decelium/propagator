@@ -58,12 +58,22 @@ class TpIPFSDecelium():
     @classmethod
     def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
         # Compares the local object with the remote
+        # Break into validate entity / validate payload?
         messages = ObjectMessages("Migrator.validate_remote_object(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         obj_valid = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id})
-        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by validate_entity") == False:
-            return False, messages        
+        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_entity") == False:
+            return False, messages
+             
+        obj_valid2 = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
+        if messages.add_assert(obj_valid2 == True, f"{object_id} seems to be invalid, as reported by Mirror validate_entity") == False:
+            return False, messages   
+                 
+        obj_valid3 = decw.net.validate_payload( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
+        if messages.add_assert(obj_valid3 == True, f"{object_id} Mirrored payload is registering as invalid") == False:
+            return False, messages             
+        
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
             if messages.add_assert(k in obj_remote and obj_remote[k] != None, "missing {k} for {object_id}") == False:
