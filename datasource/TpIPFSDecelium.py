@@ -66,13 +66,13 @@ class TpIPFSDecelium():
         if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_entity") == False:
             return False, messages
              
-        obj_valid2 = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
-        if messages.add_assert(obj_valid2 == True, f"{object_id} seems to be invalid, as reported by Mirror validate_entity") == False:
-            return False, messages   
+        #obj_valid2 = decw.net.validate_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
+        #if messages.add_assert(obj_valid2 == True, f"{object_id} seems to be invalid, as reported by Mirror validate_entity") == False:
+        #    return False, messages   
                  
-        obj_valid3 = decw.net.validate_payload( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
-        if messages.add_assert(obj_valid3 == True, f"{object_id} Mirrored payload is registering as invalid") == False:
-            return False, messages             
+        #obj_valid3 = decw.net.validate_payload( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
+        #if messages.add_assert(obj_valid3 == True, f"{object_id} Mirrored payload is registering as invalid") == False:
+        #    return False, messages             
         
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:

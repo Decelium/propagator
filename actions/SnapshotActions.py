@@ -4,7 +4,7 @@ import traceback as tb
 from Snapshot import Snapshot
 from datasource.TpIPFSDecelium import TpIPFSDecelium
 from datasource.TpIPFSLocal import TpIPFSLocal
-
+from Messages import ObjectMessages
 import decelium_wallet.core as core
 import ipfshttpclient
 import os
@@ -13,6 +13,9 @@ import pprint
 import pandas
 import shutil
 import random
+
+
+
 
 def agent_action(**overrides):
     def decorator(run_func):
@@ -59,7 +62,7 @@ class Action():
             goal_text = self.explain(record,memory)
             err_str = "Encountered an exception when seeking action:\n\n "
             err_str += goal_text
-            #err_str += "Exception:\n\n"
+            #err_str += "\n\nException:\n\n"
             #err_str += exc
             print(err_str)
             raise e
@@ -244,7 +247,7 @@ class CorruptObject(Action):
         b) complete a corruption
         c) post: The corruption is reported correctly by the validation tools
          ['delete_payload','remove_attrib','rename_attrib_filename']
-        """
+        for record: """+ str(record)
     @staticmethod
     def corrupt_remote_corrupt_payload(record,memory):
         backup_path = record['backup_path']
@@ -252,10 +255,16 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload"},["admin"]))
+        if type(obj) == dict:
+            assert not 'error' in obj
         pins = decw.net.download_pin_status({
                 'api_key':"UNDEFINED",
                 'do_refresh':True,
-                'connection_settings':connection_settings})    
+                'connection_settings':connection_settings})   
+        # import pprint
+        # print("corrupt_remote_corrupt_payload visual inspection")
+        # pprint.pprint(obj)
+        # pprint.pprint(pins)
 
     @staticmethod
     def corrupt_remote_remove_attrib(record,memory):
@@ -403,15 +412,21 @@ class CorruptObject(Action):
         decw = record['decw']
         mode = record['mode']
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
-
-        assert local_results[mode] == False
-        #assert len(memory['removed']) > 0
-        if 'removed' in memory:
-            for file_path in memory['removed']:
-                assert os.path.exists(file_path) == False
-        if 'corrupted' in memory:
-            for file_path in memory['corrupted']:
-                assert os.path.exists(file_path) == True
+        messages:ObjectMessages = messages
+        try:
+            assert local_results[mode] == False
+            #assert len(memory['removed']) > 0
+            if 'removed' in memory:
+                for file_path in memory['removed']:
+                    assert os.path.exists(file_path) == False
+            if 'corrupted' in memory:
+                for file_path in memory['corrupted']:
+                    assert os.path.exists(file_path) == True
+        except Exception as e:
+            print("Printing messages along with failed corruption")
+            print(local_results)
+            print(messages.get_error_messages())
+            raise e
         return True
 
 
@@ -490,8 +505,8 @@ class PushFromSnapshotToRemote(Action):
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
         obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
-
-        assert results[obj_id][0] == True
+        print(results)
+        assert results[obj_id][0] == True, "Could not validate "+ str(results)
         assert 'obj-' in obj['self_id']
 
     def postvalid(self,record,response,memory):
@@ -541,6 +556,11 @@ def upload_directory_to_remote(self,record,memory=None):
     singed_req = decw.dw.sr({**user_context, **{
             'path':record['decelium_path']}})
     del_try = decw.net.delete_entity(singed_req)
+    try:
+        assert del_try == True  
+    except Exception as e:
+        print("Failing Delete Object Id" + str(del_try))
+        raise e
     singed_req = decw.dw.sr({**user_context, **{
             'path':record['decelium_path'],
             'file_type':'ipfs',

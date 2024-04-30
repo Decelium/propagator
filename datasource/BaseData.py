@@ -1,3 +1,21 @@
+from functools import wraps
+
+def auto_c(parameter_type):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            new_args = [
+                parameter_type(arg) if isinstance(arg, dict) and parameter_type is not dict else arg
+                for arg in args
+            ]
+            new_kwargs = {
+                k: parameter_type(v) if isinstance(v, dict) and parameter_type is not dict else v
+                for k, v in kwargs.items()
+            }
+            return func(*new_args, **new_kwargs)
+        return wrapper
+    return decorator
+
 class BaseData(dict):
     @staticmethod
     def get_keys(self):
@@ -11,7 +29,7 @@ class BaseData(dict):
     def __init__(self, init_dict):
         required_keys, optional_keys = self.get_keys()
         init_data = init_dict
-
+        
         for key, expected_type in required_keys.items():
             if key not in init_dict:
                 raise ValueError(f"Key '{key}' must be in the initialization dictionary")

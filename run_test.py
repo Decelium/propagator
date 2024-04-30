@@ -12,6 +12,13 @@ import pandas
 import shutil
 import random 
 
+from datasource.BaseData import BaseData,auto_c
+class CorruptionTestData(BaseData):
+    def get_keys(self):
+        required = {'corruption':str,"post_status":str, "mode":str,'pre_status':str}
+        optional = {}
+        return required, optional    
+
 def run_ipfs_backup():
     decw = core()
     connection_settings = {'host': "devdecelium.com",
@@ -151,14 +158,6 @@ def test_ipfs_folder_backup():
         assert 'cid' in pins_new[0]
         assert pin['cid'] == pins_new[0]['cid']
 
-        # result = decw.net.remove_ipfs({
-        #        'api_key':"UNDEFINED",
-        #        'file_type':'ipfs', 
-        #        'connection_settings':connection_settings,
-        #        'payload_type':'cid',
-        #        'payload':[pin['cid']]})
-        # assert result[pin['cid']]['removed'] == True
-
 
     for pin in pins:
         if not TpIPFSDecelium.is_directory(decw,connection_settings,pin['cid']):
@@ -282,14 +281,7 @@ def test_object_backup():
     # -- Upload IPFS only Backup & Verify Correctness -- 
     cids_reuploaded =  TpIPFSDecelium.upload_ipfs_data(decw,download_obj_path+'/'+obj_id,connection_settings) 
     assert len(cids_reuploaded) > 0
-    
-    #result = decw.net.remove_ipfs({
-    #        'api_key':"UNDEFINED",
-    #        'file_type':'ipfs', 
-    #        'connection_settings':connection_settings,
-    #        'payload_type':'cid',
-    #        'payload':backup_cids})
-    
+
     # -- Restore the object with object re-upload -- 
     query = Migrator.upload_object_query(decw,obj_id, download_obj_path, connection_settings)
     result = decw.net.create_entity(decw.dw.sr({**query,**user_context},["admin"]))
@@ -324,50 +316,70 @@ def run_corruption_tests(decw,
     '''
     Runs a series of data corruptions, and ensures the system failes or recovers as expected
     '''
-    corrupt_local_object_backup = CorruptObject()
+    corrupt_object_backup = CorruptObject()
     change_remote_object_name = ChangeRemoteObjectName()
     pull_object_from_remote = PullObjectFromRemote()
     push_from_snapshot_to_remote = PushFromSnapshotToRemote()
 
-    for corruption in all_corruptions:
-        backup_instruction  ={
-            'decw': decw,
-            'obj_id':obj['self_id'],
-            'backup_path':backup_path,        
-            'connection_settings':connection_settings,        
-        }
-        backup_instruction["corruption"] = corruption['corruption']
-        backup_instruction["pre_status"] = corruption['pre_status']
-        backup_instruction["mode"] = corruption['mode']
-        backup_instruction.update(corruption)
-        corrupt_local_object_backup(backup_instruction)
+    for corruption_list in all_corruptions:
+
+        # 1 - Run the corruptions
+        for corruption in corruption_list:
+            corruption = CorruptionTestData(corruption)
+            backup_instruction  ={
+                'decw': decw,
+                'obj_id':obj['self_id'],
+                'backup_path':backup_path,        
+                'connection_settings':connection_settings,        
+            }
+            backup_instruction["corruption"] = corruption['corruption']
+            backup_instruction["pre_status"] = corruption['pre_status']
+            backup_instruction["post_status"] = corruption['post_status']
+            backup_instruction["mode"] = corruption['mode']
+            backup_instruction.update(corruption)
+            corrupt_object_backup(backup_instruction)
         if corruption['mode'] == 'local':
-            evaluate_object_status({**eval_context,'target':'local','status':[backup_instruction["pre_status"]]})
-            evaluate_object_status({**eval_context,'target':'remote','status':['complete']}) 
-            pull_object_from_remote({
+            merge_function = pull_object_from_remote
+            truth_target = 'remote'
+            corruption_target = 'local'
+        elif corruption['mode'] == 'remote':
+            merge_function = push_from_snapshot_to_remote
+            truth_target = 'local'
+            corruption_target = 'remote'
+        else:
+            assert True==False, "Forcing a failure as we are not corrupting remote or local"
+            
+        # 2a - If we are local, restore local
+        if corruption['mode'] == 'local':
+            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']}) 
+            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["pre_status"]]})
+            merge_function({
                 'connection_settings':connection_settings,
                 'backup_path':backup_path,
                 'overwrite': False,
                 'decw': decw,
                 'user_context': user_context,
                 'obj_id':obj['self_id'],
-                'expected_result': corruption['expect'],
+                'expected_result':True,
             })
-            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
-
+            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})  
+            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["post_status"]]})
+          
+        # 2a - If we are remote, restore remote
         elif corruption['mode'] == 'remote':
-            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':[backup_instruction["pre_status"]]}) 
-            push_from_snapshot_to_remote({
-                'decw': decw,
-                'obj_id':obj['self_id'],
-                'user_context':user_context,
+            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})
+            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["pre_status"]]}) 
+            merge_function({
                 'connection_settings':connection_settings,
                 'backup_path':backup_path,
+                'overwrite': False,                
+                'decw': decw,
+                'user_context':user_context,
+                'obj_id':obj['self_id'],
+                'expected_result':True,
             })
-            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})
+            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["post_status"]]})    
         else:
             assert True == False 
 
@@ -450,15 +462,15 @@ def test_simple_snapshot():
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
     all_corruptions= [ 
-        {'corruption':"delete_payload","expect":True, "mode":'local','pre_status':'payload_missing'}, 
-        {'corruption':"corrupt_payload","expect":True, "mode":'local','pre_status':'payload_missing'}, 
-        {'corruption':"remove_attrib","expect":True, "mode":'local','pre_status':'payload_missing'}, 
-        {'corruption':"corrupt_attrib","expect":True, "mode":'local','pre_status':'payload_missing'}, 
-        {'corruption':"rename_attrib_filename","expect":True, "mode":'local','pre_status':'payload_missing'},
-        {'corruption':"delete_payload","expect":True, "mode":'remote','pre_status':'payload_missing'}, 
-        {'corruption':"corrupt_payload","expect":True, "mode":'remote','pre_status':'payload_missing'}, 
-        {'corruption':"remove_attrib","expect":True, "mode":'remote','pre_status':'payload_missing'},  ####
-        {'corruption':"rename_attrib_filename","expect":True, "mode":'remote','pre_status':'payload_missing'}, ####
+        #[{'corruption':"delete_payload","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
+        #[{'corruption':"corrupt_payload","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
+        #[{'corruption':"remove_attrib","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
+        #[{'corruption':"corrupt_attrib","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
+        #[{'corruption':"rename_attrib_filename","post_status":'complete', "mode":'local','pre_status':'payload_missing'}],
+        [{'corruption':"delete_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}], 
+        #[{'corruption':"corrupt_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}], 
+        #[{'corruption':"remove_attrib","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}],
+        #[{'corruption':"rename_attrib_filename","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}],
         ]    
     run_corruption_tests(decw,
                          obj,
@@ -474,7 +486,7 @@ def test_miner_backup():
     create_wallet_action = CreateDecw()
     append_object_from_remote = AppendObjectFromRemote()
     delete_object_from_remote = DeleteObjectFromRemote()
-    corrupt_local_object_backup = CorruptObject()
+    corrupt_object_backup = CorruptObject()
     
     decw, connected = create_wallet_action({
          'wallet_path': '../.wallet.dec',

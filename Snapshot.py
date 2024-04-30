@@ -5,6 +5,40 @@ from datasource.TpIPFSDecelium import TpIPFSDecelium
 from datasource.TpIPFSLocal import TpIPFSLocal
 from Messages import ObjectMessages
 import traceback as tb
+from datasource.BaseData import BaseData,auto_c
+
+
+'''
+---
+@auto_convert(HumanData)
+def someFunc(human: HumanData):
+
+
+---
+class HumanData(BaseData):
+    def get_keys(self):
+        required = {'id': str, 'name': str}
+        optional = {'age': int, 'interests': dict,'arm':BodyPartData}
+        return required, optional    
+    
+    def do_validation(self,key,value):
+        print ("Validating "+ key)
+        if key == 'age':
+            assert value > 0 and value < 120, "Humans must have a valid age range"
+        return value,""
+
+'''
+class EntityRequestData(BaseData):
+    def get_keys(self):
+        required = {'self_id': str }
+        optional = {'attrib': bool}
+        return required, optional    
+    
+    #def do_validation(self,key,value):
+    #    print ("Validating "+ key)
+    #    if key == 'age':
+    #        assert value > 0 and value < 120, "Humans must have a valid age range"
+    #    return value,""
 
 class Snapshot:  
     @staticmethod
@@ -12,7 +46,7 @@ class Snapshot:
             result = {}
             result[prefix] = status
             result[prefix+"_message"] = message
-            result[prefix+"_error"] = tb.format_exc()
+            result[prefix+"_error"] = error
             return result
     
     @staticmethod
@@ -77,8 +111,8 @@ class Snapshot:
         return results
 
     @staticmethod
-    def load_entity(filter,download_path):
-        assert 'self_id' in filter
+    @auto_c(EntityRequestData)
+    def load_entity(filter:EntityRequestData,download_path:str):
         assert 'attrib' in filter and filter['attrib'] == True
         try:
             with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
@@ -88,8 +122,8 @@ class Snapshot:
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
 
     @staticmethod
-    def remove_entity(filter,download_path):
-        assert 'self_id' in filter
+    @auto_c(EntityRequestData)
+    def remove_entity(filter:EntityRequestData,download_path:str):
         try:
             if os.path.exists(download_path+'/'+filter['self_id']):
                 os.rmdir(download_path+'/'+filter['self_id'])
