@@ -338,6 +338,7 @@ def run_corruption_tests(decw,
             backup_instruction["mode"] = corruption['mode']
             backup_instruction.update(corruption)
             corrupt_object_backup(backup_instruction)
+        
         if corruption['mode'] == 'local':
             merge_function = pull_object_from_remote
             truth_target = 'remote'
@@ -348,40 +349,21 @@ def run_corruption_tests(decw,
             corruption_target = 'remote'
         else:
             assert True==False, "Forcing a failure as we are not corrupting remote or local"
-            
-        # 2a - If we are local, restore local
-        if corruption['mode'] == 'local':
-            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']}) 
-            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["pre_status"]]})
-            merge_function({
-                'connection_settings':connection_settings,
-                'backup_path':backup_path,
-                'overwrite': False,
-                'decw': decw,
-                'user_context': user_context,
-                'obj_id':obj['self_id'],
-                'expected_result':True,
-            })
-            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})  
-            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["post_status"]]})
-          
-        # 2a - If we are remote, restore remote
-        elif corruption['mode'] == 'remote':
-            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})
-            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["pre_status"]]}) 
-            merge_function({
-                'connection_settings':connection_settings,
-                'backup_path':backup_path,
-                'overwrite': False,                
-                'decw': decw,
-                'user_context':user_context,
-                'obj_id':obj['self_id'],
-                'expected_result':True,
-            })
-            evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})
-            evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["post_status"]]})    
-        else:
-            assert True == False 
+        
+        # 2 - 
+        evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']}) 
+        evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["pre_status"]]})
+        merge_function({
+            'connection_settings':connection_settings,
+            'backup_path':backup_path,
+            'overwrite': False,
+            'decw': decw,
+            'user_context': user_context,
+            'obj_id':obj['self_id'],
+            'expected_result':True,
+        })
+        evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})  
+        evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["post_status"]]})
 
 def test_simple_snapshot():
     # setup connection 
@@ -461,6 +443,24 @@ def test_simple_snapshot():
     })
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+    # Test Plan TODO: Mirror Validation
+    # https://github.com/orgs/Decelium/projects/1/views/1?pane=issue&itemId=61885426    
+    # For: [Payload Delete,Payload Corrupt, Entity Corrupt,Entity Delete, Delete Payload & Object], auto_repair == False:
+    # 1 [ ] - Validate Object Storage (SUN)
+    # 2 [ ] - Validate Mirror Storage (SUN)
+    # 3 [ ] - Corrupt Object, Validate Object == False (MON)
+    # 4 [ ] - Repair Remote, Validate Object == True (MON)
+    # 5 [ ] - Corrupt Mirror, Validate Mirror == False (TUES)
+    # 6 [ ] - Repair Remotce, Validate Mirror == True (TUES)
+    # 7 [ ] - Corrupt Object & Mirror
+    # 8 [ ] - Repair == False, Validate Object == False, Validate Mirror == False
+    # 9 [ ] - Push to Remote
+    # 10 [ ] - Validate Object == True, Validate Mirror == False
+    # 11 [ ] - Repair == True
+    # 12 [ ] - Validate Object == True, Validate Mirror == True
+    # 13 [ ] - Delete Object
+    # 14 [ ] - Validate Object == False, Validate Mirror == False
+ 
     all_corruptions= [ 
         #[{'corruption':"delete_payload","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
         #[{'corruption':"corrupt_payload","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 

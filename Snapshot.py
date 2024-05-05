@@ -1,33 +1,19 @@
 import os
 import json
 import shutil
-from datasource.TpIPFSDecelium import TpIPFSDecelium
-from datasource.TpIPFSLocal import TpIPFSLocal
-from Messages import ObjectMessages
+try:
+    from datasource.TpIPFSDecelium import TpIPFSDecelium
+    from datasource.TpIPFSLocal import TpIPFSLocal
+    from Messages import ObjectMessages
+    from datasource.BaseData import BaseData,auto_c
+except:
+    from .datasource.TpIPFSDecelium import TpIPFSDecelium
+    from .datasource.TpIPFSLocal import TpIPFSLocal
+    from .datasource.BaseData import BaseData,auto_c
+    from .Messages import ObjectMessages
+
 import traceback as tb
-from datasource.BaseData import BaseData,auto_c
 
-
-'''
----
-@auto_convert(HumanData)
-def someFunc(human: HumanData):
-
-
----
-class HumanData(BaseData):
-    def get_keys(self):
-        required = {'id': str, 'name': str}
-        optional = {'age': int, 'interests': dict,'arm':BodyPartData}
-        return required, optional    
-    
-    def do_validation(self,key,value):
-        print ("Validating "+ key)
-        if key == 'age':
-            assert value > 0 and value < 120, "Humans must have a valid age range"
-        return value,""
-
-'''
 class EntityRequestData(BaseData):
     def get_keys(self):
         required = {'self_id': str }
@@ -53,20 +39,45 @@ class Snapshot:
     def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
         result_json = {}
         result_json["self_id"] = obj_id
-        validation_set = {'local':{'func':TpIPFSLocal.validate_local_object,
-                                   'prefix':'local'
-                                   },
-                           'remote':{'func':TpIPFSDecelium.validate_remote_object,
-                                   'prefix':'remote'
-                                     }
-                           }
+        # entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
+        # payload_success,payload_messages = cls.validate_local_object_payload(decw,object_id,download_path,connection_settings)        
+        #
+        # TODO - Consolidate and refactor function users (?)
+        validation_set = {
+            'local':{'func':TpIPFSLocal.validate_local_object,
+                    'prefix':'local'
+                    },
+            'remote':{'func':TpIPFSDecelium.validate_remote_object,
+                    'prefix':'remote'
+                    },
+            'local_entity':{'func':TpIPFSLocal.validate_local_object_entity,
+                    'prefix':'local_entity'
+                    },
+            'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
+                    'prefix':'local_payload'
+                    },
+            'remote_entity':{'func':TpIPFSDecelium.validate_remote_object_entity,
+                    'prefix':'remote_entity'
+                        },
+            'remote_payload':{'func':TpIPFSDecelium.validate_remote_object_payload,
+                    'prefix':'remote_payload'
+                        },
+            'remote_entity_mirror':{'func':TpIPFSDecelium.validate_remote_object_entity_mirror,
+                    'prefix':'remote_entity_mirror'
+                        },
+            'remote_payload_mirror':{'func':TpIPFSDecelium.validate_remote_object_payload_mirror,
+                    'prefix':'remote_payload_mirror'
+                        }                        
+        }
         prefix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
         #try:
+        
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
             messages.append(previous_messages)
         result_json = Snapshot.format_object_status_json(obj_id,prefix,result,messages.get_error_messages(),"")
+
         return   result_json,messages      
         #except:
         #    result_json = Snapshot.format_object_status_json(obj_id,prefix,False,previous_messages,tb.format_exc())

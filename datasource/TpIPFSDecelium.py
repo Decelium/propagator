@@ -1,6 +1,9 @@
 import decelium_wallet.core as core
 import pandas
-from Messages import ObjectMessages
+try:
+    from Messages import ObjectMessages
+except:
+    from ..Messages import ObjectMessages
 import traceback as tb
 import ipfshttpclient
 
@@ -54,7 +57,7 @@ class TpIPFSDecelium():
             } for link in item_details_response['Links']]
         }
         return item_details
-        
+    '''
     @classmethod
     def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
         # Compares the local object with the remote
@@ -95,8 +98,71 @@ class TpIPFSDecelium():
                     'cid': cid})
             messages.add_assert(result == True, "cid is missing from remote "+cid)
 
+        return len(messages.get_error_messages()) == 0, messages         
+    '''
+    @classmethod
+    def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        entity_success,entity_messages = cls.validate_remote_object_entity(decw,object_id,download_path,connection_settings)
+        payload_success,payload_messages = cls.validate_remote_object_payload(decw,object_id,download_path,connection_settings)
+        entity_messages:ObjectMessages = entity_messages
+        all_messages:ObjectMessages = payload_messages
+        all_messages.append(entity_messages)
+        return entity_success and payload_success,all_messages
 
-        return len(messages.get_error_messages()) == 0, messages    
+    @classmethod
+    def validate_remote_object_entity(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        messages = ObjectMessages("Migrator.validate_remote_object_entity(for {"+object_id+"})")
+        obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
+        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
+            return False, messages
+        return len(messages.get_error_messages()) == 0, messages      
+
+    @classmethod
+    def validate_remote_object_entity_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        messages = ObjectMessages("Migrator.validate_remote_object_entity_mirror(for {"+object_id+"})")
+        obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
+        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_remote_object_entity_mirror:"+str(obj_valid)) == False:
+            return False, messages
+        return len(messages.get_error_messages()) == 0, messages      
+
+    @classmethod
+    def validate_remote_object_payload_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        messages = ObjectMessages("Migrator.validate_remote_object_entity_payload(for {"+object_id+"})")
+        obj_valid = decw.net.validate_payload( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
+        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_remote_object_entity_payload:"+str(obj_valid)) == False:
+            return False, messages
+        return len(messages.get_error_messages()) == 0, messages      
+
+
+    @classmethod
+    def validate_remote_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        messages = ObjectMessages("Migrator.validate_remote_object_payload(for {"+object_id+"})")
+        if obj_remote == None:
+            obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
+        
+        cids_pinned = []
+        for k in ['self_id','parent_id','dir_name','settings']:
+            if messages.add_assert(k in obj_remote and obj_remote[k] != None, "missing {k} for {object_id}") == False:
+                return False, messages
+        
+        if messages.add_assert('ipfs_cid' in obj_remote['settings'], "missing settings.ipfs_cid for {object_id}"):
+            cids_pinned.append (obj_remote['settings']['ipfs_cid'] )
+
+        messages.add_assert('ipfs_name' in obj_remote['settings'], "missing settings.ipfs_name for {object_id}")
+        if 'ipfs_cids' in obj_remote['settings']:
+            for key in obj_remote['settings']['ipfs_cids'].keys():
+                if messages.add_assert(key in obj_remote['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
+                    cids_pinned.append (obj_remote['settings']['ipfs_cids'][key] )
+        
+        for cid in cids_pinned:
+            result = decw.net.check_pin_status({
+                    'api_key':"UNDEFINED",
+                    'connection_settings':connection_settings,
+                    'cid': cid})
+            messages.add_assert(result == True, "cid is missing from remote "+cid)
+
+        return len(messages.get_error_messages()) == 0, messages  
+
     @classmethod
     def ipfs_pin_list(cls,decw, connection_settings,refresh=False):
         pins = decw.net.download_pin_status({

@@ -1,10 +1,16 @@
 
 import traceback as tb
+try:
+    from ..Snapshot import Snapshot
+    from ..datasource.TpIPFSDecelium import TpIPFSDecelium
+    from ..datasource.TpIPFSLocal import TpIPFSLocal
+    from ..Messages import ObjectMessages
+except:
+    from Snapshot import Snapshot
+    from datasource.TpIPFSDecelium import TpIPFSDecelium
+    from datasource.TpIPFSLocal import TpIPFSLocal
+    from Messages import ObjectMessages
 
-from Snapshot import Snapshot
-from datasource.TpIPFSDecelium import TpIPFSDecelium
-from datasource.TpIPFSLocal import TpIPFSLocal
-from Messages import ObjectMessages
 import decelium_wallet.core as core
 import ipfshttpclient
 import os
@@ -505,7 +511,8 @@ class PushFromSnapshotToRemote(Action):
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
         obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
-        print(results)
+        print("VALODATING RESULTS")
+        print(obj)
         assert results[obj_id][0] == True, "Could not validate "+ str(results)
         assert 'obj-' in obj['self_id']
 
@@ -557,7 +564,7 @@ def upload_directory_to_remote(self,record,memory=None):
             'path':record['decelium_path']}})
     del_try = decw.net.delete_entity(singed_req)
     try:
-        assert del_try == True  
+        assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error'])
     except Exception as e:
         print("Failing Delete Object Id" + str(del_try))
         raise e
