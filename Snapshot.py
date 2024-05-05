@@ -135,14 +135,17 @@ class Snapshot:
     @staticmethod
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'])
         try:
-            if os.path.exists(download_path+'/'+filter['self_id']):
-                os.rmdir(download_path+'/'+filter['self_id'])
-            if os.path.exists(download_path+'/'+filter['self_id']):
+            if os.path.exists(file_path):
+                shutil.rmtree(file_path)
+            if os.path.exists(file_path):
                 return {'error':'could not remove item'}
             return True
         except:
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id']+'/object.json'}
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
         return {'error':'uncaught control flow error.'}
 
 
