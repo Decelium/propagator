@@ -1,40 +1,83 @@
 import os
 import json
 import shutil
-from .datasource.TpIPFSDecelium import TpIPFSDecelium
-from .datasource.TpIPFSLocal import TpIPFSLocal
+try:
+    from datasource.TpIPFSDecelium import TpIPFSDecelium
+    from datasource.TpIPFSLocal import TpIPFSLocal
+    from Messages import ObjectMessages
+    from datasource.BaseData import BaseData,auto_c
+except:
+    from .datasource.TpIPFSDecelium import TpIPFSDecelium
+    from .datasource.TpIPFSLocal import TpIPFSLocal
+    from .datasource.BaseData import BaseData,auto_c
+    from .Messages import ObjectMessages
 
-from .Messages import ObjectMessages
 import traceback as tb
 
-class Snapshot:  
+class EntityRequestData(BaseData):
+    def get_keys(self):
+        required = {'self_id': str }
+        optional = {'attrib': bool}
+        return required, optional    
+    
+    #def do_validation(self,key,value):
+    #    print ("Validating "+ key)
+    #    if key == 'age':
+    #        assert value > 0 and value < 120, "Humans must have a valid age range"
+    #    return value,""
 
+class Snapshot:  
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
             result = {}
             result[prefix] = status
             result[prefix+"_message"] = message
-            result[prefix+"_error"] = tb.format_exc()
+            result[prefix+"_error"] = error
             return result
     
     @staticmethod
     def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
         result_json = {}
         result_json["self_id"] = obj_id
-        validation_set = {'local':{'func':TpIPFSLocal.validate_local_object,
-                                   'prefix':'local'
-                                   },
-                           'remote':{'func':TpIPFSDecelium.validate_remote_object,
-                                   'prefix':'remote'
-                                     }
-                           }
+        # entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
+        # payload_success,payload_messages = cls.validate_local_object_payload(decw,object_id,download_path,connection_settings)        
+        #
+        # TODO - Consolidate and refactor function users (?)
+        validation_set = {
+            'local':{'func':TpIPFSLocal.validate_local_object,
+                    'prefix':'local'
+                    },
+            'remote':{'func':TpIPFSDecelium.validate_remote_object,
+                    'prefix':'remote'
+                    },
+            'local_entity':{'func':TpIPFSLocal.validate_local_object_entity,
+                    'prefix':'local_entity'
+                    },
+            'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
+                    'prefix':'local_payload'
+                    },
+            'remote_entity':{'func':TpIPFSDecelium.validate_remote_object_entity,
+                    'prefix':'remote_entity'
+                        },
+            'remote_payload':{'func':TpIPFSDecelium.validate_remote_object_payload,
+                    'prefix':'remote_payload'
+                        },
+            'remote_entity_mirror':{'func':TpIPFSDecelium.validate_remote_object_entity_mirror,
+                    'prefix':'remote_entity_mirror'
+                        },
+            'remote_payload_mirror':{'func':TpIPFSDecelium.validate_remote_object_payload_mirror,
+                    'prefix':'remote_payload_mirror'
+                        }                        
+        }
         prefix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
         #try:
+        
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
             messages.append(previous_messages)
         result_json = Snapshot.format_object_status_json(obj_id,prefix,result,messages.get_error_messages(),"")
+
         return   result_json,messages      
         #except:
         #    result_json = Snapshot.format_object_status_json(obj_id,prefix,False,previous_messages,tb.format_exc())
@@ -79,8 +122,8 @@ class Snapshot:
         return results
 
     @staticmethod
-    def load_entity(filter,download_path):
-        assert 'self_id' in filter
+    @auto_c(EntityRequestData)
+    def load_entity(filter:EntityRequestData,download_path:str):
         assert 'attrib' in filter and filter['attrib'] == True
         try:
             with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
@@ -90,7 +133,8 @@ class Snapshot:
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
 
     @staticmethod
-    def remove_entity(filter,download_path):
+    @auto_c(EntityRequestData)
+    def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
         file_path = os.path.join(download_path,filter['self_id'])
         try:
