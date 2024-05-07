@@ -13,11 +13,26 @@ import shutil
 import random 
 
 from datasource.BaseData import BaseData,auto_c
-class CorruptionTestData(BaseData):
+
+class CorruptionTest(BaseData):
+    class Instruction(BaseData):
+        corruption_types = ['delete_payload','corrupt_payload','remove_attrib','corrupt_attrib','rename_attrib_filename']
+        mode_types = ['remote', 'local', 'mirror']
+        def get_keys(self):
+            required = {'corruption':lambda v: v if v in self.corruption_types else self.do_raise("corruption"),
+                        'mode':lambda v: v if v in self.mode_types else self.do_raise("mode"),
+                        }
+            return required,{}
+        
+    #class Validation(BaseData):
+    #    def get_keys(self):
+    #        required = {'corruption':str, 
+    #                    "mode":str}
     def get_keys(self):
-        required = {'corruption':str,"post_status":str, "mode":str,'pre_status':str}
-        optional = {}
-        return required, optional    
+        required = {'corruptions':list, 
+                    "mode":str}
+
+
 
 def run_ipfs_backup():
     decw = core()
@@ -325,7 +340,7 @@ def run_corruption_tests(decw,
 
         # 1 - Run the corruptions
         for corruption in corruption_list:
-            corruption = CorruptionTestData(corruption)
+            corruption = CorruptionTest.Instruction(corruption)
             backup_instruction  ={
                 'decw': decw,
                 'obj_id':obj['self_id'],
@@ -367,11 +382,11 @@ def run_corruption_tests(decw,
 
 def test_simple_snapshot():
     # setup connection 
+    print("---- 1: Doing Setup")
     create_wallet_action = CreateDecw()
     append_object_from_remote = AppendObjectFromRemote()
     delete_object_from_remote = DeleteObjectFromRemote()
     push_from_snapshot_to_remote = PushFromSnapshotToRemote()
-
 
     decw, connected = create_wallet_action({
          'wallet_path': '../.wallet.dec',
@@ -399,6 +414,7 @@ def test_simple_snapshot():
     except:
         pass
 
+    print("---- 2: Doing Small Upload")
     obj_id = upload_directory_to_remote({
         'local_path': local_test_folder,
         'decelium_path': decelium_path,
@@ -415,6 +431,9 @@ def test_simple_snapshot():
 
     evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+
+    print("---- 2: Doing Small Pull")
     obj,new_cids = append_object_from_remote({
      'decw':decw,
      'obj_id':obj_id,
@@ -424,8 +443,9 @@ def test_simple_snapshot():
 
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
     evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
 
-
+    print("---- 3: Doing Small Delete")
     delete_object_from_remote({
         'decw':decw,
         'user_context':user_context,
@@ -433,7 +453,9 @@ def test_simple_snapshot():
         'path': decelium_path,     
     })
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['object_missing','payload_missing']})    
+    evaluate_object_status({**eval_context,'target':'remote','status':['object_missing','payload_missing']})   
+    evaluate_object_status({**eval_context,'target':'remote_mirror','status':['object_missing','payload_missing']})
+    print("---- 3: Doing Small Push")
     push_from_snapshot_to_remote({
         'decw': decw,
         'obj_id':obj_id,
@@ -442,14 +464,20 @@ def test_simple_snapshot():
         'backup_path':backup_path,
     })
     evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
+    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})  
+    evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+
+    #assert True==False, "Task Failed Successfully 2"
+    #print("---- FINISHED INIT -----")
+
+    #return  
     # Test Plan TODO: Mirror Validation
     # https://github.com/orgs/Decelium/projects/1/views/1?pane=issue&itemId=61885426    
-    # For: [Payload Delete,Payload Corrupt, Entity Corrupt,Entity Delete, Delete Payload & Object], auto_repair == False:
-    # 1 [ ] - Validate Object Storage (SUN)
-    # 2 [ ] - Validate Mirror Storage (SUN)
-    # 3 [ ] - Corrupt Object, Validate Object == False (MON)
-    # 4 [ ] - Repair Remote, Validate Object == True (MON)
+    # For: [Payload Delete,Payload Corrupt, Entity Corrupt,Entity Delete, Delete Payload & Object], auto_repair == False / True:
+    # 1 [-] - Validate Object Storage (SUN)
+    # 2 [-] - Validate Mirror Storage (SUN)
+    # 3 [-] - Corrupt Object, Validate Object == False (MON)
+    # 4 [-] - Repair Remote, Validate Object == True (MON)
     # 5 [ ] - Corrupt Mirror, Validate Mirror == False (TUES)
     # 6 [ ] - Repair Remotce, Validate Mirror == True (TUES)
     # 7 [ ] - Corrupt Object & Mirror
@@ -467,7 +495,12 @@ def test_simple_snapshot():
         #[{'corruption':"remove_attrib","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
         #[{'corruption':"corrupt_attrib","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
         #[{'corruption':"rename_attrib_filename","post_status":'complete', "mode":'local','pre_status':'payload_missing'}],
-        [{'corruption':"delete_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}], 
+        [{'corruption':"delete_payload",
+          "post_status":'complete', 
+          "mode":'remote',
+          'pre_status':'payload_missing'}
+         
+         ], 
         #[{'corruption':"corrupt_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}], 
         #[{'corruption':"remove_attrib","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}],
         #[{'corruption':"rename_attrib_filename","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}],

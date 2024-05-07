@@ -309,7 +309,9 @@ class CorruptObject(Action):
                 'connection_settings':connection_settings,
                 'payload_type':'cid',
                 'payload':cids})
-        
+        corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
+        assert corrupt_result == True
+
         for r in result.values():
             assert r['removed'] == True
         
@@ -464,7 +466,7 @@ class DeleteObjectFromRemote(Action):
         path = record['path']
         singed_req = decw.dw.sr({**user_context, **{ 'path':path}})
         del_try = decw.net.delete_entity(singed_req)
-        assert del_try == True
+        assert del_try == True, "Could not delete the entry with "+ str(singed_req) + " and result " + str(del_try) 
         return del_try
 
     def postvalid(self,record,response,memory):
@@ -510,10 +512,9 @@ class PushFromSnapshotToRemote(Action):
         obj_id = record['obj_id']
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
-        obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
-        print("VALODATING RESULTS")
-        print(obj)
         assert results[obj_id][0] == True, "Could not validate "+ str(results)
+
+        obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
         assert 'obj-' in obj['self_id']
 
     def postvalid(self,record,response,memory):
@@ -530,7 +531,7 @@ class PushFromSnapshotToRemote(Action):
         pre =  memory['pre_obj_status']
         post =  memory['post_obj_status']
         if pre['local'] == True and pre['remote'] == False:
-            assert post['remote'] == True
+            assert post['remote'] == True, "Could not validate the new remote results "+ str(post)
             assert post['local'] == True
 
         return True
@@ -592,7 +593,7 @@ def evaluate_object_status(self,record,memory=None):
     assert 'backup_path' in record
     assert 'self_id' in record
     assert 'decw' in record
-    assert 'target' in record and record['target'] in ['local','remote']
+    assert 'target' in record and record['target'] in ['local','remote','remote_mirror']
     assert 'status' in record
     for status in record['status']:
         assert status in ['complete','payload_missing','payload_corrupt','object_missing','object_corrupt'] 
@@ -604,11 +605,22 @@ def evaluate_object_status(self,record,memory=None):
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'local')
         assert results['local'] == False
         return True
+    
+    if record['target'] == 'remote_mirror' and 'complete' in record['status'] :
+        results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote_mirror')
+        assert results['remote_mirror'] == True, "Got an invalid REMOTE_MIRROR object_validation_status: "+str(results) + " " + str(messages)
+        return True
+    
+    elif record['target'] == 'remote_mirror':
+        results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote_mirror')
+        assert results['remote_mirror'] == False
+        return True
 
     if record['target'] == 'remote' and 'complete' in record['status'] :
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote')
-        assert results['remote'] == True
+        assert results['remote'] == True, "Got an invalid REMOTE object_validation_status: "+str(results) + " " + str(messages)
         return True
+    
     elif record['target'] == 'remote':
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote')
         assert results['remote'] == False
