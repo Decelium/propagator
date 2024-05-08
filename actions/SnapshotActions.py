@@ -248,15 +248,24 @@ class RunCorruptionTest(Action):
                                     setup_config.user_context(),
                                     corruption)    
     def run(self,record,memory):
-
         self.run_corruption_test(record['setup_config'],record['obj'],record['corruptions'])
         return 
 
     def prevalid(self,record,memory):
-
+        setup_config:TestConfig = record['setup_config']
+        print("FINISHED PRE EVAL")
+        for eval in record['pre_evals']:
+            print("RUNNING PRE EVAL"+str(eval))
+            evaluate_object_status({**setup_config.eval_context(),**eval})
         return True
     
     def postvalid(self,record,response,memory=None):
+
+        setup_config:TestConfig = record['setup_config']
+        for eval in record['post_evals']:
+            print("RUNNING POST EVAL"+str(eval))
+            evaluate_object_status({**setup_config.eval_context(),**eval})
+        print("FINISHED POST EVAL")
         return True
    
     def test(self,record):
@@ -665,8 +674,8 @@ class PushFromSnapshotToRemote(Action):
         if pre['local'] == True and pre['remote'] == False:
             assert post['remote'] == True, "Could not validate the new remote results "+ str(post)
             assert post['local'] == True
-
         return True
+    
     def test(self):
         return True
     def generate(self,lang,record,memory):

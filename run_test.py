@@ -105,21 +105,30 @@ def test_corruptions():
     setup_config:TestConfig = test_setup()
     agent = SnapshotAgent()
     decw = setup_config.decw()
-    
     obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
+    
     configs = [{'setup_config':setup_config,
                 'obj':obj,
+                'pre_evals':[
+                            {'target':'local','status':['complete']},
+                            {'target':'remote','status':['complete']},
+                            {'target':'remote_mirror','status':['complete']},
+                             ],
                 'corruptions':[
                              {'corruption':"delete_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}
-                            ]}]
+                            ],
+                'post_evals':[
+                            {'target':'local','status':['complete']},
+                            {'target':'remote','status':['complete']},
+                            {'target':'remote_mirror','status':['complete']},
+                             ],                            
+                }]
     for corruption_config in configs:
-        agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
-        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
-        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
+        #for eval in corruption_config['pre_evals']:
+        #    agent.evaluate_object_status({**setup_config.eval_context(),**eval})
         agent.run_corruption_test(corruption_config)
-        agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
-        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
-        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
+        #for eval in corruption_config['post_evals']:
+        #    agent.evaluate_object_status({**setup_config.eval_context(),**eval})
 
 # test_simple_snapshot()
 # test_setup()
