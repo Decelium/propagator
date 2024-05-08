@@ -1,21 +1,134 @@
 import decelium_wallet.core as core
-import ipfshttpclient
 import os, sys
-import json
-import pprint
 import shutil
-
 sys.path.append('..')
-from propagator.datasource.TpIPFSDecelium import TpIPFSDecelium
-from propagator.datasource.TpIPFSLocal import TpIPFSLocal
-from propagator.Snapshot import Snapshot
-
 from datasource.BaseData import BaseData,auto_c
 from datasource.CorruptionData import CorruptionTestData
-from actions.SnapshotActions import CreateDecw,Action,agent_action,AppendObjectFromRemote,DeleteObjectFromRemote,DeleteObjectFromRemote,PushFromSnapshotToRemote,CorruptObject,ChangeRemoteObjectName,PullObjectFromRemote,upload_directory_to_remote,evaluate_object_status,RunCorruptionTest,TestConfig
+from actions.SnapshotActions import CreateDecw,SnapshotAgent,TestConfig
 
+def test_setup() -> TestConfig:
+    # setup connection 
+    print("---- 1: Doing Setup")
+    agent = SnapshotAgent()
 
+    decw, connected = agent.create_wallet_action({
+         'wallet_path': '../.wallet.dec',
+         'wallet_password_path':'../.wallet.dec.password',
+         'fabric_url': 'http://devdecelium.com:5000/data/query',
+        })
     
+    user_context = {
+            'api_key':decw.dw.pubk()
+    }
+    connection_settings = {'host': "devdecelium.com",
+                            'port':5001,
+                            'protocol':"http"
+    }
+    ipfs_req_context = {**user_context, **{
+            'file_type':'ipfs', 
+            'connection_settings':connection_settings
+    }}
+    decelium_path = 'temp/test_folder.ipfs'
+    local_test_folder = './test/testdata/test_folder'
+    # --- Remove old snapshot #
+    backup_path = "./test/system_backup_test"
+    try:
+        shutil.rmtree(backup_path)
+    except:
+        pass
+
+    print("---- 2: Doing Small Upload")
+    obj_id = agent.upload_directory_to_remote({
+        'local_path': local_test_folder,
+        'decelium_path': decelium_path,
+        'decw': decw,
+        'ipfs_req_context': ipfs_req_context,
+        'user_context': user_context
+    })
+    eval_context = {
+        'backup_path':backup_path,
+        'self_id':obj_id,
+        'connection_settings':connection_settings,
+        'decw':decw}
+
+    agent.evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})
+    agent.evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+
+    print("---- 2: Doing Small Pull")
+    obj,new_cids = agent.append_object_from_remote({
+     'decw':decw,
+     'obj_id':obj_id,
+     'connection_settings':connection_settings,
+     'backup_path':backup_path,
+    })
+
+    agent.evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+
+    return TestConfig({'decw':decw,
+            'user_context':user_context,
+            'connection_settings':connection_settings,
+            'decelium_path':decelium_path,
+            'eval_context':eval_context,
+            'obj_id':obj_id,
+            'backup_path':backup_path,
+            })
+
+def perliminary_tests():
+    agent = SnapshotAgent()
+    setup_config = test_setup()
+    print("---- 3: Doing Small Delete")
+    agent.delete_object_from_remote({
+        'decw':setup_config.decw(),
+        'user_context':setup_config.user_context(),
+        'connection_settings':setup_config.connection_settings(),
+        'path': setup_config.decelium_path(),     
+    })
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['object_missing','payload_missing']})   
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['object_missing','payload_missing']})
+    print("---- 3: Doing Small Push")
+    agent.push_from_snapshot_to_remote({
+        'decw': setup_config.decw(),
+        'obj_id':setup_config.obj_id(),
+        'user_context':setup_config.user_context(),
+        'connection_settings':setup_config.connection_settings(),
+        'backup_path':setup_config.backup_path(),
+    })
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
+
+def test_corruptions():
+    setup_config:TestConfig = test_setup()
+    agent = SnapshotAgent()
+    decw = setup_config.decw()
+    
+    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
+    configs = [{'setup_config':setup_config,
+                'obj':obj,
+                'corruptions':[
+                             {'corruption':"delete_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}
+                            ]}]
+    for corruption_config in configs:
+        agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
+        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
+        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
+        agent.run_corruption_test(corruption_config)
+        agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
+        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
+        agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
+
+# test_simple_snapshot()
+# test_setup()
+# perliminary_tests()
+test_corruptions()
+#from propagator.datasource.TpIPFSDecelium import TpIPFSDecelium
+#from propagator.datasource.TpIPFSLocal import TpIPFSLocal
+#from propagator.Snapshot import Snapshot
+
 '''
 def run_corruption(decw,
                          obj,
@@ -85,105 +198,6 @@ def run_corruption_test(setup_config:TestConfig,
 
 '''
 
-def test_setup() -> TestConfig:
-    # setup connection 
-    print("---- 1: Doing Setup")
-    create_wallet_action = CreateDecw()
-    append_object_from_remote = AppendObjectFromRemote()
-
-    decw, connected = create_wallet_action({
-         'wallet_path': '../.wallet.dec',
-         'wallet_password_path':'../.wallet.dec.password',
-         'fabric_url': 'http://devdecelium.com:5000/data/query',
-        })
-    
-    user_context = {
-            'api_key':decw.dw.pubk()
-    }
-    connection_settings = {'host': "devdecelium.com",
-                            'port':5001,
-                            'protocol':"http"
-    }
-    ipfs_req_context = {**user_context, **{
-            'file_type':'ipfs', 
-            'connection_settings':connection_settings
-    }}
-    decelium_path = 'temp/test_folder.ipfs'
-    local_test_folder = './test/testdata/test_folder'
-    # --- Remove old snapshot #
-    backup_path = "./test/system_backup_test"
-    try:
-        shutil.rmtree(backup_path)
-    except:
-        pass
-
-    print("---- 2: Doing Small Upload")
-    obj_id = upload_directory_to_remote({
-        'local_path': local_test_folder,
-        'decelium_path': decelium_path,
-        'decw': decw,
-        'ipfs_req_context': ipfs_req_context,
-        'user_context': user_context
-    })
-    eval_context = {
-        'backup_path':backup_path,
-        'self_id':obj_id,
-        'connection_settings':connection_settings,
-        'decw':decw}
-
-    evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
-
-    print("---- 2: Doing Small Pull")
-    obj,new_cids = append_object_from_remote({
-     'decw':decw,
-     'obj_id':obj_id,
-     'connection_settings':connection_settings,
-     'backup_path':backup_path,
-    })
-
-    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
-
-    return TestConfig({'decw':decw,
-            'user_context':user_context,
-            'connection_settings':connection_settings,
-            'decelium_path':decelium_path,
-            'eval_context':eval_context,
-            'obj_id':obj_id,
-            'backup_path':backup_path,
-            })
-
-def perliminary_tests():
-    delete_object_from_remote = DeleteObjectFromRemote()
-    push_from_snapshot_to_remote = PushFromSnapshotToRemote()
-
-    setup_config = test_setup()
-  
-
-    print("---- 3: Doing Small Delete")
-    delete_object_from_remote({
-        'decw':setup_config.decw(),
-        'user_context':setup_config.user_context(),
-        'connection_settings':setup_config.connection_settings(),
-        'path': setup_config.decelium_path(),     
-    })
-    evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
-    evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['object_missing','payload_missing']})   
-    evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['object_missing','payload_missing']})
-    print("---- 3: Doing Small Push")
-    push_from_snapshot_to_remote({
-        'decw': setup_config.decw(),
-        'obj_id':setup_config.obj_id(),
-        'user_context':setup_config.user_context(),
-        'connection_settings':setup_config.connection_settings(),
-        'backup_path':setup_config.backup_path(),
-    })
-    evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
-    evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
-    evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
 
 '''
         #[{'corruption':"delete_payload","post_status":'complete', "mode":'local','pre_status':'payload_missing'}], 
@@ -195,26 +209,3 @@ def perliminary_tests():
         #[{'corruption':"remove_attrib","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}],
         #[{'corruption':"rename_attrib_filename","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}],
 '''
-
-def test_corruptions():
-    setup_config:TestConfig = test_setup()
-    run_corruption_test = RunCorruptionTest()
-    evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
-    evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
-    evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
-    decw = setup_config.decw()
-    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
-    all_corruptions= [ 
-        [{'corruption':"delete_payload",
-          "post_status":'complete', 
-          "mode":'remote',
-          'pre_status':'payload_missing'}
-         ], 
-        ]   
-    run_corruption_test({'setup_config':setup_config,
-                         'obj':obj,
-                         'all_corruptions':all_corruptions})
-# test_simple_snapshot()
-# test_setup()
-# perliminary_tests()
-test_corruptions()

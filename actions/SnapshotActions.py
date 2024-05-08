@@ -66,9 +66,18 @@ def agent_action(**overrides):
         return CustomAction()
     return decorator
 
+
+
+
+
+
 class Action():
-    def __init__(self):
-        self.__memory = {}
+    def __init__(self,memory = None):
+        if memory == None:
+            self.__memory = {}
+        else:
+            self.__memory = memory.copy()
+
     def __call__(self, record, memory=None):
         if memory == None:
             memory = {}
@@ -230,21 +239,21 @@ class RunCorruptionTest(Action):
     def run_corruption_test(self,setup_config:TestConfig,
                             obj:dict,
                             all_corruptions:dict):
-        print ("YES! I AM WORKING")
-        for corruption_list in all_corruptions:
-            for corruption in corruption_list:
-                self.run_corruption(setup_config.decw(),
-                                        obj,
-                                        setup_config.backup_path(),
-                                        setup_config.connection_settings(),
-                                        setup_config.eval_context(),
-                                        setup_config.user_context(),
-                                        corruption)    
+        for corruption in all_corruptions:
+            self.run_corruption(setup_config.decw(),
+                                    obj,
+                                    setup_config.backup_path(),
+                                    setup_config.connection_settings(),
+                                    setup_config.eval_context(),
+                                    setup_config.user_context(),
+                                    corruption)    
     def run(self,record,memory):
-        self.run_corruption_test(record['setup_config'],record['obj'],record['all_corruptions'])
+
+        self.run_corruption_test(record['setup_config'],record['obj'],record['corruptions'])
         return 
 
     def prevalid(self,record,memory):
+
         return True
     
     def postvalid(self,record,response,memory=None):
@@ -755,3 +764,24 @@ def evaluate_object_status(self,record,memory=None):
     assert 'self_id' in obj
     
     '''
+
+
+
+class SnapshotAgent():
+    '''
+    a Functional agent. Meaning each action is an explanable function, that is technically independent, which can be verified fully by 
+    inspecting any parameters and context passed.
+
+    IMPORTANT: Agents are for unit tests, tutorials, and doc generation. They are heavy and not intended for production systems, rather, one is supposed to
+    solve a problem with an agent, then inspect each action to understand how to use the API to solve the same problem with a lower level script.
+    '''
+    create_wallet_action = CreateDecw()
+    append_object_from_remote = AppendObjectFromRemote()
+    delete_object_from_remote = DeleteObjectFromRemote()
+    push_from_snapshot_to_remote = PushFromSnapshotToRemote()
+    corrupt_object = CorruptObject()
+    change_remote_object_name = ChangeRemoteObjectName()
+    pull_object_from_remote = PullObjectFromRemote()
+    upload_directory_to_remote = upload_directory_to_remote
+    evaluate_object_status = evaluate_object_status
+    run_corruption_test = RunCorruptionTest()
