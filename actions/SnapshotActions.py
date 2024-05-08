@@ -5,11 +5,15 @@ try:
     from ..datasource.TpIPFSDecelium import TpIPFSDecelium
     from ..datasource.TpIPFSLocal import TpIPFSLocal
     from ..Messages import ObjectMessages
+    from ..datasource.BaseData import BaseData,auto_c
+    from ..datasource.CorruptionData import CorruptionTestData
 except:
     from Snapshot import Snapshot
     from datasource.TpIPFSDecelium import TpIPFSDecelium
     from datasource.TpIPFSLocal import TpIPFSLocal
     from Messages import ObjectMessages
+    from datasource.BaseData import BaseData,auto_c
+    from datasource.CorruptionData import CorruptionTestData
 
 import decelium_wallet.core as core
 import ipfshttpclient
@@ -21,6 +25,33 @@ import shutil
 import random
 
 
+
+class TestConfig(BaseData):
+    def decw(self) -> core:
+        return self['decw']
+    def user_context(self) -> str:
+        return self['user_context']
+    def connection_settings(self) -> dict:
+        return self['connection_settings']
+    def decelium_path(self) ->str:
+        return self['decelium_path']
+    def eval_context(self) -> dict:
+        return self['eval_context']
+    def obj_id(self) -> str:
+        return self['obj_id']
+    def backup_path(self) -> str:
+        return self['backup_path']
+    
+    def get_keys(self):
+        required = {'decw':core,
+                    'user_context':dict,
+                    'connection_settings':dict,
+                    'decelium_path':str,
+                    'eval_context':dict,
+                    'obj_id':str,
+                    'backup_path':str,
+                    }
+        return required,{}
 
 
 def agent_action(**overrides):
@@ -141,6 +172,98 @@ class CreateDecw(Action):
     def generate(self,lang,record,memory=None):
         return ""
     
+
+
+class RunCorruptionTest(Action):
+    def run_corruption(self,decw,
+                            obj,
+                            backup_path,
+                            connection_settings,
+                            eval_context,
+                            user_context,
+                            corruption):
+        corrupt_object_backup = CorruptObject()
+        change_remote_object_name = ChangeRemoteObjectName()
+        pull_object_from_remote = PullObjectFromRemote()
+        push_from_snapshot_to_remote = PushFromSnapshotToRemote()
+
+        corruption = CorruptionTestData.Instruction(corruption)
+        backup_instruction  ={
+            'decw': decw,
+            'obj_id':obj['self_id'],
+            'backup_path':backup_path,        
+            'connection_settings':connection_settings,        
+        }
+        backup_instruction["corruption"] = corruption['corruption']
+        backup_instruction["pre_status"] = corruption['pre_status']
+        backup_instruction["post_status"] = corruption['post_status']
+        backup_instruction["mode"] = corruption['mode']
+        backup_instruction.update(corruption)
+        corrupt_object_backup(backup_instruction)
+
+        if corruption['mode'] == 'local':
+            merge_function = pull_object_from_remote
+            truth_target = 'remote'
+            corruption_target = 'local'
+        elif corruption['mode'] == 'remote':
+            merge_function = push_from_snapshot_to_remote
+            truth_target = 'local'
+            corruption_target = 'remote'
+        else:
+            assert True==False, "Forcing a failure as we are not corrupting remote or local"
+
+        # 2 - 
+        evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']}) 
+        evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["pre_status"]]})
+        merge_function({
+            'connection_settings':connection_settings,
+            'backup_path':backup_path,
+            'overwrite': False,
+            'decw': decw,
+            'user_context': user_context,
+            'obj_id':obj['self_id'],
+            'expected_result':True,
+        })
+        evaluate_object_status({**eval_context,'target':truth_target,'status':['complete']})  
+        evaluate_object_status({**eval_context,'target':corruption_target,'status':[backup_instruction["post_status"]]})
+
+    def run_corruption_test(self,setup_config:TestConfig,
+                            obj:dict,
+                            all_corruptions:dict):
+        print ("YES! I AM WORKING")
+        for corruption_list in all_corruptions:
+            for corruption in corruption_list:
+                self.run_corruption(setup_config.decw(),
+                                        obj,
+                                        setup_config.backup_path(),
+                                        setup_config.connection_settings(),
+                                        setup_config.eval_context(),
+                                        setup_config.user_context(),
+                                        corruption)    
+    def run(self,record,memory):
+        self.run_corruption_test(record['setup_config'],record['obj'],record['all_corruptions'])
+        return 
+
+    def prevalid(self,record,memory):
+        return True
+    
+    def postvalid(self,record,response,memory=None):
+        return True
+   
+    def test(self,record):
+        return True
+
+    def explain(self,record,memory=None):
+        result = '''
+        RunCorruptionTest
+
+        Run a corruption Test
+
+        '''
+        return result
+    
+    def generate(self,lang,record,memory=None):
+        return ""
 
 
 class AppendObjectFromRemote(Action):    
