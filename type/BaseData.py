@@ -130,3 +130,32 @@ def run_simple_test():
                     'name': "Jeff", 
                     'age': 30,
                     'arm':arm})
+
+from decelium_wallet import core as core
+
+class TestConfig(BaseData):
+    def decw(self) -> core:
+        return self['decw']
+    def user_context(self) -> str:
+        return self['user_context']
+    def connection_settings(self) -> dict:
+        return self['connection_settings']
+    def decelium_path(self) ->str:
+        return self['decelium_path']
+    def eval_context(self) -> dict:
+        return self['eval_context']
+    def obj_id(self) -> str:
+        return self['obj_id']
+    def backup_path(self) -> str:
+        return self['backup_path']
+    
+    def get_keys(self):
+        required = {'decw':core,
+                    'user_context':dict,
+                    'connection_settings':dict,
+                    'decelium_path':str,
+                    'eval_context':dict,
+                    'obj_id':str,
+                    'backup_path':str,
+                    }
+        return required,{}

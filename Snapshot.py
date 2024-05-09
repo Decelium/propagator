@@ -1,18 +1,23 @@
 import os
 import json
 import shutil
-try:
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
-    from datasource.TpIPFSLocal import TpIPFSLocal
-    from Messages import ObjectMessages
-    from datasource.BaseData import BaseData,auto_c
-except:
-    from .datasource.TpIPFSDecelium import TpIPFSDecelium
-    from .datasource.TpIPFSLocal import TpIPFSLocal
-    from .datasource.BaseData import BaseData,auto_c
-    from .Messages import ObjectMessages
+#try:
+from datasource.TpIPFSDecelium import TpIPFSDecelium
+from datasource.TpIPFSLocal import TpIPFSLocal
+from Messages import ObjectMessages
+from type.BaseData import BaseData,auto_c
+
+
+#except:
+#    from .datasource.TpIPFSDecelium import TpIPFSDecelium
+#    from .datasource.TpIPFSLocal import TpIPFSLocal
+#    from .type.BaseData import BaseData,auto_c
+#    from .Messages import ObjectMessages
+#    import actions
 
 import traceback as tb
+import decelium_wallet.core as core
+
 
 class EntityRequestData(BaseData):
     def get_keys(self):
@@ -20,26 +25,6 @@ class EntityRequestData(BaseData):
         optional = {'attrib': bool}
         return required, optional    
     
-    #def do_validation(self,key,value):
-    #    print ("Validating "+ key)
-    #    if key == 'age':
-    #        assert value > 0 and value < 120, "Humans must have a valid age range"
-    #    return value,""
-
-# Variables
-# local & remote in [local,remote]
-# 
-# class CorruptionTestSchema(BaseData):
-#    def get_keys(self):
-#        required = {'local_id': str,'remote_id':str }
-#        optional = {'attrib': bool}
-#        return required, optional    
-# class CorruptionSchema(BaseData):
-#    def get_keys(self):
-#        required = {'self_id': str }
-#        optional = {'attrib': bool}
-#        return required, optional   
-
 
 class Snapshot:  
     @staticmethod

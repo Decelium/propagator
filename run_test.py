@@ -2,10 +2,11 @@ import decelium_wallet.core as core
 import os, sys
 import shutil
 sys.path.append('..')
-from datasource.BaseData import BaseData,auto_c
-from datasource.CorruptionData import CorruptionTestData
-from actions.SnapshotActions import CreateDecw,SnapshotAgent,TestConfig
-
+#from type.BaseData import BaseData,auto_c
+#from type.CorruptionData import CorruptionTestData
+#from actions import CreateDecw
+from type.BaseData import TestConfig
+from actions.SnapshotAgent import SnapshotAgent
 def test_setup() -> TestConfig:
     # setup connection 
     print("---- 1: Doing Setup")
@@ -106,29 +107,21 @@ def test_corruptions():
     agent = SnapshotAgent()
     decw = setup_config.decw()
     obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
-    
+
     configs = [{'setup_config':setup_config,
                 'obj':obj,
-                'pre_evals':[
-                            {'target':'local','status':['complete']},
-                            {'target':'remote','status':['complete']},
-                            {'target':'remote_mirror','status':['complete']},
-                             ],
                 'corruptions':[
-                             {'corruption':"delete_payload","post_status":'complete', "mode":'remote','pre_status':'payload_missing'}
+                             {'corruption':"delete_payload","mode":'remote'}
                             ],
-                'post_evals':[
+                'corruption_evals':[
                             {'target':'local','status':['complete']},
-                            {'target':'remote','status':['complete']},
+                            {'target':'remote','status':['object_missing','payload_missing']},
                             {'target':'remote_mirror','status':['complete']},
                              ],                            
+                'repair_target':'remote',
                 }]
     for corruption_config in configs:
-        #for eval in corruption_config['pre_evals']:
-        #    agent.evaluate_object_status({**setup_config.eval_context(),**eval})
         agent.run_corruption_test(corruption_config)
-        #for eval in corruption_config['post_evals']:
-        #    agent.evaluate_object_status({**setup_config.eval_context(),**eval})
 
 # test_simple_snapshot()
 # test_setup()
