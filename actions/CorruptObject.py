@@ -14,7 +14,7 @@ except:
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
     from .Action import Action
-import random,os
+import random,os,json
 
 class CorruptObject(Action):    
     def explain(self,record,memory):
@@ -28,6 +28,47 @@ class CorruptObject(Action):
         c) post: The corruption is reported correctly by the validation tools
          ['delete_payload','remove_attrib','rename_attrib_filename']
         for record: """+ str(record)
+    
+    @staticmethod
+    def corrupt_remote_mirror_corrupt_payload(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
+        if type(obj) == dict:
+            assert not 'error' in obj
+        raise Exception("Should verify removal")
+    
+    @staticmethod
+    def corrupt_remote_mirror_remove_attrib(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"remove_attrib",'mirror':True},["admin"]))
+        raise Exception("Should verify removal 2")
+
+    @staticmethod
+    def corrupt_remote_mirror_rename_attrib_filename(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename",'mirror':True},["admin"]))
+        assert success == True
+        raise Exception("Should verify removal 3")
+
+    @staticmethod
+    def corrupt_remote_mirror_delete_payload(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
+        assert corrupt_result == True
+        raise Exception("Should verify removal 4")
+
     @staticmethod
     def corrupt_remote_corrupt_payload(record,memory):
         backup_path = record['backup_path']
@@ -60,9 +101,9 @@ class CorruptObject(Action):
         self_id = record['obj_id']
         decw = record['decw']
         connection_settings = record['connection_settings']
-
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
         assert success == True
+
     @staticmethod
     def corrupt_remote_delete_payload(record,memory):
         backup_path = record['backup_path']
@@ -83,8 +124,8 @@ class CorruptObject(Action):
                 'connection_settings':connection_settings,
                 'payload_type':'cid',
                 'payload':cids})
-        corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
-        assert corrupt_result == True
+        #corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
+        #assert corrupt_result == True
 
         for r in result.values():
             assert r['removed'] == True
@@ -171,7 +212,7 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         decw = record['decw']
         mode = record['mode']
-        assert mode in ['local','remote']
+        assert mode in ['local','remote','remote_mirror']
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
         assert local_results[mode] == True
         return True
