@@ -8,27 +8,14 @@ try:
     from ..type.BaseData import TestConfig
     from .Action import Action
 
-
 except:
-    #from Snapshot import Snapshot
-    #from datasource.TpIPFSDecelium import TpIPFSDecelium
-    #from datasource.TpIPFSLocal import TpIPFSLocal
-    #from Messages import ObjectMessages
-    #from type.BaseData import BaseData,auto_c
     from type.CorruptionData import CorruptionTestData
     from type.BaseData import TestConfig
-
-    #from .AppendObjectFromRemote import AppendObjectFromRemote
     from .CorruptObject import CorruptObject
-    #from .CreateDecw import CreateDecw
     from .PullObjectFromRemote import PullObjectFromRemote
     from .EvaluateObjectStatus import evaluate_object_status #Exported as a premade function
-    #from .UploadDirectoryToRemote import upload_directory_to_remote #Exported as a premade function
     from .ChangeRemoteObjectName import ChangeRemoteObjectName
-    #from .DeleteObjectFromRemote import DeleteObjectFromRemote
     from .PushFromSnapshotToRemote import PushFromSnapshotToRemote
-    #from .RunCorruptionTest import RunCorruptionTest
-
     from .Action import Action,agent_action
     
 class RunCorruptionTest(Action):
@@ -53,9 +40,6 @@ class RunCorruptionTest(Action):
         backup_instruction["mode"] = corruption['mode']
         # backup_instruction.update(corruption)
         corrupt_object_backup(backup_instruction)
-        '''
-
-        '''
 
     def run_corruption_test(self,setup_config:TestConfig,
                             obj:dict,
@@ -73,15 +57,10 @@ class RunCorruptionTest(Action):
         return 
 
     def prevalid(self,record,memory):
-        # Before we proceed, make sure we are all cleaned up
         setup_config:TestConfig = record['setup_config']
         evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
         evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
         evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})        
-        print("FINISHED PRE EVAL 2")
-        #for eval in record['pre_evals']:
-        #    print("RUNNING PRE EVAL"+str(eval))
-        #    evaluate_object_status({**setup_config.eval_context(),**eval})
         return True
     
     def postvalid(self,record,response,memory=None):
@@ -89,9 +68,7 @@ class RunCorruptionTest(Action):
         # Step 1: In post, we want to first make sure the corruption indeed caused the kind of corruption we are looking for
         setup_config:TestConfig = record['setup_config']
         for eval in record['corruption_evals']:
-            print("RUNNING POST EVAL"+str(eval))
             evaluate_object_status({**setup_config.eval_context(),**eval})
-        print("FINISHED POST EVAL")
 
         # Step 2: After we evaluate, we want to restore the object to its original state
         if record['repair_target'] == 'local':
@@ -106,8 +83,6 @@ class RunCorruptionTest(Action):
         evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
         evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
         evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})       
-        print("Seems complete")
- 
         return True
    
     def test(self,record):

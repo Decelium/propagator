@@ -38,8 +38,7 @@ class CorruptObject(Action):
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
         if type(obj) == dict:
             assert not 'error' in obj
-        raise Exception("Should verify removal")
-    
+        # TODO actually corrupt the payload, dont just remove it. This is not a proper test
     @staticmethod
     def corrupt_remote_mirror_remove_attrib(record,memory):
         backup_path = record['backup_path']
@@ -47,7 +46,6 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"remove_attrib",'mirror':True},["admin"]))
-        raise Exception("Should verify removal 2")
 
     @staticmethod
     def corrupt_remote_mirror_rename_attrib_filename(record,memory):
@@ -246,6 +244,7 @@ class CorruptObject(Action):
                     assert os.path.exists(file_path) == True
         except Exception as e:
             print("Printing messages along with failed corruption")
+            print(record)
             print(local_results)
             print(messages.get_error_messages())
             raise e

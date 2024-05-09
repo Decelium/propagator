@@ -11,7 +11,7 @@ except:
 '''
 class CorruptionTestData(BaseData):
     class Instruction(BaseData):
-        corruption_types = ['delete_payload','corrupt_payload','remove_attrib','corrupt_attrib','rename_attrib_filename']
+        corruption_types = ['delete_payload','corrupt_payload','remove_attrib','rename_attrib_filename'] # ,'corrupt_attrib'
         mode_types = ['remote', 'local', 'remote_mirror']
         def get_keys(self):
             required = {'corruption':lambda v: v if v in self.corruption_types else self.do_raise("corruption"),

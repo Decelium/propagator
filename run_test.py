@@ -1,5 +1,5 @@
 import decelium_wallet.core as core
-import os, sys
+import os, sys,json
 import shutil
 sys.path.append('..')
 #from type.BaseData import BaseData,auto_c
@@ -117,7 +117,7 @@ def test_corruptions():
     agent = SnapshotAgent()
     decw = setup_config.decw()
     obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
-    
+    '''
     configs = []
     configs.append(new_corruption_config(setup_config,obj,
         [{'corruption':"delete_payload","mode":'remote'},                             
@@ -125,8 +125,25 @@ def test_corruptions():
         [{'target':'local','status':['complete']},
         {'target':'remote','status':['object_missing','payload_missing']},
         {'target':'remote_mirror','status':['object_missing','payload_missing']}]))
-
+    '''    
+    configs = []
+    #for corruption_type in  CorruptionTestData.Instruction.corruption_types:
+    #    configs.append(new_corruption_config(setup_config,obj,
+    #        [{'corruption':corruption_type,"mode":'remote'}],
+    #        [{'target':'local','status':['complete']},
+    #        {'target':'remote','status':['object_missing','payload_missing']},
+    #        {'target':'remote_mirror','status':['complete']}]))
+    for corrupt_remote in  CorruptionTestData.Instruction.corruption_types:
+        for corrupt_mirror in  CorruptionTestData.Instruction.corruption_types:
+            configs.append(new_corruption_config(setup_config,obj,
+                [{'corruption':corrupt_remote,"mode":'remote'},
+                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
+                [{'target':'local','status':['complete']},
+                {'target':'remote','status':['object_missing','payload_missing']},
+                {'target':'remote_mirror','status':['object_missing','payload_missing']}]))
+    print("corruption tests :"+str(len(configs)))
     for corruption_config in configs:
+        print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
         agent.run_corruption_test(corruption_config)
 
 # test_simple_snapshot()
