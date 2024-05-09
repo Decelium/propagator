@@ -67,7 +67,6 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
         assert corrupt_result == True
-        raise Exception("Should verify removal 4")
 
     @staticmethod
     def corrupt_remote_corrupt_payload(record,memory):

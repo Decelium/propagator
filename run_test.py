@@ -3,7 +3,7 @@ import os, sys
 import shutil
 sys.path.append('..')
 #from type.BaseData import BaseData,auto_c
-#from type.CorruptionData import CorruptionTestData
+from type.CorruptionData import CorruptionTestData
 #from actions import CreateDecw
 from type.BaseData import TestConfig
 from actions.SnapshotAgent import SnapshotAgent
@@ -102,24 +102,30 @@ def perliminary_tests():
     agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
     agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
 
+def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,evals:list):    
+    corruptions = [CorruptionTestData.Instruction(corruption) for corruption in corruptions]
+    evals = [CorruptionTestData.Eval(evaluation) for evaluation in evals]
+
+    return {'setup_config':setup_config,
+                'obj':obj,
+                'corruptions':corruptions,
+                'corruption_evals':evals,                            
+                'repair_target':'remote',
+                }
 def test_corruptions():
     setup_config:TestConfig = test_setup()
     agent = SnapshotAgent()
     decw = setup_config.decw()
     obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
+    
+    configs = []
+    configs.append(new_corruption_config(setup_config,obj,
+        [{'corruption':"delete_payload","mode":'remote'},                             
+        {'corruption':"delete_payload","mode":'remote_mirror'},],
+        [{'target':'local','status':['complete']},
+        {'target':'remote','status':['object_missing','payload_missing']},
+        {'target':'remote_mirror','status':['object_missing','payload_missing']}]))
 
-    configs = [{'setup_config':setup_config,
-                'obj':obj,
-                'corruptions':[
-                             {'corruption':"delete_payload","mode":'remote'}
-                            ],
-                'corruption_evals':[
-                            {'target':'local','status':['complete']},
-                            {'target':'remote','status':['object_missing','payload_missing']},
-                            {'target':'remote_mirror','status':['complete']},
-                             ],                            
-                'repair_target':'remote',
-                }]
     for corruption_config in configs:
         agent.run_corruption_test(corruption_config)
 
