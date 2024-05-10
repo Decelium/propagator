@@ -220,6 +220,11 @@ class Snapshot:
             if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
+            if '__mirror_restored' in result and type(result['__mirror_restored'])==dict:
+                if messages.add_assert('error' not in result['__mirror_restored'],"b. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
+                    results[obj_id]= (False,messages.get_error_messages())
+                    continue
+
 
             # ---------
             # Verify Upload was successful
