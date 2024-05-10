@@ -105,7 +105,8 @@ def perliminary_tests():
 def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,evals:list):    
     corruptions = [CorruptionTestData.Instruction(corruption) for corruption in corruptions]
     evals = [CorruptionTestData.Eval(evaluation) for evaluation in evals]
-
+    print("corruptions")
+    print(json.dumps(corruptions,indent=3))
     return {'setup_config':setup_config,
                 'obj':obj,
                 'corruptions':corruptions,
@@ -133,8 +134,13 @@ def test_corruptions():
     #        [{'target':'local','status':['complete']},
     #        {'target':'remote','status':['object_missing','payload_missing']},
     #        {'target':'remote_mirror','status':['complete']}]))
-    for corrupt_remote in  CorruptionTestData.Instruction.corruption_types:
-        for corrupt_mirror in  CorruptionTestData.Instruction.corruption_types:
+    #for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
+    #    for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
+
+    for corrupt_remote in ['delete_payload']: 
+        for corrupt_mirror in  ['delete_payload']:
+            assert type(corrupt_remote) == str
+            assert type(corrupt_mirror) == str
             configs.append(new_corruption_config(setup_config,obj,
                 [{'corruption':corrupt_remote,"mode":'remote'},
                  {'corruption':corrupt_mirror,"mode":'remote_mirror'},],

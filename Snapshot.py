@@ -139,115 +139,18 @@ class Snapshot:
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'])
-        try:
-            if os.path.exists(file_path):
-                shutil.rmtree(file_path)
-            if os.path.exists(file_path):
-                return {'error':'could not remove item'}
-            return True
-        except:
-            import traceback as tb
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
-        return {'error':'uncaught control flow error.'}
+        return TpIPFSLocal.remove_entity(filter,download_path)
 
-    '''
-    @staticmethod
-    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
-        # def push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
-        api_key = decw.dw.pubk("admin")
+    @auto_c(EntityRequestData)
+    def remove_attrib(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        return TpIPFSLocal.remove_attrib(filter,download_path)
 
-        messages = ObjectMessages("Snapshot.push_to_remote")
-        object_ids = os.listdir(download_path)
-        object_ids = object_ids[offset:offset+limit]
-        results = {}
-        if len(object_ids) == 0:
-            return results        
-        
-        for obj_id in object_ids:
-            
-            # ---------
-            # a) Make sure the remote is missing
-            # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
-            if remote_result == True:
-                results[obj_id]= (True,remote_validation_messages.get_error_messages())
-                continue
+    @auto_c(EntityRequestData)
+    def remove_payload(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        return TpIPFSLocal.remove_payload(filter,download_path)
 
-            # ---------
-            # b) Make sure the local is complete
-            local_result, local_validation_messages = TpIPFSLocal.validate_local_object(decw,obj_id, download_path, connection_settings)
-            if local_result == False: # and remote_result == False:
-                results[obj_id] = (False,local_validation_messages.get_error_messages())
-                continue
-
-            # ---------
-            # assert the case (a,b)
-            assert local_result == True and remote_result == False
-
-            # ---------
-            # Upload metadata
-            query,upload_messages = TpIPFSLocal.upload_object_query(obj_id,download_path,connection_settings)
-            messages.append(upload_messages)
-            if len(upload_messages.get_error_messages()) > 0:
-                results[obj_id] = (False,messages)
-                continue
-            
-            result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-            if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
-                results[obj_id]= (False,messages.get_error_messages())
-                continue
-
-            obj = TpIPFSDecelium.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},decw)
-            if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ str(obj))==False:
-                results[obj_id]= (False,messages.get_error_messages())
-                continue
-
-            obj_cids = []
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
-            messages.append(remote_validation_messages)
-            if remote_result == False:
-                results[obj_id]= (False,messages.get_error_messages())
-                # ---------
-                # Upload cids
-
-                for path,cid in obj['settings']['ipfs_cids'].items():
-                    obj_cids.append(cid)
-
-                all_cids =  TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,refresh=True)
-                missing_cids = list(set(obj_cids) - set(all_cids))
-                if(len(missing_cids) > 0):
-                    reupload_cids,upload_messages = TpIPFSLocal.upload_ipfs_data(TpIPFSDecelium,decw,download_path+'/'+obj_id,connection_settings)
-                    messages.append(upload_messages)
-                    if messages.add_assert(TpIPFSDecelium.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
-                                        "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
-                        results[obj_id]= (False,messages.get_error_messages())
-                        continue
-
-            # ---------
-            # Verify Upload was successful
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
-            messages.append(remote_validation_messages)
-            # results[obj_id]= (remote_result,messages.get_error_messages())
-            if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
-                results[obj_id]= (False,messages.get_error_messages())
-                continue
-              
-
-
-            #remote_result_mirror, remote_validation_messages_mirror = TpIPFSDecelium.validate_remote_object_mirror(decw,obj_id, download_path, connection_settings)
-            #messages.append(remote_validation_messages_mirror)
-            #results[obj_id]= (remote_result_mirror and remote_result,messages.get_error_messages())
-
-            #remote_result_mirror, remote_validation_messages_mirror = TpIPFSDecelium.validate_remote_object_mirror(decw,obj_id, download_path, connection_settings)
-            #messages.append(remote_validation_messages_mirror)
-            results[obj_id]= (remote_result,messages.get_error_messages())
-
-            # TODO validate the mirror as well
-
-
-        return results
-        '''
 
     @staticmethod
     def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
@@ -326,16 +229,7 @@ class Snapshot:
             if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
-            
 
-
-
-            #remote_result_mirror, remote_validation_messages_mirror = TpIPFSDecelium.validate_remote_object_mirror(decw,obj_id, download_path, connection_settings)
-            #messages.append(remote_validation_messages_mirror)
-            #results[obj_id]= (remote_result_mirror and remote_result,messages.get_error_messages())
-
-            #remote_result_mirror, remote_validation_messages_mirror = TpIPFSDecelium.validate_remote_object_mirror(decw,obj_id, download_path, connection_settings)
-            #messages.append(remote_validation_messages_mirror)
             results[obj_id]= (remote_result,messages.get_error_messages())
 
             # TODO validate the mirror as well

@@ -7,6 +7,7 @@ except:
     from ..Messages import ObjectMessages
 import traceback as tb
 import hashlib
+import shutil
 
 class TpIPFSLocal():
     @classmethod
@@ -126,14 +127,9 @@ class TpIPFSLocal():
                 continue
             result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
             messages = ObjectMessages("Migrator.upload_ipfs_data")
-            #print("Broken Result")
-            #print(result)
-            #if messages.add_assert(len (list(result.keys())) > 0,"Did not get a result for  "+file_path ) == False:
-            #    continue
                     
             messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
-            # all_cids = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,True)            
         return cids,messages
     
     @classmethod
@@ -186,6 +182,7 @@ class TpIPFSLocal():
             print(f"Error downloading {cid}: {e}")
             print(tb.format_exc())
             return new_cids    
+        
     @classmethod
     def compare_file_hash(cls,file_path, hash_func='sha2-256'):
         if not os.path.exists(file_path):
@@ -208,58 +205,7 @@ class TpIPFSLocal():
                     return True
         return False
      
-    '''
-    @classmethod
-    def validate_local_object(cls,decw,object_id,download_path,connection_settings):
-        # Validate the local representation of an object
-        messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
-        try:
-            file_path_test = download_path+'/'+object_id+'/object.json'
-            with open(file_path_test,'r') as f:
-                obj_local = json.loads(f.read())
-            valido_hasho = cls.compare_file_hash(file_path_test)
-            if valido_hasho != True:
-                False,messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
 
-        except:
-            messages.add_assert(False==True, "Could not validate presense of file file")
-            return False,messages
-
-        cids_pinned = []
-        cids_downloaded = []
-
-        for k in ['self_id','parent_id','dir_name','settings']:
-            messages.add_assert(k in obj_local and obj_local[k] != None, "missing {k} for {object_id}")
-        if messages.add_assert('ipfs_cid' in obj_local['settings'], "missing settings.ipfs_cid for {object_id}"):
-            cids_pinned.append (obj_local['settings']['ipfs_cid'] )
-
-        messages.add_assert('ipfs_name' in obj_local['settings'], "missing settings.ipfs_name for {object_id}")
-        if 'ipfs_cids' in obj_local['settings']:
-            for key in obj_local['settings']['ipfs_cids'].keys():
-                if messages.add_assert(key in obj_local['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
-                    cids_pinned.append (obj_local['settings']['ipfs_cids'][key] )
-        invalid_list = []
-        for item in os.listdir(download_path+'/'+object_id):
-            # Construct the full path of the item-
-            file_path = os.path.join(download_path+'/'+object_id, item)
-            
-            if item.endswith('.file') or item.endswith('.dag'):
-                try:
-                    valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
-                    if valido_hasho != True:
-                        invalid_list.append(item.split('.')[0])
-                        messages.add_assert(False, "Encountered A bad hash for cid:"+file_path)
-
-                except:
-                    messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
-            
-            if item.endswith('.file') or item.endswith('.dag'):
-                cids_downloaded.append(item.split('.')[0])
-        missing = []
-        for pin in cids_pinned:
-            messages.add_assert(pin in cids_downloaded, "a local pin from pinned object for "+object_id+" was not downloaded")
-        return len(messages.get_error_messages())== 0,messages    
-    '''
     @classmethod
     def validate_local_object(cls,decw,object_id,download_path,connection_settings):
         entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
@@ -397,3 +343,47 @@ class TpIPFSLocal():
                 chunk = f.read(4096)
         
         return hasher.hexdigest().encode('utf-8')
+    
+    # TODO remove all hard path requirements from this file
+    @staticmethod
+    def remove_entity(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'])
+        try:
+            if os.path.exists(file_path):
+                shutil.rmtree(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item'}
+            return True
+        except:
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
+
+    @staticmethod
+    def remove_attrib(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'],filter['self_id']+".json")
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item'}
+            return True
+        except:
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
+
+    def remove_payload(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        object_id = filter['self_id']
+        obj_backup_path = os.path.join(download_path,object_id)
+        if not os.path.exists(obj_backup_path):
+            True
+        for item in os.listdir(obj_backup_path):
+            # Construct the full path of the item-
+            file_path = os.path.join(obj_backup_path, item)
+            if item.endswith('.file') or item.endswith('.dag'):
+                os.remove(file_path)
+                if os.path.exists(file_path):
+                    return {'error':'could not remove item '+file_path}
+        return True

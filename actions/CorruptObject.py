@@ -1,7 +1,7 @@
 try:
     from ..Snapshot import Snapshot
     from ..datasource.TpIPFSDecelium import TpIPFSDecelium
-    #from ..datasource.TpIPFSLocal import TpIPFSLocal
+    from ..datasource.TpIPFSLocal import TpIPFSLocal
     from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
     #from ..datasource.CorruptionData import CorruptionTestData
@@ -9,7 +9,7 @@ try:
 except:
     from Snapshot import Snapshot
     from datasource.TpIPFSDecelium import TpIPFSDecelium
-    #from datasource.TpIPFSLocal import TpIPFSLocal
+    from datasource.TpIPFSLocal import TpIPFSLocal
     from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
@@ -64,7 +64,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
-        assert corrupt_result == True
+        assert corrupt_result == True, "Got an invalid corruption result "+str(corrupt_result)
 
     @staticmethod
     def corrupt_remote_corrupt_payload(record,memory):
@@ -151,7 +151,17 @@ class CorruptObject(Action):
                 file_path = os.path.join(backup_path,self_id, filename)
                 os.remove(file_path)
                 memory['removed'].append(file_path)
-        
+
+    @staticmethod
+    def corrupt_local_delete_entity(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        TpIPFSLocal.remove_entity(self_id,backup_path)
+
+
+      
     @staticmethod
     def corrupt_local_remove_attrib(record,memory):
         backup_path = record['backup_path']
@@ -221,7 +231,8 @@ class CorruptObject(Action):
         memory['corrupted'] = []
         corruption = record['corruption']
         mode = record['mode']
-        assert corruption in ['delete_payload','corrupt_payload','remove_attrib','corrupt_attrib','rename_attrib_filename']
+
+        assert corruption in ['delete_payload','corrupt_payload','remove_attrib','rename_attrib_filename','corrupt_attrib','delete_entity'],"Unsupported Corruption "+str(record['corruption'])
         self.run_corruption(mode, corruption, record, memory)
         return True 
 
@@ -234,7 +245,7 @@ class CorruptObject(Action):
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
         messages:ObjectMessages = messages
         try:
-            assert local_results[mode] == False
+            assert local_results[mode] == False, "Corruption Failed: "+ str(record)
             #assert len(memory['removed']) > 0
             if 'removed' in memory:
                 for file_path in memory['removed']:

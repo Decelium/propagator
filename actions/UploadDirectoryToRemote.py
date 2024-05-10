@@ -41,7 +41,7 @@ def upload_directory_to_remote(self,record,memory=None):
             'path':record['decelium_path']}})
     del_try = decw.net.delete_entity(singed_req)
     try:
-        assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error'])
+        assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error']), "Got an invalid response for del_try "+ str(del_try)
     except Exception as e:
         print("Failing Delete Object Id" + str(del_try))
         raise e
