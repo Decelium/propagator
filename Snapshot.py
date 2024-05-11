@@ -1,19 +1,17 @@
 import os
 import json
 import shutil
-#try:
-from datasource.TpIPFSDecelium import TpIPFSDecelium
-from datasource.TpIPFSLocal import TpIPFSLocal
-from Messages import ObjectMessages
-from type.BaseData import BaseData,auto_c
+try:
+    from datasource.TpIPFSDecelium import TpIPFSDecelium
+    from datasource.TpIPFSLocal import TpIPFSLocal
+    from Messages import ObjectMessages
+    from type.BaseData import BaseData,auto_c
 
-
-#except:
-#    from .datasource.TpIPFSDecelium import TpIPFSDecelium
-#    from .datasource.TpIPFSLocal import TpIPFSLocal
-#    from .type.BaseData import BaseData,auto_c
-#    from .Messages import ObjectMessages
-#    import actions
+except:
+    from .datasource.TpIPFSDecelium import TpIPFSDecelium
+    from .datasource.TpIPFSLocal import TpIPFSLocal
+    from .type.BaseData import BaseData,auto_c
+    from .Messages import ObjectMessages
 
 import traceback as tb
 import decelium_wallet.core as core
