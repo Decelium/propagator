@@ -80,8 +80,10 @@ class TpIPFSLocal():
             elif 'self_id' in local_obj and 'self_id' in remote_obj: 
                 merged_object = local_obj
                 do_write = False
+            else:
+                raise Exception("INTERNAL ERROR 2387")
 
-        if priority == 'remote':
+        elif priority == 'remote':
             if  'error' in local_obj and 'error' in remote_obj:
                 merged_object =  None
                 do_write = False
@@ -93,10 +95,14 @@ class TpIPFSLocal():
                 do_write = True
             elif 'self_id' in local_obj and 'self_id' in remote_obj: 
                 merged_object = local_obj
+                do_write = False
                 if str(local_obj) != str(remote_obj):
                     merged_object = remote_obj
                     do_write = True
-
+            else:
+                raise Exception("INTERNAL ERROR 5668")
+        else:
+            raise Exception("INTERNAL ERROR 708")
         if merge_messages.add_assert(merged_object != None,"There is no local or remote object to consider during pull" ) == False:
             return False,merged_object,merge_messages
 
@@ -363,7 +369,7 @@ class TpIPFSLocal():
     @staticmethod
     def remove_attrib(filter:dict,download_path:str):
         assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'],filter['self_id']+".json")
+        file_path = os.path.join(download_path,filter['self_id'],"object.json")
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
