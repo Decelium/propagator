@@ -1,18 +1,23 @@
 import os
 import json
 import shutil
-try:
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
-    from datasource.TpIPFSLocal import TpIPFSLocal
-    from Messages import ObjectMessages
-    from datasource.BaseData import BaseData,auto_c
-except:
-    from .datasource.TpIPFSDecelium import TpIPFSDecelium
-    from .datasource.TpIPFSLocal import TpIPFSLocal
-    from .datasource.BaseData import BaseData,auto_c
-    from .Messages import ObjectMessages
+#try:
+from datasource.TpIPFSDecelium import TpIPFSDecelium
+from datasource.TpIPFSLocal import TpIPFSLocal
+from Messages import ObjectMessages
+from type.BaseData import BaseData,auto_c
+
+
+#except:
+#    from .datasource.TpIPFSDecelium import TpIPFSDecelium
+#    from .datasource.TpIPFSLocal import TpIPFSLocal
+#    from .type.BaseData import BaseData,auto_c
+#    from .Messages import ObjectMessages
+#    import actions
 
 import traceback as tb
+import decelium_wallet.core as core
+
 
 class EntityRequestData(BaseData):
     def get_keys(self):
@@ -20,11 +25,6 @@ class EntityRequestData(BaseData):
         optional = {'attrib': bool}
         return required, optional    
     
-    #def do_validation(self,key,value):
-    #    print ("Validating "+ key)
-    #    if key == 'age':
-    #        assert value > 0 and value < 120, "Humans must have a valid age range"
-    #    return value,""
 
 class Snapshot:  
     @staticmethod
@@ -50,6 +50,9 @@ class Snapshot:
             'remote':{'func':TpIPFSDecelium.validate_remote_object,
                     'prefix':'remote'
                     },
+            'remote_mirror':{'func':TpIPFSDecelium.validate_remote_object_mirror,
+                    'prefix':'remote_mirror'
+                    },                    
             'local_entity':{'func':TpIPFSLocal.validate_local_object_entity,
                     'prefix':'local_entity'
                     },
@@ -136,24 +139,22 @@ class Snapshot:
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'])
-        try:
-            if os.path.exists(file_path):
-                shutil.rmtree(file_path)
-            if os.path.exists(file_path):
-                return {'error':'could not remove item'}
-            return True
-        except:
-            import traceback as tb
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
-        return {'error':'uncaught control flow error.'}
+        return TpIPFSLocal.remove_entity(filter,download_path)
+
+    @auto_c(EntityRequestData)
+    def remove_attrib(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        return TpIPFSLocal.remove_attrib(filter,download_path)
+
+    @auto_c(EntityRequestData)
+    def remove_payload(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        return TpIPFSLocal.remove_payload(filter,download_path)
 
 
     @staticmethod
     def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
-        # def push_to_remote(decw,api_key, connection_settings, download_path,limit=20, offset=0):
         api_key = decw.dw.pubk("admin")
-
         messages = ObjectMessages("Snapshot.push_to_remote")
         object_ids = os.listdir(download_path)
         object_ids = object_ids[offset:offset+limit]
@@ -190,19 +191,12 @@ class Snapshot:
                 results[obj_id] = (False,messages)
                 continue
             
-            result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-            if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
+            obj = TpIPFSLocal.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
+            if messages.add_assert('error' not in obj,"b. Somehow the local is corrupt. Should be impossible to get this error."+ str(obj))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
-
-            obj = TpIPFSDecelium.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},decw)
-            if messages.add_assert('error' not in obj,"b. Upload did not secceed at all:"+ str(obj))==False:
-                results[obj_id]= (False,messages.get_error_messages())
-                continue
-
+            # TODO - Check if payload is missing using validate remote
             obj_cids = []
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
-            messages.append(remote_validation_messages)
             if remote_result == False:
                 results[obj_id]= (False,messages.get_error_messages())
                 # ---------
@@ -220,15 +214,33 @@ class Snapshot:
                                         "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                         results[obj_id]= (False,messages.get_error_messages())
                         continue
+            # TODO - Check if attrib is missing before calling repair attrib
+            # TODO - Restore attrib will also restore the mirror as needed.
+            result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+            if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
+                results[obj_id]= (False,messages.get_error_messages())
+                continue
+            if '__mirror_restored' in result and type(result['__mirror_restored'])==dict:
+                if messages.add_assert('error' not in result['__mirror_restored'],"b. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
+                    results[obj_id]= (False,messages.get_error_messages())
+                    continue
+
 
             # ---------
             # Verify Upload was successful
             remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
-            results[obj_id]= (remote_result,remote_validation_messages.get_error_messages())
+            # results[obj_id]= (remote_result,messages.get_error_messages())
+            if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
+                results[obj_id]= (False,messages.get_error_messages())
+                continue
 
-        return results
-    
+            results[obj_id]= (remote_result,messages.get_error_messages())
+
+            # TODO validate the mirror as well
+
+
+        return results    
     
     @staticmethod
     # TODO / Verify
