@@ -134,11 +134,10 @@ def test_corruptions():
     #        [{'target':'local','status':['complete']},
     #        {'target':'remote','status':['object_missing','payload_missing']},
     #        {'target':'remote_mirror','status':['complete']}]))
-    # for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
-    #     for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
-
-    for corrupt_remote in ['delete_payload']: 
-        for corrupt_mirror in  ['remove_attrib']:
+    for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
+        for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
+            #for corrupt_remote in ['delete_payload']: 
+            #    for corrupt_mirror in  ['remove_attrib']:
             assert type(corrupt_remote) == str
             assert type(corrupt_mirror) == str
             configs.append(new_corruption_config(setup_config,obj,

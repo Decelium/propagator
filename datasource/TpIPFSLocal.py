@@ -8,6 +8,7 @@ except:
 import traceback as tb
 import hashlib
 import shutil
+import random
 
 class TpIPFSLocal():
     @classmethod
@@ -387,3 +388,42 @@ class TpIPFSLocal():
                 if os.path.exists(file_path):
                     return {'error':'could not remove item '+file_path}
         return True
+
+    @staticmethod
+    def corrupt_attrib(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        self_id = filter['self_id']
+        file_path = os.path.join(download_path, self_id, 'object.json')
+        random_bytes_size = 1024
+        random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+        with open(file_path, 'wb') as corrupt_file:
+            corrupt_file.write(random_bytes)
+        return True
+
+    @staticmethod
+    def corrupt_attrib_filename(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        self_id = filter['self_id']
+        file_path = os.path.join(download_path, self_id, 'object.json')
+
+        with open(file_path, 'r') as f:
+            correct_json = json.loads(f.read())
+        correct_json['dir_name'] = "corrupt_name"
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(correct_json))
+        
+    @staticmethod
+    def corrupt_payload(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        self_id = filter['self_id']
+        object_path = os.path.join(download_path, self_id)
+        files_affected = []
+        for filename in os.listdir(object_path):
+            if  filename.endswith('.file'): # filename.endswith('.dag') or
+                file_path = os.path.join(object_path, filename)
+                random_bytes_size = 1024
+                random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+                with open(file_path, 'wb') as corrupt_file:
+                    corrupt_file.write(random_bytes)
+                files_affected.append(file_path)
+        return True,files_affected
