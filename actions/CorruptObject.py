@@ -42,7 +42,17 @@ class CorruptObject(Action):
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
         if type(obj) == dict:
             assert not 'error' in obj
-        # TODO actually corrupt the payload, dont just remove it. This is not a proper test
+
+    @staticmethod
+    def corrupt_remote_mirror_delete_entity(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_entity",'mirror':True},["admin"]))
+        if type(obj) == dict:
+            assert not 'error' in obj
+
     @staticmethod
     def corrupt_remote_mirror_remove_attrib(record,memory):
         backup_path = record['backup_path']
@@ -52,14 +62,21 @@ class CorruptObject(Action):
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"remove_attrib",'mirror':True},["admin"]))
 
     @staticmethod
+    def corrupt_remote_mirror_corrupt_attrib(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"corrupt_attrib",'mirror':True},["admin"]))
+
+    @staticmethod
     def corrupt_remote_mirror_rename_attrib_filename(record,memory):
         backup_path = record['backup_path']
         self_id = record['obj_id']
         decw = record['decw']
         connection_settings = record['connection_settings']
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename",'mirror':True},["admin"]))
-        assert success == True, "Did no succeed in removing at"
-        raise Exception("Should verify removal 3")
+        assert success == True, "Did no succeed in removing at \n"+json.dumps(success)
 
     @staticmethod
     def corrupt_remote_mirror_delete_payload(record,memory):
@@ -69,6 +86,15 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
         assert corrupt_result == True, "Got an invalid corruption result "+str(corrupt_result)
+
+
+    @staticmethod
+    def corrupt_remote_corrupt_attrib(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"corrupt_attrib"},["admin"]))
 
     @staticmethod
     def corrupt_remote_corrupt_payload(record,memory):
@@ -104,7 +130,15 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
         assert success == True
-
+    @staticmethod
+    def corrupt_remote_delete_entity(record,memory):
+        backup_path = record['backup_path']
+        self_id = record['obj_id']
+        decw = record['decw']
+        connection_settings = record['connection_settings']
+        obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_entity"},["admin"]))
+        if type(obj) == dict:
+            assert not 'error' in obj, "Got an error trying to process the corruption "+ str(obj)
     @staticmethod
     def corrupt_remote_delete_payload(record,memory):
         backup_path = record['backup_path']
