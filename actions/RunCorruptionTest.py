@@ -17,7 +17,8 @@ except:
     from .ChangeRemoteObjectName import ChangeRemoteObjectName
     from .PushFromSnapshotToRemote import PushFromSnapshotToRemote
     from .Action import Action,agent_action
-    
+
+import json    
 class RunCorruptionTest(Action):
     def run_corruption(self,decw,
                             obj,
@@ -67,8 +68,20 @@ class RunCorruptionTest(Action):
 
         # Step 1: In post, we want to first make sure the corruption indeed caused the kind of corruption we are looking for
         setup_config:TestConfig = record['setup_config']
+        invalid_props = record['invalid_props']
+        
         for eval in record['corruption_evals']:
+            print("Evaluating:")
+            print(eval)
             evaluate_object_status({**setup_config.eval_context(),**eval})
+
+        props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
+        validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        for prop in props:
+            if prop not in invalid_props:
+                assert validation_data[prop][0][prop] == True,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+            else:
+                assert validation_data[prop][0][prop] == False,"Could not find that "+prop+" was INvalid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
 
         # Step 2: After we evaluate, we want to restore the object to its original state
         if record['repair_target'] == 'local':

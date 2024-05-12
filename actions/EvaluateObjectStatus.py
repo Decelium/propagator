@@ -49,11 +49,13 @@ def evaluate_object_status(self,record,memory=None):
         return True
 
     if record['target'] == 'remote' and 'complete' in record['status'] :
+        print("EXPECTING REMOTE TO BE TRUE")
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote')
         assert results['remote'] == True, "Got an invalid REMOTE object_validation_status: "+str(results) + " " + str(messages)
         return True
     
     elif record['target'] == 'remote':
+        print("EXPECTING REMOTE TO BE FALSE")
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'remote')
         assert results['remote'] == False
         return True
