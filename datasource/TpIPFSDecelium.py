@@ -56,8 +56,12 @@ class TpIPFSDecelium():
 
     @classmethod
     def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        print("validate_remote_object.Evaluating Remote Attrib")
         entity_success,entity_messages = cls.validate_remote_object_attrib(decw,object_id,download_path,connection_settings)
+        print(entity_success)
+        print("validate_remote_object.Evaluating Remote Payload")
         payload_success,payload_messages = cls.validate_remote_object_payload(decw,object_id,download_path,connection_settings)
+        print(payload_success)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages
         all_messages.append(entity_messages)
