@@ -51,20 +51,20 @@ class Snapshot:
             'remote_mirror':{'func':TpIPFSDecelium.validate_remote_object_mirror,
                     'prefix':'remote_mirror'
                     },                    
-            'local_entity':{'func':TpIPFSLocal.validate_local_object_entity,
-                    'prefix':'local_entity'
+            'local_attrib':{'func':TpIPFSLocal.validate_local_object_attrib,
+                    'prefix':'local_attrib'
                     },
             'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
                     'prefix':'local_payload'
                     },
-            'remote_entity':{'func':TpIPFSDecelium.validate_remote_object_entity,
-                    'prefix':'remote_entity'
+            'remote_attrib':{'func':TpIPFSDecelium.validate_remote_object_attrib,
+                    'prefix':'remote_attrib'
                         },
             'remote_payload':{'func':TpIPFSDecelium.validate_remote_object_payload,
                     'prefix':'remote_payload'
                         },
-            'remote_entity_mirror':{'func':TpIPFSDecelium.validate_remote_object_entity_mirror,
-                    'prefix':'remote_entity_mirror'
+            'remote_attrib_mirror':{'func':TpIPFSDecelium.validate_remote_object_attrib_mirror,
+                    'prefix':'remote_entity_attrib'
                         },
             'remote_payload_mirror':{'func':TpIPFSDecelium.validate_remote_object_payload_mirror,
                     'prefix':'remote_payload_mirror'

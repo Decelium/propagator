@@ -223,7 +223,7 @@ class TpIPFSLocal():
         return entity_success and payload_success,all_messages
     
     @classmethod
-    def validate_local_object_entity(cls,decw,object_id,download_path,connection_settings):
+    def validate_local_object_attrib(cls,decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
         messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
         try:
