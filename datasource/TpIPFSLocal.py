@@ -417,6 +417,7 @@ class TpIPFSLocal():
         correct_json['dir_name'] = "corrupt_name"
         with open(file_path, 'w') as f:
             f.write(json.dumps(correct_json))
+        return True
         
     @staticmethod
     def corrupt_payload(filter:dict,download_path:str):
