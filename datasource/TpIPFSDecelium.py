@@ -56,7 +56,7 @@ class TpIPFSDecelium():
 
     @classmethod
     def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        entity_success,entity_messages = cls.validate_remote_object_entity(decw,object_id,download_path,connection_settings)
+        entity_success,entity_messages = cls.validate_remote_object_attrib(decw,object_id,download_path,connection_settings)
         payload_success,payload_messages = cls.validate_remote_object_payload(decw,object_id,download_path,connection_settings)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages
@@ -65,7 +65,7 @@ class TpIPFSDecelium():
     
     @classmethod
     def validate_remote_object_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        entity_success,entity_messages = cls.validate_remote_object_entity_mirror(decw,object_id,download_path,connection_settings)
+        entity_success,entity_messages = cls.validate_remote_object_attrib_mirror(decw,object_id,download_path,connection_settings)
         payload_success,payload_messages = cls.validate_remote_object_payload_mirror(decw,object_id,download_path,connection_settings)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages

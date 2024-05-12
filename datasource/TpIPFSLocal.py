@@ -215,7 +215,7 @@ class TpIPFSLocal():
 
     @classmethod
     def validate_local_object(cls,decw,object_id,download_path,connection_settings):
-        entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
+        entity_success,entity_messages = cls.validate_local_object_attrib(decw,object_id,download_path,connection_settings)
         payload_success,payload_messages = cls.validate_local_object_payload(decw,object_id,download_path,connection_settings)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages
