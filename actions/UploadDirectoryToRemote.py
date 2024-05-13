@@ -37,6 +37,8 @@ def upload_directory_to_remote(self,record,memory=None):
             'payload_type':'local_path',
             'payload':record['local_path']
     }})
+    print("The target Pins")
+    print(pins)
     singed_req = decw.dw.sr({**user_context, **{
             'path':record['decelium_path']}})
     del_try = decw.net.delete_entity(singed_req)

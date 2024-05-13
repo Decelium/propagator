@@ -131,15 +131,15 @@ def test_corruptions():
     corruption_suffix = {
                         'delete_payload':['payload'],
                         'corrupt_payload':['payload'],
-                        'remove_attrib':['attrib'],
+                        'remove_attrib':['attrib','payload'],
                         'rename_attrib_filename':['attrib'],
-                        'corrupt_attrib':['attrib'],
+                        'corrupt_attrib':['attrib','payload'],
                         'delete_entity':['attrib','payload'],}
     
-    #for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
-    #    for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
-    for corrupt_remote in ['delete_payload']: 
-        for corrupt_mirror in  ['delete_payload']:
+    for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
+        for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
+            #for corrupt_remote in ['delete_payload']: 
+            #    for corrupt_mirror in  ['delete_payload']:
             assert type(corrupt_remote) == str
             assert type(corrupt_mirror) == str
             invalid_props = []

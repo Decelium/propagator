@@ -77,6 +77,8 @@ class RunCorruptionTest(Action):
 
         props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
         validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        if 'error' in validation_data:
+            print(validation_data)
         for prop in props:
             if prop not in invalid_props:
                 assert validation_data[prop][0][prop] == True,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
