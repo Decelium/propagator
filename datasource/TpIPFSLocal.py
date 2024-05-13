@@ -146,10 +146,11 @@ class TpIPFSLocal():
         root_cid = item['cid']
         if not os.path.exists(download_path):
             os.makedirs(download_path)
-
+        print("TRYING TO BACK UP "+root_cid)
         file_path = os.path.join(download_path, root_cid)
         # Check if root the file already exists to avoid double writing
         if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
+            print("SKIPPING "+root_cid)
             return new_cids
         try:
             # Check if the item is pinned on this node
@@ -157,9 +158,12 @@ class TpIPFSLocal():
             if root_cid in pinned_cids:
                 pinned = True
             if not pinned:
+                print("NOT PINNED "+root_cid)
                 return new_cids
             #TpIPFSDecelium.ipfs_has_cids(decw,)
             # If pinned, proceed to download
+            print("ABOUT TO CAT  "+root_cid)
+            
             try:
                 res = client.cat(root_cid)
                 #with open(file_path+".file", 'wb') as f:
@@ -173,6 +177,8 @@ class TpIPFSLocal():
                         f.write(current_hash)
                 
             except Exception as e:
+                print("EXCEPTION "+root_cid)
+                
                 if "is a directory" in str(e):
                     dir_json = TpSource.download_directory_dag(client,root_cid)
                     for new_item in dir_json['Links']:
@@ -239,6 +245,29 @@ class TpIPFSLocal():
             return False,messages
         return len(messages.get_error_messages())== 0,messages   
     
+
+    @classmethod
+    def validate_local_object_payload_only(cls,decw,object_id,download_path,connection_settings):
+        raise Exception("Disabled for now")
+        messages = ObjectMessages("TpIPFSLocal.validate_local_object_payload_only(for {object_id})")
+        if messages.add_assert(os.path.exists(os.path.join(download_path,object_id)), "Object backup is not present") == False:
+            return False,messages   
+        
+        for item in os.listdir(download_path+'/'+object_id):
+            # Construct the full path of the item-
+            file_path = os.path.join(download_path,object_id, item)
+            
+            if item.endswith('.file') or item.endswith('.dag'):
+                try:
+                    valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
+                    if valido_hasho != True:
+                        invalid_list.append(item.split('.')[0])
+                        messages.add_assert(False, "Encountered A bad hash for cid:"+file_path)
+
+                except:
+                    messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
+        return len(messages.get_error_messages())== 0,messages   
+    
     @classmethod
     def validate_local_object_payload(cls,decw,object_id,download_path,connection_settings):
         # Load the entity, and make sure payload is present that matches
@@ -250,7 +279,9 @@ class TpIPFSLocal():
         except:
             messages.add_assert(False==True, "Could not validate presense of entity file")
             return False,messages
-
+            #Cha We should make a best effort to validate in the case the object def is missing.
+            #return cls.validate_local_object_payload_only(decw,object_id,download_path,connection_settings)
+            
         cids_pinned = []
         cids_downloaded = []
 
@@ -283,7 +314,7 @@ class TpIPFSLocal():
                 cids_downloaded.append(item.split('.')[0])
         missing = []
         for pin in cids_pinned:
-            messages.add_assert(pin in cids_downloaded, "a local pin from pinned object for "+object_id+" was not downloaded")
+            messages.add_assert(pin in cids_downloaded, "a local pin ("+pin+") from pinned object for "+object_id+" was not downloaded")
         return len(messages.get_error_messages())== 0,messages   
     
     @classmethod

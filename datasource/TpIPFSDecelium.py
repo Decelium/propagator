@@ -25,6 +25,10 @@ class TpIPFSDecelium():
                         dic = item.copy()
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
+                    if not dic['cid'] in all_pins:
+                        print("REFRESHING PINS, as it seems we could be missing one")
+                        all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
+                        
                     new_pins = TpDestination.backup_ipfs_entity(TpIPFSDecelium,dic,all_pins,download_path,client,overwrite)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
