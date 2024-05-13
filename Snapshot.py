@@ -34,7 +34,7 @@ class Snapshot:
             return result
     
     @staticmethod
-    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
+    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None,prefix=None):
         result_json = {}
         result_json["self_id"] = obj_id
         # entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
@@ -45,18 +45,18 @@ class Snapshot:
             'local':{'func':TpIPFSLocal.validate_local_object,
                     'prefix':'local'
                     },
-            'remote':{'func':TpIPFSDecelium.validate_remote_object,
-                    'prefix':'remote'
-                    },
-            'remote_mirror':{'func':TpIPFSDecelium.validate_remote_object_mirror,
-                    'prefix':'remote_mirror'
-                    },                    
             'local_attrib':{'func':TpIPFSLocal.validate_local_object_attrib,
                     'prefix':'local_attrib'
                     },
             'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
                     'prefix':'local_payload'
                     },
+            'remote':{'func':TpIPFSDecelium.validate_remote_object,
+                    'prefix':'remote'
+                    },
+            'remote_mirror':{'func':TpIPFSDecelium.validate_remote_object_mirror,
+                    'prefix':'remote_mirror'
+                    },                    
             'remote_attrib':{'func':TpIPFSDecelium.validate_remote_object_attrib,
                     'prefix':'remote_attrib'
                         },
@@ -70,7 +70,8 @@ class Snapshot:
                     'prefix':'remote_payload_mirror'
                         }                        
         }
-        prefix = validation_set[datasource]['prefix']
+        if prefix == None:
+            prefix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
         #try:
         

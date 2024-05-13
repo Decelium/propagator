@@ -25,6 +25,10 @@ class TpIPFSDecelium():
                         dic = item.copy()
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
+                    if not dic['cid'] in all_pins:
+                        print("REFRESHING PINS, as it seems we could be missing one")
+                        all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
+                        
                     new_pins = TpDestination.backup_ipfs_entity(TpIPFSDecelium,dic,all_pins,download_path,client,overwrite)
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
@@ -106,6 +110,7 @@ class TpIPFSDecelium():
         messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
+        print("LOW LEVEL TpIPFSDecelium.validate_remote_object_payload")
         
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
@@ -125,7 +130,8 @@ class TpIPFSDecelium():
             result = decw.net.check_pin_status({
                     'api_key':"UNDEFINED",
                     'connection_settings':connection_settings,
-                    'cid': cid})
+                    'cid': cid,
+                    'do_refresh':True})
             messages.add_assert(result == True, "cid is missing from remote "+cid)
 
         return len(messages.get_error_messages()) == 0, messages  
