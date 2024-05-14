@@ -171,17 +171,35 @@ class Snapshot:
         return TpIPFSLocal.corrupt_payload(filter,download_path)
     
     @staticmethod
-    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
-        api_key = decw.dw.pubk("admin")
+    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None):
+        print("Snapshot.push_to_remote.download_path")
+        if api_key == None:
+            api_key = decw.dw.pubk("admin")
         messages = ObjectMessages("Snapshot.push_to_remote")
-        object_ids = os.listdir(download_path)
+        print("Snapshot.push_to_remote.download_path")
+        print(download_path)
+        unfiltered_ids = os.listdir(download_path)
+        object_ids = []
+        for obj_id in unfiltered_ids:
+            print("STAGE 3 "+obj_id)
+            if not 'obj-' in obj_id:
+                continue
+            if type(filter) == dict and 'attrib' in filter and 'self_id' in filter['attrib']:
+                if obj_id == filter['attrib']['self_id']:
+                    object_ids.append(obj_id)
+                    continue
+            else:
+                object_ids.append(obj_id)
+        print("STAGE 1 Filtered Objs")
+        print(object_ids)
         object_ids = object_ids[offset:offset+limit]
         results = {}
         if len(object_ids) == 0:
             return results        
-        
+        print("STAGE 2")
+        print(object_ids)
         for obj_id in object_ids:
-            
+            print("EXECUTING IN: "+obj_id)            
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
@@ -234,7 +252,9 @@ class Snapshot:
                         continue
             # TODO - Check if attrib is missing before calling repair attrib
             # TODO - Restore attrib will also restore the mirror as needed.
-            result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+            # result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+            result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential 
+            
             if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
@@ -257,7 +277,7 @@ class Snapshot:
 
             # TODO validate the mirror as well
 
-
+        print("ALL DONE IN PUSH")
         return results    
     
     @staticmethod
