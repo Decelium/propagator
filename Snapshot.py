@@ -171,7 +171,7 @@ class Snapshot:
         return TpIPFSLocal.corrupt_payload(filter,download_path)
     
     @staticmethod
-    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None):
+    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
         print("Snapshot.push_to_remote.download_path")
         if api_key == None:
             api_key = decw.dw.pubk("admin")
@@ -207,7 +207,31 @@ class Snapshot:
             if remote_result == True:
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
+            # TODO Generalize, and split attrib / payload functions (?) or not (?)
+            if attrib_only == True:
+                # ---------
+                # b) Make sure the local is complete (attrib only)
+                local_result, local_validation_messages = TpIPFSLocal.validate_local_object_attrib(decw,obj_id, download_path, connection_settings)
+                if local_result == False: # and remote_result == False:
+                    results[obj_id] = (False,local_validation_messages.get_error_messages())
+                    continue
+                assert local_result == True and remote_result == False
+                # ---------
+                # Upload metadata (attrib only)
+                query,upload_messages = TpIPFSLocal.upload_object_query(obj_id,download_path,connection_settings,attrib_only)
+                messages.append(upload_messages)
+                if len(upload_messages.get_error_messages()) > 0:
+                    results[obj_id] = (False,messages.get_error_messages())
+                    continue
 
+                result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential, which is now expanding as a problem
+                if messages.add_assert('error' not in result,"D. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
+                    results[obj_id]= (False,messages.get_error_messages())
+                    continue
+                
+                results[obj_id] = (True,messages.get_error_messages())
+                continue
+                
             # ---------
             # b) Make sure the local is complete
             local_result, local_validation_messages = TpIPFSLocal.validate_local_object(decw,obj_id, download_path, connection_settings)
@@ -224,7 +248,7 @@ class Snapshot:
             query,upload_messages = TpIPFSLocal.upload_object_query(obj_id,download_path,connection_settings)
             messages.append(upload_messages)
             if len(upload_messages.get_error_messages()) > 0:
-                results[obj_id] = (False,messages)
+                results[obj_id] = (False,messages.get_error_messages())
                 continue
             
             obj = TpIPFSLocal.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
