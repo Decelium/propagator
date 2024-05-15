@@ -238,8 +238,8 @@ class TpIPFSLocal():
                 obj_local = json.loads(f.read())
             valido_hasho = cls.compare_file_hash(file_path_test)
             if valido_hasho != True:
-                False,messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
-
+                messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+                return False,messages
         except:
             messages.add_assert(False==True, "Could not validate presense of file file")
             return False,messages
@@ -249,6 +249,7 @@ class TpIPFSLocal():
     @classmethod
     def validate_local_object_payload_only(cls,decw,object_id,download_path,connection_settings):
         raise Exception("Disabled for now")
+        '''
         messages = ObjectMessages("TpIPFSLocal.validate_local_object_payload_only(for {object_id})")
         if messages.add_assert(os.path.exists(os.path.join(download_path,object_id)), "Object backup is not present") == False:
             return False,messages   
@@ -266,7 +267,8 @@ class TpIPFSLocal():
 
                 except:
                     messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
-        return len(messages.get_error_messages())== 0,messages   
+        return len(messages.get_error_messages())== 0,messages  
+        '''
     
     @classmethod
     def validate_local_object_payload(cls,decw,object_id,download_path,connection_settings):
@@ -276,12 +278,18 @@ class TpIPFSLocal():
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
                 obj_local = json.loads(f.read())
+            valido_hasho = cls.compare_file_hash(file_path_test)
+            if valido_hasho != True:
+                messages.add_assert(False, "B. Encountered A bad hash object.json :"+file_path_test)
+                return False, messages
         except:
-            messages.add_assert(False==True, "Could not validate presense of entity file")
+            messages.add_assert(False==True, "B. Could not validate presense of entity file")
             return False,messages
             #Cha We should make a best effort to validate in the case the object def is missing.
             #return cls.validate_local_object_payload_only(decw,object_id,download_path,connection_settings)
-            
+
+
+        
         cids_pinned = []
         cids_downloaded = []
 

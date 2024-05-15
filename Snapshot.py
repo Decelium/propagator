@@ -224,12 +224,27 @@ class Snapshot:
                     results[obj_id] = (False,messages.get_error_messages())
                     continue
 
-                result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential, which is now expanding as a problem
+                result = decw.net.restore_attrib({**query,'api_key':api_key,'ignore_mirror':True}) # ** TODO Fix buried credential, which is now expanding as a problem
+                print("-------Z1 FINISHED PUSH ATTRIB")
                 if messages.add_assert('error' not in result,"D. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
+                    
+                print("-------Z2 FINISHED PUSH ATTRIB")
+                if messages.add_assert('__entity_restored' in result and result['__entity_restored']==True,"Could not restore the attrib "+str(result))==False:
+                    results[obj_id]= (False,messages.get_error_messages())
+                    continue
+
+                print("-------Z3 FINISHED PUSH ATTRIB")
+                if messages.add_assert('__mirror_restored' in result and result['__mirror_restored']==False,"The Mirror should have been ignored "+str(result))==False:
+                    results[obj_id]= (False,messages.get_error_messages())
+                    continue
                 
+
+                
+                print("-------Z4 FINISHED PUSH ATTRIB")
                 results[obj_id] = (True,messages.get_error_messages())
+                print("-------ENDED PUSH ATTRIB")
                 continue
                 
             # ---------

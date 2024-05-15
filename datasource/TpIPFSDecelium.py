@@ -111,6 +111,11 @@ class TpIPFSDecelium():
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
         print("LOW LEVEL TpIPFSDecelium.validate_remote_object_payload")
+
+        obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
+        if messages.add_assert(obj_valid == True, f"B. validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
+            return False, messages
+
         
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
