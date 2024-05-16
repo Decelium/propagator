@@ -233,8 +233,8 @@ class TpIPFSLocal():
                 obj_local = json.loads(f.read())
             valido_hasho = cls.compare_file_hash(file_path_test)
             if valido_hasho != True:
-                False,messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
-
+                messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+                return False,messages
         except:
             messages.add_assert(False==True, "Could not validate presense of file file")
             return False,messages
@@ -244,6 +244,7 @@ class TpIPFSLocal():
     @classmethod
     def validate_local_object_payload_only(cls,decw,object_id,download_path,connection_settings):
         raise Exception("Disabled for now")
+        '''
         messages = ObjectMessages("TpIPFSLocal.validate_local_object_payload_only(for {object_id})")
         if messages.add_assert(os.path.exists(os.path.join(download_path,object_id)), "Object backup is not present") == False:
             return False,messages   
@@ -261,7 +262,8 @@ class TpIPFSLocal():
 
                 except:
                     messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
-        return len(messages.get_error_messages())== 0,messages   
+        return len(messages.get_error_messages())== 0,messages  
+        '''
     
     @classmethod
     def validate_local_object_payload(cls,decw,object_id,download_path,connection_settings):
@@ -271,12 +273,18 @@ class TpIPFSLocal():
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
                 obj_local = json.loads(f.read())
+            valido_hasho = cls.compare_file_hash(file_path_test)
+            if valido_hasho != True:
+                messages.add_assert(False, "B. Encountered A bad hash object.json :"+file_path_test)
+                return False, messages
         except:
-            messages.add_assert(False==True, "Could not validate presense of entity file")
+            messages.add_assert(False==True, "B. Could not validate presense of entity file")
             return False,messages
             #Cha We should make a best effort to validate in the case the object def is missing.
             #return cls.validate_local_object_payload_only(decw,object_id,download_path,connection_settings)
-            
+
+
+        
         cids_pinned = []
         cids_downloaded = []
 
@@ -330,11 +338,11 @@ class TpIPFSLocal():
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
 
     @classmethod
-    def upload_object_query(cls,obj_id,download_path,connection_settings):
+    def upload_object_query(cls,obj_id,download_path,connection_settings,attrib_only = None):
         '''
             Validates the object, and generates a query to reupload the exact object
         '''
-        messages = ObjectMessages("Migrator.upload_object_query(for {"+obj_id+"})")
+        messages = ObjectMessages("TpIPFSLocal.upload_object_query(for {"+obj_id+"})")
         if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
             return False,messages
             
@@ -356,9 +364,10 @@ class TpIPFSLocal():
                 cid_record['root'] = True
             obj_cids.append(cid_record)
             #print(cid_record)
-            file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
-            if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
-                return False,messages
+            if attrib_only != True:
+                file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
+                if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
+                    return False,messages
 
         query = {
             'attrib':obj

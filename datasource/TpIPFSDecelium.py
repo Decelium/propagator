@@ -79,7 +79,7 @@ class TpIPFSDecelium():
     def validate_remote_object_attrib(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
         messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_entity(for {"+object_id+"})")
         obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
-        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
+        if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
             return False, messages
         return len(messages.get_error_messages()) == 0, messages      
 
@@ -87,7 +87,7 @@ class TpIPFSDecelium():
     def validate_remote_object_attrib_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
         messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_entity_mirror(for {"+object_id+"})")
         obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
-        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_remote_object_entity_mirror:"+str(obj_valid)) == False:
+        if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to be invalid, as reported by DB validate_remote_object_entity_mirror:"+str(obj_valid)) == False:
             return False, messages
         return len(messages.get_error_messages()) == 0, messages      
 
@@ -105,6 +105,12 @@ class TpIPFSDecelium():
         messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
+        print("LOW LEVEL TpIPFSDecelium.validate_remote_object_payload")
+
+        obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
+        if messages.add_assert(obj_valid == True, f"B. validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
+            return False, messages
+
         
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
