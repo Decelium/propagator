@@ -1,9 +1,14 @@
 import decelium_wallet.core as core
 import os
 import json
-from Messages import ObjectMessages
+try:
+    from Messages import ObjectMessages
+except:
+    from ..Messages import ObjectMessages
 import traceback as tb
 import hashlib
+import shutil
+import random
 
 class TpIPFSLocal():
     @classmethod
@@ -50,10 +55,10 @@ class TpIPFSLocal():
     def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
 
         remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
-        local_obj = TpIPFSLocal.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
+        local_obj = cls.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         file_path = os.path.join(download_path,obj_id,'object.json')
         # Is the local accurate?
-        local_is_valid = TpIPFSLocal.compare_file_hash(file_path)
+        local_is_valid = cls.compare_file_hash(file_path)
         if local_is_valid != True:
             local_obj = {'error':'__merge_attrib_from_remote() found that the object is invalid using compare_file_hash() '}
 
@@ -75,8 +80,10 @@ class TpIPFSLocal():
             elif 'self_id' in local_obj and 'self_id' in remote_obj: 
                 merged_object = local_obj
                 do_write = False
+            else:
+                raise Exception("INTERNAL ERROR 2387")
 
-        if priority == 'remote':
+        elif priority == 'remote':
             if  'error' in local_obj and 'error' in remote_obj:
                 merged_object =  None
                 do_write = False
@@ -88,10 +95,14 @@ class TpIPFSLocal():
                 do_write = True
             elif 'self_id' in local_obj and 'self_id' in remote_obj: 
                 merged_object = local_obj
+                do_write = False
                 if str(local_obj) != str(remote_obj):
                     merged_object = remote_obj
                     do_write = True
-
+            else:
+                raise Exception("INTERNAL ERROR 5668")
+        else:
+            raise Exception("INTERNAL ERROR 708")
         if merge_messages.add_assert(merged_object != None,"There is no local or remote object to consider during pull" ) == False:
             return False,merged_object,merge_messages
 
@@ -109,12 +120,11 @@ class TpIPFSLocal():
         if do_write == False and merged_object:
             return True,merged_object,merge_messages
         raise Exception("Should never reach the end of this function.")
-        
+    
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
         cids = [] 
         for item in os.listdir(download_path):
-            # Construct the full path of the item-
             file_path = os.path.join(download_path, item)
             if file_path.endswith('.file'):
                 payload_type = 'local_path'
@@ -124,9 +134,9 @@ class TpIPFSLocal():
                 continue
             result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
             messages = ObjectMessages("Migrator.upload_ipfs_data")
-            messages.add_assert(result[0]['cid'] in file_path,"Could not local file for "+result[0]['cid'] ) 
+                    
+            messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
             cids.append(result[0]['cid'])
-            # all_cids = TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,True)            
         return cids,messages
     
     @classmethod
@@ -136,7 +146,6 @@ class TpIPFSLocal():
         root_cid = item['cid']
         if not os.path.exists(download_path):
             os.makedirs(download_path)
-
         file_path = os.path.join(download_path, root_cid)
         # Check if root the file already exists to avoid double writing
         if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
@@ -150,6 +159,7 @@ class TpIPFSLocal():
                 return new_cids
             #TpIPFSDecelium.ipfs_has_cids(decw,)
             # If pinned, proceed to download
+            
             try:
                 res = client.cat(root_cid)
                 #with open(file_path+".file", 'wb') as f:
@@ -163,6 +173,7 @@ class TpIPFSLocal():
                         f.write(current_hash)
                 
             except Exception as e:
+                
                 if "is a directory" in str(e):
                     dir_json = TpSource.download_directory_dag(client,root_cid)
                     for new_item in dir_json['Links']:
@@ -179,6 +190,7 @@ class TpIPFSLocal():
             print(f"Error downloading {cid}: {e}")
             print(tb.format_exc())
             return new_cids    
+        
     @classmethod
     def compare_file_hash(cls,file_path, hash_func='sha2-256'):
         if not os.path.exists(file_path):
@@ -204,6 +216,15 @@ class TpIPFSLocal():
 
     @classmethod
     def validate_local_object(cls,decw,object_id,download_path,connection_settings):
+        entity_success,entity_messages = cls.validate_local_object_attrib(decw,object_id,download_path,connection_settings)
+        payload_success,payload_messages = cls.validate_local_object_payload(decw,object_id,download_path,connection_settings)
+        entity_messages:ObjectMessages = entity_messages
+        all_messages:ObjectMessages = payload_messages
+        all_messages.append(entity_messages)
+        return entity_success and payload_success,all_messages
+    
+    @classmethod
+    def validate_local_object_attrib(cls,decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
         messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
         try:
@@ -212,12 +233,58 @@ class TpIPFSLocal():
                 obj_local = json.loads(f.read())
             valido_hasho = cls.compare_file_hash(file_path_test)
             if valido_hasho != True:
-                False,messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
-
+                messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+                return False,messages
         except:
             messages.add_assert(False==True, "Could not validate presense of file file")
             return False,messages
+        return len(messages.get_error_messages())== 0,messages   
+    
 
+    @classmethod
+    def validate_local_object_payload_only(cls,decw,object_id,download_path,connection_settings):
+        raise Exception("Disabled for now")
+        '''
+        messages = ObjectMessages("TpIPFSLocal.validate_local_object_payload_only(for {object_id})")
+        if messages.add_assert(os.path.exists(os.path.join(download_path,object_id)), "Object backup is not present") == False:
+            return False,messages   
+        
+        for item in os.listdir(download_path+'/'+object_id):
+            # Construct the full path of the item-
+            file_path = os.path.join(download_path,object_id, item)
+            
+            if item.endswith('.file') or item.endswith('.dag'):
+                try:
+                    valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
+                    if valido_hasho != True:
+                        invalid_list.append(item.split('.')[0])
+                        messages.add_assert(False, "Encountered A bad hash for cid:"+file_path)
+
+                except:
+                    messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
+        return len(messages.get_error_messages())== 0,messages  
+        '''
+    
+    @classmethod
+    def validate_local_object_payload(cls,decw,object_id,download_path,connection_settings):
+        # Load the entity, and make sure payload is present that matches
+        messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
+        try:
+            file_path_test = download_path+'/'+object_id+'/object.json'
+            with open(file_path_test,'r') as f:
+                obj_local = json.loads(f.read())
+            valido_hasho = cls.compare_file_hash(file_path_test)
+            if valido_hasho != True:
+                messages.add_assert(False, "B. Encountered A bad hash object.json :"+file_path_test)
+                return False, messages
+        except:
+            messages.add_assert(False==True, "B. Could not validate presense of entity file")
+            return False,messages
+            #Cha We should make a best effort to validate in the case the object def is missing.
+            #return cls.validate_local_object_payload_only(decw,object_id,download_path,connection_settings)
+
+
+        
         cids_pinned = []
         cids_downloaded = []
 
@@ -250,9 +317,9 @@ class TpIPFSLocal():
                 cids_downloaded.append(item.split('.')[0])
         missing = []
         for pin in cids_pinned:
-            messages.add_assert(pin in cids_downloaded, "a local pin from pinned object for "+object_id+" was not downloaded")
-        return len(messages.get_error_messages())== 0,messages    
-
+            messages.add_assert(pin in cids_downloaded, "a local pin ("+pin+") from pinned object for "+object_id+" was not downloaded")
+        return len(messages.get_error_messages())== 0,messages   
+    
     @classmethod
     def overwrite_file_hash(cls,file_path):
         current_hash = cls.generate_file_hash(file_path)
@@ -271,11 +338,11 @@ class TpIPFSLocal():
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
 
     @classmethod
-    def upload_object_query(cls,obj_id,download_path,connection_settings):
+    def upload_object_query(cls,obj_id,download_path,connection_settings,attrib_only = None):
         '''
             Validates the object, and generates a query to reupload the exact object
         '''
-        messages = ObjectMessages("Migrator.upload_object_query(for {"+obj_id+"})")
+        messages = ObjectMessages("TpIPFSLocal.upload_object_query(for {"+obj_id+"})")
         if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
             return False,messages
             
@@ -297,9 +364,10 @@ class TpIPFSLocal():
                 cid_record['root'] = True
             obj_cids.append(cid_record)
             #print(cid_record)
-            file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
-            if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
-                return False,messages
+            if attrib_only != True:
+                file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
+                if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
+                    return False,messages
 
         query = {
             'attrib':obj
@@ -317,3 +385,87 @@ class TpIPFSLocal():
                 chunk = f.read(4096)
         
         return hasher.hexdigest().encode('utf-8')
+    
+    # TODO remove all hard path requirements from this file
+    @staticmethod
+    def remove_entity(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'])
+        try:
+            if os.path.exists(file_path):
+                shutil.rmtree(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item'}
+            return True
+        except:
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
+
+    @staticmethod
+    def remove_attrib(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'],"object.json")
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item'}
+            return True
+        except:
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
+
+    def remove_payload(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        object_id = filter['self_id']
+        obj_backup_path = os.path.join(download_path,object_id)
+        if not os.path.exists(obj_backup_path):
+            True
+        for item in os.listdir(obj_backup_path):
+            # Construct the full path of the item-
+            file_path = os.path.join(obj_backup_path, item)
+            if item.endswith('.file') or item.endswith('.dag'):
+                os.remove(file_path)
+                if os.path.exists(file_path):
+                    return {'error':'could not remove item '+file_path}
+        return True
+
+    @staticmethod
+    def corrupt_attrib(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        self_id = filter['self_id']
+        file_path = os.path.join(download_path, self_id, 'object.json')
+        random_bytes_size = 1024
+        random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+        with open(file_path, 'wb') as corrupt_file:
+            corrupt_file.write(random_bytes)
+        return True
+
+    @staticmethod
+    def corrupt_attrib_filename(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        self_id = filter['self_id']
+        file_path = os.path.join(download_path, self_id, 'object.json')
+
+        with open(file_path, 'r') as f:
+            correct_json = json.loads(f.read())
+        correct_json['dir_name'] = "corrupt_name"
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(correct_json))
+        return True
+        
+    @staticmethod
+    def corrupt_payload(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        self_id = filter['self_id']
+        object_path = os.path.join(download_path, self_id)
+        files_affected = []
+        for filename in os.listdir(object_path):
+            if  filename.endswith('.file'): # filename.endswith('.dag') or
+                file_path = os.path.join(object_path, filename)
+                random_bytes_size = 1024
+                random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
+                with open(file_path, 'wb') as corrupt_file:
+                    corrupt_file.write(random_bytes)
+                files_affected.append(file_path)
+        return True,files_affected

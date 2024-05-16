@@ -1,17 +1,13 @@
 import decelium_wallet.core as core
 from Snapshot import Snapshot
-from actions.SnapshotActions import CreateDecw
+import os
 
 class SystemBackup():
 
-    def __init__(self):
-        self.memory = {}
-        decw, connected = CreateDecw().run({
-            'wallet_path': '../.wallet.dec',
-            'wallet_password_path':'../.wallet.dec.password',
-            'fabric_url': 'https://dev.paxfinancial.ai/data/query',
-            },self.memory)
-        self.decw = decw
+    def setup(self):
+        wallet_path= '../.wallet.dec',
+        wallet_password_path =  '../.wallet.dec.password'
+        node_url =  'https://dev.devdecelium.com/data/query',
         self.user_context = {
                 'api_key':decw.dw.pubk()
         }
@@ -24,17 +20,17 @@ class SystemBackup():
                 'connection_settings':self.connection_settings
         }}
         self.decelium_path = 'temp/test_folder.ipfs'
-        self.backup_path = '../devdecelium_backup/'
-        # local_test_folder = './test/testdata/test_folder'
-        # --- Remove old snapshot #
-        #backup_path = "../test/system_backup_test"
-        #try:
-        #    shutil.rmtree(backup_path)
-        #except:
-        #    pass
 
-    def run(self):
-        #filter = {'attrib':{'self_id':record['obj_id']}}
+        decw:core.core = core()
+        loaded = decw.load_wallet(decw.rd_path(wallet_path),decw.rd_path(wallet_password_path))
+        connected = decw.initial_connect(target_url=node_url, api_key=decw.dw.pubk())
+        assert loaded == True
+        assert connected == True
+        self.decw = decw
+        return True
+
+    def update_snapshot(self,backup_path='../devdecelium_backup/'):
+        if not os.
         filter = {'attrib':{'file_type':'ipfs'}}
         limit = 20
         offset = 0
@@ -44,7 +40,7 @@ class SystemBackup():
             offset = offset + 20
             print(f"RUNNING {offset} {limit}")
             res = Snapshot.append_from_remote(self.decw, self.connection_settings, self.backup_path, limit, offset,filter)
-
+            break
 
 sb = SystemBackup()
 sb.run()

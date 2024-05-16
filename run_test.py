@@ -1,363 +1,21 @@
 import decelium_wallet.core as core
-import ipfshttpclient
-import os
-import json
-import pprint
-from Migrator import Migrator
-from datasource.TpIPFSDecelium import TpIPFSDecelium
-from datasource.TpIPFSLocal import TpIPFSLocal
-
-from Snapshot import Snapshot
-import pandas
+import os, sys,json
 import shutil
-import random 
-'''
-Backups are likely the MOST important aspect of Decelium.
-This file tests the Migrator, a small utility that is the powerhouse behind creating and restoring backup data from the
-Decelium network. 
-
-Architecture
-
-Outer:
-- Backup.py - Driver for all backups
-
-Snapshot: Wrapper classes to manage snapshots
-- Class Snapshot - Generic Snapshot type
-- Class System Smapshot - Used to save / restore all data
-- Class Personal Snapshot - Save / Restore all owned data
-- Class Community Snapshort - Save / Restore / community data
-
-
-Migrator:
-- Driver class that manages data movement between data sources
-
-Datasource:
-- Datasource - base class that provides upload / download functions for any source / dest
-- Network - A Decelium Network data source (dev / stage / live etc)
-- Local Disk - A local hard drive data source, bound to a system path
-- Memory - An in memory storage area -- used for transient storage
-
-'''
-
-
-
-
-def run_ipfs_backup():
-    decw = core()
-    connection_settings = {'host': "devdecelium.com",
-                            'port':5001,
-                            'protocol':"http"}
-    connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",api_key="UNDEFINED")
-    found = TpIPFSDecelium.find_all_cids(decw,0,100)
-    Migrator.download_ipfs_data(found, './ipfs_backup/',connection_settings)
-
-
-
-def test_ipfs_file_backup():
-    '''
-    Low level test that verifies that the IPFS Migrator is backing up IPFS *files* in a manner that is perfect down to the bit.
-    '''
-    # [ ] create test data 
-    decw = core()
-    connection_settings = {'host': "devdecelium.com",
-                            'port':5001,
-                            'protocol':"http"}
-    connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",api_key="UNDEFINED")
-
-    # Upload to IPFS directly, & verify
-    pins = decw.net.create_ipfs({
-            'api_key':"UNDEFINED",
-            'file_type':'ipfs', 
-            'connection_settings':connection_settings,
-            'payload_type':'local_path',
-            'payload':'./test/testdata/img_test_1.png'})
-    assert len(pins) > 0
-    assert 'cid' in pins[0]
-
-    # Backup from IPFS locally & verify
-    found = [{'cid':pins[0]['cid'],'self_id':None}]
-    TpIPFSDecelium.download_ipfs_data(found, './test/testbackup',connection_settings)
-    file_path = './test/testbackup/'+pins[0]['cid']+'.file'
-
-    # Assert the file exists 
-    assert os.path.exists(file_path), "The backup file does not exist."
-    with open('./test/testdata/img_test_1.png', 'rb') as original_file:
-        original_content = original_file.read()
-    with open(file_path, 'rb') as backup_file:
-        backup_content = backup_file.read()
-    assert original_content == backup_content, "The contents of the files are not identical."
-
-
-    # Unpin from IPFS & Verify 
-    result = decw.net.remove_ipfs({
-            'api_key':"UNDEFINED",
-            'file_type':'ipfs', 
-            'connection_settings':connection_settings,
-            'payload_type':'cid',
-            'payload':[pins[0]['cid'],"Abject_Failure"]})
-    assert result[pins[0]['cid']]['removed'] == True
-    # LS and verify no pin exists for file
-    # TODO LS and verify
-    # Reupload backup & Verify 
-    pins_new = decw.net.create_ipfs({
-            'api_key':"UNDEFINED",
-            'file_type':'ipfs', 
-            'connection_settings':connection_settings,
-            'payload_type':'local_path',
-            'payload':file_path})
-    assert len(pins_new) > 0
-    assert 'cid' in pins_new[0]
-    assert 'cid' in pins[0]
-    assert pins[0]['cid'] == pins_new[0]['cid']
-    # TODO LS and verify
-
-
-def test_ipfs_folder_backup():
-    '''
-    Low level test that verifies that the IPFS Migrator is backing up IPFS *FOLDERS* in a manner that is perfect down to the bit.
-    '''
-    # [ ] create test data 
-    decw = core()
-    connection_settings = {'host': "devdecelium.com",
-                            'port':5001,
-                            'protocol':"http"}
-    connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",api_key="UNDEFINED")
-
-    # Upload to IPFS directly, & verify
-    pins = decw.net.create_ipfs({
-            'api_key':"UNDEFINED",
-            'file_type':'ipfs', 
-            'connection_settings':connection_settings,
-            'payload_type':'local_path',
-            'payload':'./test/testdata/test_folder'})
-    assert len(pins) > 0
-    assert 'cid' in pins[0]
-    # Backup from IPFS locally & verify
-    
-    found = []
-    # TODO - streamline download interface
-    root = {}
-    for pin in pins:
-        found.append({'cid':pin['cid'],'self_id':None})
-        root = {'cid':pin['cid'],'self_id':None}
-            
-    Migrator.download_ipfs_data(found, './test/testbackup',connection_settings)
-    file_path = './test/testbackup/'+pins[0]['cid']+'.file'
-
-    # Assert all the files exist & match  -
-    assert len(pins) == 6
-    for pin in pins:
-        if TpIPFSDecelium.is_directory(decw,connection_settings,pin['cid']):
-            continue
-        path_original = './test/testdata/test_folder/'+pin['name']
-        path_destination = './test/testbackup/'+pin['cid']+".file"
-        assert os.path.exists(path_original)
-        assert os.path.exists(path_destination)
-        with open(path_original, 'rb') as original_file:
-            original_content = original_file.read()
-        with open(path_destination, 'rb') as backup_file:
-            backup_content = backup_file.read()
-        assert original_content == backup_content, "The contents of the files are not identical."
-
-        # Unpin from IPFS & Verify
-        result = decw.net.remove_ipfs({
-                'api_key':"UNDEFINED",
-                'file_type':'ipfs', 
-                'connection_settings':connection_settings,
-                'payload_type':'cid',
-                'payload':[pin['cid'],"Abject_Failure"]})
-
-        assert result[pin['cid']]['removed'] == True
-        
-        # Reupload backup & Verify
-    
-        pins_new = decw.net.create_ipfs({
-                'api_key':"UNDEFINED",
-                'file_type':'ipfs', 
-                'connection_settings':connection_settings,
-                'payload_type':'local_path',
-                'payload':path_destination})
-        assert len(pins_new) > 0
-        assert 'cid' in pins_new[0]
-        assert pin['cid'] == pins_new[0]['cid']
-
-        # result = decw.net.remove_ipfs({
-        #        'api_key':"UNDEFINED",
-        #        'file_type':'ipfs', 
-        #        'connection_settings':connection_settings,
-        #        'payload_type':'cid',
-        #        'payload':[pin['cid']]})
-        # assert result[pin['cid']]['removed'] == True
-
-
-    for pin in pins:
-        if not TpIPFSDecelium.is_directory(decw,connection_settings,pin['cid']):
-            continue
-        path_folder_dest = './test/testbackup/'+pin['cid']+".dag"
-        folder_json = {}
-        with open(path_folder_dest,'r') as f:
-            folder_json = json.loads(f.read())
-
-        # Unpin from IPFS & Verify
-        result = decw.net.remove_ipfs({
-                'api_key':"UNDEFINED",
-                'file_type':'ipfs', 
-                'connection_settings':connection_settings,
-                'payload_type':'cid',
-                'payload':[pin['cid'],"Abject_Failure"]})
-
-        result = decw.net.create_ipfs({
-                'api_key':"UNDEFINED",
-                'file_type':'ipfs', 
-                'connection_settings':connection_settings,
-                'payload_type':'ipfs_pin_list',
-                'payload':folder_json['Links']})
-        assert result[0]['cid'] == pin['cid']
-    # TODO LS and verify
-
-def test_object_backup():
-    '''
-    Low level test that verifies that the IPFS Migrator is backing up Decelium Objects in a manner that is perfect down to the bit.
-    '''
-    # [ ] create test data 
-    
-    decw = core()
-    with open('../.wallet.dec','r') as f:
-        data = f.read()
-    with open('../.wallet.dec.password','r') as f:
-        password = f.read()
-    loaded = decw.load_wallet(data,password)
-    assert loaded == True
-    user_context = {
-            'api_key':decw.dw.pubk()}
-    connection_settings = {'host': "devdecelium.com",
-                            'port':5001,
-                            'protocol':"http"}
-    connected = decw.initial_connect(target_url="https://dev.paxfinancial.ai/data/query",
-                                      api_key=user_context['api_key'])
-
-    ipfs_req_context = {**user_context, **{
-            'file_type':'ipfs', 
-            'connection_settings':connection_settings
-        }}
-    # Upload to IPFS directly, & verify
-
-    # -- Upload Object --
-    pins = decw.net.create_ipfs({**ipfs_req_context, **{
-            'payload_type':'local_path',
-            'payload':'./test/testdata/test_folder'
-     }})
-
-    singed_req = decw.dw.sr({**user_context, **{
-            'path':'temp/test_folder.ipfs'}})
-    del_try = decw.net.delete_entity(singed_req)
-
-    singed_req = decw.dw.sr({**user_context, **{
-            'path':'temp/test_folder.ipfs',
-            'file_type':'ipfs',
-            'payload_type':'ipfs_pin_list',
-            'payload':pins}})
-    obj_id = decw.net.create_entity(singed_req)
-    assert 'obj-' in obj_id
-
-    # -- Download Object --
-    obj = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
-    obj_old = obj.copy()
-
-    assert 'settings' in obj
-    assert 'ipfs_cid' in obj['settings']
-    assert 'ipfs_cids' in obj['settings']
-    new_cids = [obj['settings']['ipfs_cid']]
-    
-    # -- Verify Pin Exists --
-    for cid in obj['settings']['ipfs_cids'].values():
-        new_cids.append(cid)
-
-    all_cids = TpIPFSDecelium.find_all_cids(decw)
-    df = pandas.DataFrame(all_cids)
-    all_cids = list(df['cid'])
-    is_subset = set(new_cids) <= set(all_cids)
-    assert is_subset
-
-    # -- Download Backup --
-    download_obj_path = './test/testobjbackup'
-    # download_path = './test/testbackup'
-    try:
-        shutil.rmtree(download_obj_path)
-    except:
-        pass
-    # Migrator.download_ipfs_data(new_cids, download_path, connection_settings)
-    TpIPFSLocal.download_object(TpIPFSDecelium,decw,obj_id, download_obj_path, connection_settings)
-    
-
-    # -- Remove Object --
-    singed_req = decw.dw.sr({**user_context, **{
-            'path':'temp/test_folder.ipfs'}})
-    del_res = decw.net.delete_entity(singed_req)
-    assert del_res == True
-    # -- Verify Download Object Fails --
-    obj = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
-    assert 'error' in obj
-
-    
-    # -- Verify Pin Missing --
-    all_cids = TpIPFSDecelium.find_all_cids(decw)
-    df = pandas.DataFrame(all_cids)
-    all_cids = list(df['cid'])
-    is_subset = set(new_cids) <= set(all_cids)
-    assert is_subset == False
-    # -- Verify CIDS off of IPFS
-    # TODO -- Verify the CIDS are also off IPFS
-    
-    # -- Upload IPFS only Backup & Verify Correctness -- 
-    cids_reuploaded =  TpIPFSDecelium.upload_ipfs_data(decw,download_obj_path+'/'+obj_id,connection_settings) 
-    assert len(cids_reuploaded) > 0
-    
-    #result = decw.net.remove_ipfs({
-    #        'api_key':"UNDEFINED",
-    #        'file_type':'ipfs', 
-    #        'connection_settings':connection_settings,
-    #        'payload_type':'cid',
-    #        'payload':backup_cids})
-    
-    # -- Restore the object with object re-upload -- 
-    query = Migrator.upload_object_query(decw,obj_id, download_obj_path, connection_settings)
-    result = decw.net.create_entity(decw.dw.sr({**query,**user_context},["admin"]))
-    assert 'obj-' in result
-    obj_new = decw.net.download_entity( {**user_context, **{'self_id':result,'attrib':True}})
-    assert obj_new['self_id'] == obj_old['self_id']
-    assert obj_new['parent_id'] == obj_old['parent_id']
-    assert obj_new['dir_name'] == obj_old['dir_name']
-    assert obj_new['settings']['ipfs_cid'] == obj_old['settings']['ipfs_cid']
-    assert obj_new['settings']['ipfs_name'] == obj_old['settings']['ipfs_name']
-    for key in obj_new['settings']['ipfs_cids'].keys():
-        assert obj_new['settings']['ipfs_cids'][key] ==   obj_old['settings']['ipfs_cids'][key]
-    
-    # assert 'error' in success
-    #success = Migrator.upload_object(decw,obj_id, download_obj_path+'/'+obj_id, connection_settings)
-    # assert success == True
-    all_cids = TpIPFSDecelium.find_all_cids(decw)
-    df = pandas.DataFrame(all_cids)
-    all_cids = list(df['cid'])
-    is_subset = set(new_cids) <= set(all_cids)
-    assert is_subset == True
-
-from actions.SnapshotActions import CreateDecw,Action,agent_action,AppendObjectFromRemote,DeleteObjectFromRemote,DeleteObjectFromRemote,PushFromSnapshotToRemote,CorruptObject,ChangeRemoteObjectName,PullObjectFromRemote,upload_directory_to_remote,evaluate_object_status
-
-def test_simple_snapshot():
+sys.path.append('..')
+#from type.BaseData import BaseData,auto_c
+from type.CorruptionData import CorruptionTestData
+#from actions import CreateDecw
+from type.BaseData import TestConfig
+from actions.SnapshotAgent import SnapshotAgent
+def test_setup() -> TestConfig:
     # setup connection 
-    create_wallet_action = CreateDecw()
-    append_object_from_remote = AppendObjectFromRemote()
-    delete_object_from_remote = DeleteObjectFromRemote()
-    push_from_snapshot_to_remote = PushFromSnapshotToRemote()
-    corrupt_local_object_backup = CorruptObject()
-    change_remote_object_name = ChangeRemoteObjectName()
-    pull_object_from_remote = PullObjectFromRemote()
+    print("---- 1: Doing Setup")
+    agent = SnapshotAgent()
 
-    decw, connected = create_wallet_action({
+    decw, connected = agent.create_wallet_action({
          'wallet_path': '../.wallet.dec',
          'wallet_password_path':'../.wallet.dec.password',
-         'fabric_url': 'https://dev.paxfinancial.ai/data/query',
+         'fabric_url': 'http://devdecelium.com:5000/data/query',
         })
     
     user_context = {
@@ -380,15 +38,13 @@ def test_simple_snapshot():
     except:
         pass
 
-
-
-    obj_id = upload_directory_to_remote({
+    print("---- 2: Doing Small Upload")
+    obj_id = agent.upload_directory_to_remote({
         'local_path': local_test_folder,
         'decelium_path': decelium_path,
         'decw': decw,
         'ipfs_req_context': ipfs_req_context,
         'user_context': user_context
-
     })
     eval_context = {
         'backup_path':backup_path,
@@ -396,95 +52,202 @@ def test_simple_snapshot():
         'connection_settings':connection_settings,
         'decw':decw}
 
-    evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
-    obj,new_cids = append_object_from_remote({
+    agent.evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})
+    agent.evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+
+    print("---- 2: Doing Small Pull")
+    obj,new_cids = agent.append_object_from_remote({
      'decw':decw,
      'obj_id':obj_id,
      'connection_settings':connection_settings,
      'backup_path':backup_path,
     })
 
-    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'local','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
 
-
-    delete_object_from_remote({
-        'decw':decw,
-        'user_context':user_context,
-        'connection_settings':connection_settings,
-        'path': decelium_path,     
-    })
-    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['object_missing','payload_missing']})    
-    push_from_snapshot_to_remote({
-        'decw': decw,
-        'obj_id':obj_id,
-        'user_context':user_context,
-        'connection_settings':connection_settings,
-        'backup_path':backup_path,
-    })
-    evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
-
-    all_corruptions= [ 
-        {'corruption':"delete_payload","expect":True, "mode":'local'}, 
-        {'corruption':"corrupt_payload","expect":True, "mode":'local'}, 
-        {'corruption':"remove_attrib","expect":True, "mode":'local'}, 
-        {'corruption':"corrupt_attrib","expect":True, "mode":'local'}, 
-        {'corruption':"rename_attrib_filename","expect":True, "mode":'local'},
-        {'corruption':"delete_payload","expect":True, "mode":'remote'}, 
-        {'corruption':"corrupt_payload","expect":True, "mode":'remote'}, 
-        {'corruption':"remove_attrib","expect":True, "mode":'remote'},  ####
-        {'corruption':"rename_attrib_filename","expect":True, "mode":'remote'}, ####
-        ]
-
-    for corruption in all_corruptions:
-        backup_instruction  ={
-            'decw': decw,
-            'obj_id':obj['self_id'],
-            'backup_path':backup_path,        
-            'connection_settings':connection_settings,        
-        }
-        backup_instruction["corruption"] = corruption['corruption']
-        backup_instruction["mode"] = corruption['mode']
-        backup_instruction.update(corruption)
-        corrupt_local_object_backup(backup_instruction)
-        if corruption['mode'] == 'local':
-            evaluate_object_status({**eval_context,'target':'local','status':['payload_missing']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['complete']}) 
-            pull_object_from_remote({
-                'connection_settings':connection_settings,
-                'backup_path':backup_path,
-                'overwrite': False,
-                'decw': decw,
-                'user_context': user_context,
-                'obj_id':obj['self_id'],
-                'expected_result': corruption['expect'],
+    return TestConfig({'decw':decw,
+            'user_context':user_context,
+            'connection_settings':connection_settings,
+            'decelium_path':decelium_path,
+            'eval_context':eval_context,
+            'obj_id':obj_id,
+            'backup_path':backup_path,
             })
-            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
 
-        elif corruption['mode'] == 'remote':
-            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['payload_missing']}) 
-            push_from_snapshot_to_remote({
-                'decw': decw,
-                'obj_id':obj_id,
-                'user_context':user_context,
-                'connection_settings':connection_settings,
-                'backup_path':backup_path,
-            })
-            evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-            evaluate_object_status({**eval_context,'target':'remote','status':['complete']})    
-        else:
-            assert True == False # NEVERRRRRR
+def perliminary_tests():
+    agent = SnapshotAgent()
+    setup_config = test_setup()
+    print("---- 3: Doing Small Delete")
+    agent.delete_object_from_remote({
+        'decw':setup_config.decw(),
+        'user_context':setup_config.user_context(),
+        'connection_settings':setup_config.connection_settings(),
+        'path': setup_config.decelium_path(),     
+    })
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['object_missing','payload_missing']})   
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['object_missing','payload_missing']})
+    print("---- 3: Doing Small Push")
+    agent.push_from_snapshot_to_remote({
+        'decw': setup_config.decw(),
+        'obj_id':setup_config.obj_id(),
+        'user_context':setup_config.user_context(),
+        'connection_settings':setup_config.connection_settings(),
+        'backup_path':setup_config.backup_path(),
+    })
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
+    agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
+
+def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_evals:list,invalid_props:list,final_evals,do_repair:bool,post_repair_status:bool):    
+    corruptions = [CorruptionTestData.Instruction(corruption) for corruption in corruptions]
+    pre_evals = [CorruptionTestData.Eval(evaluation) for evaluation in pre_evals]
+    final_evals = [CorruptionTestData.Eval(evaluation) for evaluation in final_evals]
+    print("corruptions")
+    print(json.dumps(corruptions,indent=3))
+    return {'setup_config':setup_config,
+            'obj':obj,
+            'corruptions':corruptions,
+            'corruption_evals':pre_evals,
+            'invalid_props':invalid_props,
+            'do_repair':do_repair,
+            'post_repair_status':post_repair_status,
+            'final_evals':final_evals,
+            'push_target':'remote',
+                }
+def test_corruptions():
+    setup_config:TestConfig = test_setup()
+    agent = SnapshotAgent()
+    decw = setup_config.decw()
+    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
+    configs = []
+    
+    # validate_entity - 
+    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
+    # print(json.dumps(validation_data,indent=4))
+    
+    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
+    for mode in modes:
+        assert validation_data[mode][0][mode] == True
+    corruption_suffix = {
+                        'delete_payload':['payload'],
+                        'corrupt_payload':['payload'],
+                        'remove_attrib':['attrib','payload'],
+                        'rename_attrib_filename':['attrib'],
+                        'corrupt_attrib':['attrib','payload'],
+                        'delete_entity':['attrib','payload'],}
+    
+    for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
+        for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
+            #for corrupt_remote in ['delete_payload']: 
+            #    for corrupt_mirror in  ['delete_payload']:
+            assert type(corrupt_remote) == str
+            assert type(corrupt_mirror) == str
+            invalid_props = []
+            invalid_props = invalid_props +  ['_'.join(['remote',suffix]) for suffix in  corruption_suffix[corrupt_remote]]
+            invalid_props = invalid_props + ['_'.join(['remote_mirror',suffix]) for suffix in  corruption_suffix[corrupt_mirror]]
+
+            configs.append(new_corruption_config(setup_config,obj,
+                [{'corruption':corrupt_remote,"mode":'remote'},
+                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
+                [{'target':'local','status':['complete']},
+                 {'target':'remote','status':['object_missing','payload_missing']},
+                {'target':'remote_mirror','status':['object_missing','payload_missing']}],
+                invalid_props))
 
 
-# TODO - All entities need a checksum system / sig system
-# TODO - 
-# run_ipfs_backup() 
-# test_ipfs_file_backup()
-# test_ipfs_folder_backup()
-# test_object_backup() - 
-test_simple_snapshot()
+    print("corruption tests :"+str(len(configs)))
+    for corruption_config in configs:
+        print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
+        agent.run_corruption_test(corruption_config)
+
+
+def test_corruptions_repair():
+    setup_config:TestConfig = test_setup()
+    agent = SnapshotAgent()
+    decw = setup_config.decw()
+    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
+    configs = []
+    
+    # validate_entity - 
+    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
+    # print(json.dumps(validation_data,indent=4))
+    
+    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
+    for mode in modes:
+        assert validation_data[mode][0][mode] == True
+    corruption_suffix = {
+                        'delete_payload':['payload'],
+                        'corrupt_payload':['payload'],
+                        'remove_attrib':['attrib'], 
+                        'rename_attrib_filename':['attrib'],
+                        'corrupt_attrib':['attrib'], 
+                        'delete_entity':['attrib','payload']
+                        }    
+    remote_types = CorruptionTestData.Instruction.corruption_types
+    remote_mirror_types = CorruptionTestData.Instruction.corruption_types
+    #remote_types = ['delete_payload']
+    #remote_mirror_types = ['delete_entity']
+    #remote_types = ['remove_attrib']
+    #remote_mirror_types = ['delete_payload']
+    #remote_types = ['remove_attrib']
+    #remote_mirror_types = ['remove_attrib']
+    #remote_types = ['rename_attrib_filename']
+    #remote_mirror_types = ['remove_attrib']
+    #remote_types = ['delete_entity']
+    #remote_mirror_types = ['delete_payload']
+
+    for corrupt_remote in remote_types:
+        for corrupt_mirror in remote_mirror_types:
+            assert type(corrupt_remote) == str
+            assert type(corrupt_mirror) == str
+            invalid_props = []
+            if 'attrib' in corruption_suffix[corrupt_mirror] and 'attrib' in corruption_suffix[corrupt_remote]:
+                # If both attributes are corrupt, then no repair can validate the payload
+                invalid_props = ['remote_payload','remote_mirror_payload']
+            
+            invalid_remote =  ['_'.join(['remote',suffix]) for suffix in corruption_suffix[corrupt_remote] if suffix in corruption_suffix[corrupt_mirror] ]
+            invalid_remote_mirror =  ['_'.join(['remote_mirror',suffix]) for suffix in  corruption_suffix[corrupt_mirror] if suffix in corruption_suffix[corrupt_remote]]
+            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
+            repair_success_expectation = True
+            if 'payload' in corruption_suffix[corrupt_remote] and 'payload' in corruption_suffix[corrupt_mirror]:
+                repair_success_expectation = False
+            elif 'attrib' in corruption_suffix[corrupt_remote] and 'attrib' in corruption_suffix[corrupt_mirror]:
+                repair_success_expectation = False
+            pre_evals = [
+                {'target':'local','status':['complete']},
+                {'target':'remote','status':['object_missing','payload_missing']},
+                {'target':'remote_mirror','status':['object_missing','payload_missing']}
+                ]
+            final_evals = []
+
+            if repair_success_expectation == True:
+                final_evals = [
+                    {'target':'local','status':['complete']},
+                    {'target':'remote','status':['complete']},
+                    {'target':'remote_mirror','status':['complete']}
+                    ]
+                invalid_props = []
+            
+            ## TODO refactor for repair. Kind of janky
+            do_repair = True
+            configs.append(new_corruption_config(setup_config,obj,
+                [{'corruption':corrupt_remote,"mode":'remote'},
+                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
+                pre_evals,
+                invalid_props,
+                final_evals,
+                do_repair,
+                repair_success_expectation))
+
+
+    print("corruption tests :"+str(len(configs)))
+    for corruption_config in configs:
+        print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
+        agent.run_corruption_test(corruption_config)
+
+#test_corruptions()
+test_corruptions_repair()
