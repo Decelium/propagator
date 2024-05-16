@@ -26,7 +26,6 @@ class TpIPFSDecelium():
                     if type(item) == str:
                         dic = {'cid':item,'self_id':None}
                     if not dic['cid'] in all_pins:
-                        print("REFRESHING PINS, as it seems we could be missing one")
                         all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
                         
                     new_pins = TpDestination.backup_ipfs_entity(TpIPFSDecelium,dic,all_pins,download_path,client,overwrite)
@@ -60,12 +59,8 @@ class TpIPFSDecelium():
 
     @classmethod
     def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        print("validate_remote_object.Evaluating Remote Attrib")
         entity_success,entity_messages = cls.validate_remote_object_attrib(decw,object_id,download_path,connection_settings)
-        print(entity_success)
-        print("validate_remote_object.Evaluating Remote Payload")
         payload_success,payload_messages = cls.validate_remote_object_payload(decw,object_id,download_path,connection_settings)
-        print(payload_success)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages
         all_messages.append(entity_messages)
@@ -110,7 +105,6 @@ class TpIPFSDecelium():
         messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
-        print("LOW LEVEL TpIPFSDecelium.validate_remote_object_payload")
         
         cids_pinned = []
         for k in ['self_id','parent_id','dir_name','settings']:
@@ -125,13 +119,14 @@ class TpIPFSDecelium():
             for key in obj_remote['settings']['ipfs_cids'].keys():
                 if messages.add_assert(key in obj_remote['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
                     cids_pinned.append (obj_remote['settings']['ipfs_cids'][key] )
-        
+        first = True
         for cid in cids_pinned:
             result = decw.net.check_pin_status({
                     'api_key':"UNDEFINED",
                     'connection_settings':connection_settings,
                     'cid': cid,
-                    'do_refresh':True})
+                    'do_refresh':first})
+            first = False
             messages.add_assert(result == True, "cid is missing from remote "+cid)
 
         return len(messages.get_error_messages()) == 0, messages  

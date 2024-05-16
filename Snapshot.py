@@ -34,7 +34,7 @@ class Snapshot:
             return result
     
     @staticmethod
-    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None,prefix=None):
+    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
         result_json = {}
         result_json["self_id"] = obj_id
         # entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
@@ -45,18 +45,18 @@ class Snapshot:
             'local':{'func':TpIPFSLocal.validate_local_object,
                     'prefix':'local'
                     },
-            'local_attrib':{'func':TpIPFSLocal.validate_local_object_attrib,
-                    'prefix':'local_attrib'
-                    },
-            'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
-                    'prefix':'local_payload'
-                    },
             'remote':{'func':TpIPFSDecelium.validate_remote_object,
                     'prefix':'remote'
                     },
             'remote_mirror':{'func':TpIPFSDecelium.validate_remote_object_mirror,
                     'prefix':'remote_mirror'
                     },                    
+            'local_attrib':{'func':TpIPFSLocal.validate_local_object_attrib,
+                    'prefix':'local_attrib'
+                    },
+            'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
+                    'prefix':'local_payload'
+                    },
             'remote_attrib':{'func':TpIPFSDecelium.validate_remote_object_attrib,
                     'prefix':'remote_attrib'
                         },
@@ -70,8 +70,7 @@ class Snapshot:
                     'prefix':'remote_payload_mirror'
                         }                        
         }
-        if prefix == None:
-            prefix = validation_set[datasource]['prefix']
+        prefix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
         #try:
         
@@ -140,36 +139,17 @@ class Snapshot:
         assert 'self_id' in filter
         return TpIPFSLocal.remove_entity(filter,download_path)
 
-    @staticmethod
     @auto_c(EntityRequestData)
     def remove_attrib(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
         return TpIPFSLocal.remove_attrib(filter,download_path)
 
-    @staticmethod
     @auto_c(EntityRequestData)
     def remove_payload(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
         return TpIPFSLocal.remove_payload(filter,download_path)
 
-    @staticmethod
-    @auto_c(EntityRequestData)
-    def corrupt_attrib(filter:EntityRequestData,download_path:str):
-        assert 'self_id' in filter
-        return TpIPFSLocal.corrupt_attrib(filter,download_path)
 
-    @staticmethod
-    @auto_c(EntityRequestData)
-    def corrupt_attrib_filename(filter:EntityRequestData,download_path:str):
-        assert 'self_id' in filter
-        return TpIPFSLocal.corrupt_attrib_filename(filter,download_path)
-
-    @staticmethod
-    @auto_c(EntityRequestData)
-    def corrupt_payload(filter:EntityRequestData,download_path:str):
-        assert 'self_id' in filter
-        return TpIPFSLocal.corrupt_payload(filter,download_path)
-    
     @staticmethod
     def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         api_key = decw.dw.pubk("admin")

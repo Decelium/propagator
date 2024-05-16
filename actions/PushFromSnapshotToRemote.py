@@ -49,9 +49,7 @@ class PushFromSnapshotToRemote(Action):
         obj_id = record['obj_id']
         
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
-        print("FINISHED PUSH TO REMOTE")
         assert results[obj_id][0] == True, "Could not validate "+ str(results)
-        print("FINISHED PUSH TO REMOTE 2")
 
         obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
         assert 'obj-' in obj['self_id']

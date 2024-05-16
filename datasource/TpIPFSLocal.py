@@ -146,11 +146,9 @@ class TpIPFSLocal():
         root_cid = item['cid']
         if not os.path.exists(download_path):
             os.makedirs(download_path)
-        print("TRYING TO BACK UP "+root_cid)
         file_path = os.path.join(download_path, root_cid)
         # Check if root the file already exists to avoid double writing
         if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
-            print("SKIPPING "+root_cid)
             return new_cids
         try:
             # Check if the item is pinned on this node
@@ -158,11 +156,9 @@ class TpIPFSLocal():
             if root_cid in pinned_cids:
                 pinned = True
             if not pinned:
-                print("NOT PINNED "+root_cid)
                 return new_cids
             #TpIPFSDecelium.ipfs_has_cids(decw,)
             # If pinned, proceed to download
-            print("ABOUT TO CAT  "+root_cid)
             
             try:
                 res = client.cat(root_cid)
@@ -177,7 +173,6 @@ class TpIPFSLocal():
                         f.write(current_hash)
                 
             except Exception as e:
-                print("EXCEPTION "+root_cid)
                 
                 if "is a directory" in str(e):
                     dir_json = TpSource.download_directory_dag(client,root_cid)
