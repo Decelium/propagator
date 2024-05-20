@@ -1,14 +1,14 @@
 
 import traceback as tb
 try:
-    from ..datasource.TpIPFSDecelium import TpIPFSDecelium
-    from ..datasource.TpIPFSLocal import TpIPFSLocal
+    from ..datasource.TpIPFS import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFSLocal
     from ..Messages import ObjectMessages
     from ..type.BaseData import BaseData,auto_c
     #from ..type.CorruptionData import CorruptionTestData
 except:
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
-    from datasource.TpIPFSLocal import TpIPFSLocal
+    from datasource.TpIPFS import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFSLocal
     from Messages import ObjectMessages
     from type.BaseData import BaseData,auto_c
     #from type.CorruptionData import CorruptionTestData

@@ -40,6 +40,8 @@ class RunCorruptionTest(Action):
         backup_instruction["corruption"] = corruption['corruption']
         backup_instruction["mode"] = corruption['mode']
         # backup_instruction.update(corruption)
+        print("\n RUNNIN CORRUPTION")
+        print(backup_instruction)
         corrupt_object_backup(backup_instruction)
 
     def run_corruption_test(self,setup_config:TestConfig,
@@ -78,7 +80,10 @@ class RunCorruptionTest(Action):
         setup_config:TestConfig = record['setup_config']
         evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
         evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})        
+        evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})  
+        print("\n")
+        print("\n")
+        print("Ready for next test:")
         return True
     
     def postvalid(self,record,response,memory=None):

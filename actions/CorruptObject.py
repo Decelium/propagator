@@ -1,7 +1,7 @@
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFSDecelium import TpIPFSDecelium
-    from ..datasource.TpIPFSLocal import TpIPFSLocal
+    from ..datasource.TpIPFS import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFSLocal
     from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
     #from ..datasource.CorruptionData import CorruptionTestData
@@ -10,8 +10,8 @@ try:
 
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
-    from datasource.TpIPFSLocal import TpIPFSLocal
+    from datasource.TpIPFS import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFSLocal
     from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
@@ -266,8 +266,10 @@ class CorruptObject(Action):
         decw = record['decw']
         mode = record['mode']
         assert mode in ['local','remote','remote_mirror']
+        assert self_id != None
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
-        assert local_results[mode] == True
+        print ("THE SELF ID"+str(self_id))
+        assert local_results[mode] == True,"Got some bad results "+ str(local_results)
         return True
 
     def run(self,record,memory):

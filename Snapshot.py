@@ -2,16 +2,23 @@ import os
 import json
 import shutil
 try:
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
-    from datasource.TpIPFSLocal import TpIPFSLocal
+    from datasource.TpGeneralLocal import TpGeneralLocal
+    from datasource.TpGeneralDecelium import TpGeneralDecelium
+    from datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
+    from datasource.TpIPFS import TpIPFSDecelium,TpIPFSDeceliumMirror,TpIPFSLocal
+    from datasource.TpFile import TpFileDecelium,TpFileLocal,TpFileDeceliumMirror
     from Messages import ObjectMessages
     from type.BaseData import BaseData,auto_c
-
+    from datasource.TpGeneral import TpGeneral
 except:
-    from .datasource.TpIPFSDecelium import TpIPFSDecelium
-    from .datasource.TpIPFSLocal import TpIPFSLocal
+    from .datasource.TpGeneralLocal import TpGeneralLocal
+    from .datasource.TpGeneralDecelium import TpGeneralDecelium
+    from .datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
+    from .datasource.TpIPFS import TpIPFSDecelium,TpIPFSDeceliumMirror,TpIPFSLocal
+    from .datasource.TpFile import TpFileDecelium,TpFileLocal,TpFileDeceliumMirror
     from .type.BaseData import BaseData,auto_c
     from .Messages import ObjectMessages
+    from .datasource.TpGeneral import TpGeneral
 
 import traceback as tb
 import decelium_wallet.core as core
@@ -23,7 +30,37 @@ class EntityRequestData(BaseData):
         optional = {'attrib': bool}
         return required, optional    
     
-
+        '''
+        validation_set = {
+            'local':{'func':TpIPFSLocal.validate_object,
+                    'prefix':'local'
+                    },
+            'remote':{'func':TpIPFSDecelium.validate_object,
+                    'prefix':'remote'
+                    },
+            'remote_mirror':{'func':TpIPFSDecelium.validate_object_mirror,
+                    'prefix':'remote_mirror'
+                    },                    
+            'local_attrib':{'func':TpIPFSLocal.validate_object_attrib,
+                    'prefix':'local_attrib'
+                    },
+            'local_payload':{'func':TpIPFSLocal.validate_object_payload,
+                    'prefix':'local_payload'
+                    },
+            'remote_attrib':{'func':TpIPFSDecelium.validate_object_attrib,
+                    'prefix':'remote_attrib'
+                        },
+            'remote_payload':{'func':TpIPFSDecelium.validate_object_payload,
+                    'prefix':'remote_payload'
+                        },
+            'remote_attrib_mirror':{'func':TpIPFSDecelium.validate_object_attrib_mirror,
+                    'prefix':'remote_entity_attrib'
+                        },
+            'remote_payload_mirror':{'func':TpIPFSDecelium.validate_object_payload_mirror,
+                    'prefix':'remote_payload_mirror'
+                        }                        
+        }
+        '''
 class Snapshot:  
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
@@ -32,44 +69,75 @@ class Snapshot:
             result[prefix+"_message"] = message
             result[prefix+"_error"] = error
             return result
-    
+
+    @staticmethod
+    def load_file_by_id(decw,obj_id,datasource,download_path):
+        print("load_file_by_id "+str(obj_id))
+        if 'local' in datasource:
+            obj = TpGeneralLocal.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },download_path)
+        elif 'remote_mirror' in datasource:
+            #print("TpGeneralDecelium searching for self_id: "+str(obj_id) )
+            obj = TpGeneralDeceliumMirror.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
+            # print("RETURNING FROM TpGeneralDecelium "+ str(obj))
+        elif 'remote' in datasource:
+            #print("TpGeneralDecelium searching for self_id: "+str(obj_id) )
+            obj = TpGeneralDecelium.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
+            # print("RETURNING FROM TpGeneralDecelium "+ str(obj))
+        else:
+            return {"error":"Could not identify type in Snapshot.load_file_by_id() "}
+        return obj
+
     @staticmethod
     def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
         result_json = {}
         result_json["self_id"] = obj_id
-        # entity_success,entity_messages = cls.validate_local_object_entity(decw,object_id,download_path,connection_settings)
-        # payload_success,payload_messages = cls.validate_local_object_payload(decw,object_id,download_path,connection_settings)        
-        #
-        # TODO - Consolidate and refactor function users (?)
-        validation_set = {
-            'local':{'func':TpIPFSLocal.validate_local_object,
-                    'prefix':'local'
+        messages = ObjectMessages("Snapshot.object_validation_status")
+        result = True
+        #    return result_json,messages
+
+        obj = Snapshot.load_file_by_id(decw,obj_id,datasource,download_path)
+        if messages.add_assert(not 'error' in obj,"Could not find file by id: "+str(obj)) == False:
+            result = False
+            result_json = Snapshot.format_object_status_json(obj_id,datasource,result,messages.get_error_messages(),"")
+        
+        if messages.add_assert('file_type' in obj,"Object does not have file type: "+str(obj)) == False:
+            result = False
+            result_json = Snapshot.format_object_status_json(obj_id,datasource,result,messages.get_error_messages(),"")
+        if result == False:
+            return result_json,messages
+
+        selected_type = obj['file_type']
+        assert selected_type in ['ipfs','file'], "Selected type not supported"
+
+        type_map = {}
+        type_map['remote.ipfs'] = TpIPFSDecelium
+        type_map['remote_mirror.ipfs'] = TpIPFSDeceliumMirror
+        type_map['local.ipfs'] = TpIPFSLocal
+        type_map['remote.file'] = TpFileDecelium
+        type_map['remote_mirror.file'] = TpFileDeceliumMirror
+        type_map['local.file'] = TpFileLocal
+        #type_map['remote.user'] = TpUserDecelium
+        #type_map['local.user'] = TpUserLocal
+        #type_map['remote.user'] = TpUserDecelium
+        #type_map['local.user'] = TpUserLocal
+        # print("SEARCHING DATASOURCE "+f"{datasource}.{selected_type}")
+        
+        validation_set = {}
+        assert f"{datasource}.{selected_type}" in type_map, "Could not find the selected datasource"
+        TpDatasource:TpGeneral = type_map[f"{datasource}.{selected_type}"]
+        prefix = datasource
+        validation_set = {**validation_set,**{
+            prefix:{'func':TpDatasource.validate_object,
+                    'prefix':prefix
                     },
-            'remote':{'func':TpIPFSDecelium.validate_remote_object,
-                    'prefix':'remote'
-                    },
-            'remote_mirror':{'func':TpIPFSDecelium.validate_remote_object_mirror,
-                    'prefix':'remote_mirror'
-                    },                    
-            'local_attrib':{'func':TpIPFSLocal.validate_local_object_attrib,
-                    'prefix':'local_attrib'
-                    },
-            'local_payload':{'func':TpIPFSLocal.validate_local_object_payload,
-                    'prefix':'local_payload'
-                    },
-            'remote_attrib':{'func':TpIPFSDecelium.validate_remote_object_attrib,
-                    'prefix':'remote_attrib'
+            f'{prefix}_attrib':{'func':TpDatasource.validate_object_attrib,
+                    'prefix':f'{prefix}_attrib'
                         },
-            'remote_payload':{'func':TpIPFSDecelium.validate_remote_object_payload,
-                    'prefix':'remote_payload'
+            f'{prefix}_payload':{'func':TpDatasource.validate_object_payload,
+                    'prefix':f'{prefix}_payload'
                         },
-            'remote_attrib_mirror':{'func':TpIPFSDecelium.validate_remote_object_attrib_mirror,
-                    'prefix':'remote_entity_attrib'
-                        },
-            'remote_payload_mirror':{'func':TpIPFSDecelium.validate_remote_object_payload_mirror,
-                    'prefix':'remote_payload_mirror'
-                        }                        
-        }
+        }}
+
         prefix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
         #try:
@@ -194,7 +262,7 @@ class Snapshot:
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFSDecelium.validate_object(decw,obj_id, download_path, connection_settings)
             if remote_result == True:
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
@@ -202,7 +270,7 @@ class Snapshot:
             if attrib_only == True:
                 # ---------
                 # b) Make sure the local is complete (attrib only)
-                local_result, local_validation_messages = TpIPFSLocal.validate_local_object_attrib(decw,obj_id, download_path, connection_settings)
+                local_result, local_validation_messages = TpIPFSLocal.validate_object_attrib(decw,obj_id, download_path, connection_settings)
                 if local_result == False: # and remote_result == False:
                     results[obj_id] = (False,local_validation_messages.get_error_messages())
                     continue
@@ -240,7 +308,7 @@ class Snapshot:
                 
             # ---------
             # b) Make sure the local is complete
-            local_result, local_validation_messages = TpIPFSLocal.validate_local_object(decw,obj_id, download_path, connection_settings)
+            local_result, local_validation_messages = TpIPFSLocal.validate_object(decw,obj_id, download_path, connection_settings)
             if local_result == False: # and remote_result == False:
                 results[obj_id] = (False,local_validation_messages.get_error_messages())
                 continue
@@ -293,10 +361,9 @@ class Snapshot:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
 
-
             # ---------
             # Verify Upload was successful
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_remote_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFSDecelium.validate_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
             # results[obj_id]= (remote_result,messages.get_error_messages())
             if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
@@ -307,7 +374,6 @@ class Snapshot:
 
             # TODO validate the mirror as well
 
-        print("ALL DONE IN PUSH")
         return results    
     
     @staticmethod
@@ -344,4 +410,3 @@ class Snapshot:
             if current_offset >= limit+offset:
                 break
         return results
-    

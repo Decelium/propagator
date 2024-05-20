@@ -9,15 +9,15 @@ import traceback as tb
 import hashlib
 import shutil
 import random
-
-class TpIPFSLocal():
+from .TpGeneral import TpGeneral
+class TpGeneralLocal(TpGeneral):
     @classmethod
     def download_object(cls,TpSource,decw,object_ids,download_path,connection_settings, overwrite=False):
         if type(object_ids) == str:
             object_ids = [object_ids]
         results = {}
         for obj_id in object_ids:
-            messages = ObjectMessages("Migrator.download_object(for {obj_id})")
+            messages = ObjectMessages("TpGeneralLocal.download_object(for {obj_id})")
             try:
                 success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
@@ -114,7 +114,7 @@ class TpIPFSLocal():
             with open(file_path,'w') as f:
                 f.write(json.dumps(merged_object)) 
 
-            TpIPFSLocal.overwrite_file_hash(file_path)
+            cls.overwrite_file_hash(file_path)
             return True,merged_object,merge_messages
         
         if do_write == False and merged_object:
@@ -148,7 +148,7 @@ class TpIPFSLocal():
             os.makedirs(download_path)
         file_path = os.path.join(download_path, root_cid)
         # Check if root the file already exists to avoid double writing
-        if overwrite == False and TpIPFSLocal.has_backedup_cid(download_path, root_cid) == True:
+        if overwrite == False and cls.has_backedup_cid(download_path, root_cid) == True:
             return new_cids
         try:
             # Check if the item is pinned on this node
@@ -182,7 +182,7 @@ class TpIPFSLocal():
                     # print(json.dumps(dict(dir_json)))
                     with open(file_path+".dag", 'w') as f:
                         f.write(json.dumps(dir_json))
-                    TpIPFSLocal.overwrite_file_hash(file_path+ ".dag")
+                    cls.overwrite_file_hash(file_path+ ".dag")
                 else:
                     raise e
             return new_cids
@@ -215,18 +215,18 @@ class TpIPFSLocal():
      
 
     @classmethod
-    def validate_local_object(cls,decw,object_id,download_path,connection_settings):
-        entity_success,entity_messages = cls.validate_local_object_attrib(decw,object_id,download_path,connection_settings)
-        payload_success,payload_messages = cls.validate_local_object_payload(decw,object_id,download_path,connection_settings)
+    def validate_object(cls,decw,object_id,download_path,connection_settings):
+        entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+        payload_success,payload_messages = cls.validate_object_payload(decw,object_id,download_path,connection_settings)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages
         all_messages.append(entity_messages)
         return entity_success and payload_success,all_messages
     
     @classmethod
-    def validate_local_object_attrib(cls,decw,object_id,download_path,connection_settings):
+    def validate_object_attrib(cls,decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
-        messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
+        messages = ObjectMessages("TpGeneralLocal.validate_object(for {object_id})")
         try:
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
@@ -236,16 +236,16 @@ class TpIPFSLocal():
                 messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
                 return False,messages
         except:
-            messages.add_assert(False==True, "Could not validate presense of file file")
+            messages.add_assert(False==True, "Could not validate presense of file file:"+str(download_path+'/'+object_id+'/object.json'))
             return False,messages
         return len(messages.get_error_messages())== 0,messages   
     
 
     @classmethod
-    def validate_local_object_payload_only(cls,decw,object_id,download_path,connection_settings):
+    def validate_object_payload_only(cls,decw,object_id,download_path,connection_settings):
         raise Exception("Disabled for now")
         '''
-        messages = ObjectMessages("TpIPFSLocal.validate_local_object_payload_only(for {object_id})")
+        messages = ObjectMessages("TpIPFSLocal.validate_object_payload_only(for {object_id})")
         if messages.add_assert(os.path.exists(os.path.join(download_path,object_id)), "Object backup is not present") == False:
             return False,messages   
         
@@ -266,9 +266,9 @@ class TpIPFSLocal():
         '''
     
     @classmethod
-    def validate_local_object_payload(cls,decw,object_id,download_path,connection_settings):
+    def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
         # Load the entity, and make sure payload is present that matches
-        messages = ObjectMessages("TpIPFSLocal.validate_local_object(for {object_id})")
+        messages = ObjectMessages("TpGeneralLocal.validate_object(for {object_id})")
         try:
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
@@ -281,7 +281,7 @@ class TpIPFSLocal():
             messages.add_assert(False==True, "B. Could not validate presense of entity file")
             return False,messages
             #Cha We should make a best effort to validate in the case the object def is missing.
-            #return cls.validate_local_object_payload_only(decw,object_id,download_path,connection_settings)
+            #return cls.validate_object_payload_only(decw,object_id,download_path,connection_settings)
 
 
         
@@ -342,7 +342,7 @@ class TpIPFSLocal():
         '''
             Validates the object, and generates a query to reupload the exact object
         '''
-        messages = ObjectMessages("TpIPFSLocal.upload_object_query(for {"+obj_id+"})")
+        messages = ObjectMessages("TpGeneralLocal.upload_object_query(for {"+obj_id+"})")
         if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
             return False,messages
             

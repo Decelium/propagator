@@ -35,7 +35,9 @@ def evaluate_object_status(self,record,memory=None):
         return True
     elif record['target'] == 'local':
         results,messages = Snapshot.object_validation_status(record['decw'],record['self_id'],record['backup_path'],record['connection_settings'],'local')
-        assert results['local'] == False
+        # print("What is this error")
+        print("\nThe results:",results)
+        assert results['local'] == False, "Results were invalid "+str(results)
         return True
     
     if record['target'] == 'remote_mirror' and 'complete' in record['status'] :

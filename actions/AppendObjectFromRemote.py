@@ -2,11 +2,11 @@
 import traceback as tb
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFSDecelium import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFSDecelium
     from .Action import Action
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFSDecelium
     from .Action import Action
 
 class AppendObjectFromRemote(Action):    
