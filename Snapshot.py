@@ -168,7 +168,7 @@ class Snapshot:
             return {}
         
         for obj_id in needed_objs:
-
+            # TODO -- Generalize TYPES fully in snapshot
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
                 object_results = TpIPFSLocal.download_object(TpIPFSDecelium,decw,[obj_id], download_path, connection_settings,overwrite )

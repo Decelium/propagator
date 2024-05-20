@@ -35,7 +35,16 @@ class TpGeneralDecelium(TpGeneral):
                         next_batch = next_batch + new_pins
                 current_docs = next_batch
                 next_batch = []
+                
+    @classmethod
+    def download_payload_data(cls,TpDestination,decw,obj, download_path, connection_settings,overwrite=False):
+        result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
+        if type(result) == dict and 'error' in result:
+            return False,None
+        return True,bytes(result)
+        
 
+        
     @classmethod
     def get_cid_read_stream(cls,client,root_cid):
         return client.cat(root_cid, stream=True)    
