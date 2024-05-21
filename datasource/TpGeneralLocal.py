@@ -24,6 +24,7 @@ class TpGeneralLocal(TpGeneral):
                 if success:
                     if messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == False:
                         raise Exception("Halt Now. The data is corrupt.")
+                    # TODO should verify the success of the merge operation
                     cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
                     results[obj_id] = (True,messages)
                 else:
@@ -41,7 +42,7 @@ class TpGeneralLocal(TpGeneral):
     
     @classmethod
     def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
-        merge_messages = ObjectMessages("Migrator.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+        merge_messages = ObjectMessages("TpGeneralLocal.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
 
         new_cids = [obj['settings']['ipfs_cid']]
         if 'ipfs_cids' in obj['settings']:

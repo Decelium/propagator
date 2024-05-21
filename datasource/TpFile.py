@@ -59,4 +59,21 @@ class TpFileDeceliumMirror(TpGeneralDeceliumMirror):
 
 from .TpGeneralLocal import TpGeneralLocal
 class TpFileLocal(TpGeneralLocal):
-    pass
+    
+    @classmethod
+    def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
+        merge_messages = ObjectMessages("TpGeneralLocal.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+        
+        result,file_bytes = TpSource.download_payload_data(cls,decw,obj, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+        if messages.add_assert(result == True, "Could not download the payload bytes") == False:
+            return False,messages
+        if messages.add_assert(type(file_bytes) == bytes, "Did not get bytes from source") == False:
+            return False,messages
+        file_path = path.join(download_path,obj['self_id'],"payload.file")
+        file_exists = os.path.exists(file_path)
+        if overwrite == True or not file_exists:
+            with open(file_path, 'wb') as f:
+                f.write(file_bytes)
+            cls.overwrite_file_hash(file_path)
+        
+        return result,messages
