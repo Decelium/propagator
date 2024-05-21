@@ -62,6 +62,15 @@ class EntityRequestData(BaseData):
         }
         '''
 class Snapshot:  
+    datasource_map = {'local':'local',
+                      'local_attrib':'local',
+                      'local_payload':'local',
+                      'remote':'remote',
+                      'remote_attrib':'remote',
+                      'remote_payload':'remote',
+                      'remote_mirror':'remote_mirror',
+                      'remote_mirror_attrib':'remote_mirror',
+                      'remote_mirror_payload':'remote_mirror'}
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
             result = {}
@@ -88,7 +97,7 @@ class Snapshot:
         return obj
 
     @staticmethod
-    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None):
+    def object_validation_status(decw,obj_id,download_path,connection_settings,datasource,previous_messages=None,prefix=None):
         result_json = {}
         result_json["self_id"] = obj_id
         messages = ObjectMessages("Snapshot.object_validation_status")
@@ -108,11 +117,14 @@ class Snapshot:
 
         selected_type = obj['file_type']
         assert selected_type in ['ipfs','file'], "Selected type not supported"
-
+        assert datasource in list(Snapshot.datasource_map.keys()), "Datasource is not supported: "+datasource
+        datatype = Snapshot.datasource_map[datasource]
+        
         type_map = {}
         type_map['remote.ipfs'] = TpIPFSDecelium
         type_map['remote_mirror.ipfs'] = TpIPFSDeceliumMirror
         type_map['local.ipfs'] = TpIPFSLocal
+        
         type_map['remote.file'] = TpFileDecelium
         type_map['remote_mirror.file'] = TpFileDeceliumMirror
         type_map['local.file'] = TpFileLocal
@@ -123,33 +135,31 @@ class Snapshot:
         # print("SEARCHING DATASOURCE "+f"{datasource}.{selected_type}")
         
         validation_set = {}
-        assert f"{datasource}.{selected_type}" in type_map, "Could not find the selected datasource"
-        TpDatasource:TpGeneral = type_map[f"{datasource}.{selected_type}"]
-        prefix = datasource
+        assert f"{datatype}.{selected_type}" in type_map, "Could not find the selected datatype: " + f"{datatype}.{selected_type}"
+        TpDatasource:TpGeneral = type_map[f"{datatype}.{selected_type}"]
+        if prefix:
+            outfix = prefix
+        else:
+            outfix = datasource
+            
         validation_set = {**validation_set,**{
-            prefix:{'func':TpDatasource.validate_object,
-                    'prefix':prefix
-                    },
-            f'{prefix}_attrib':{'func':TpDatasource.validate_object_attrib,
-                    'prefix':f'{prefix}_attrib'
-                        },
-            f'{prefix}_payload':{'func':TpDatasource.validate_object_payload,
-                    'prefix':f'{prefix}_payload'
-                        },
+            datatype:{'func':TpDatasource.validate_object},
+            f'{datatype}_attrib':{'func':TpDatasource.validate_object_attrib},
+            f'{datatype}_payload':{'func':TpDatasource.validate_object_payload},
         }}
 
-        prefix = validation_set[datasource]['prefix']
+        #outfix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
         #try:
         
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
             messages.append(previous_messages)
-        result_json = Snapshot.format_object_status_json(obj_id,prefix,result,messages.get_error_messages(),"")
+        result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
 
         return   result_json,messages      
         #except:
-        #    result_json = Snapshot.format_object_status_json(obj_id,prefix,False,previous_messages,tb.format_exc())
+        #    result_json = Snapshot.format_object_status_json(obj_id,outfix,False,previous_messages,tb.format_exc())
         #    return   result_json,messages      
 
     @staticmethod
