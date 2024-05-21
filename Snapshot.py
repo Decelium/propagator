@@ -62,6 +62,15 @@ class EntityRequestData(BaseData):
         }
         '''
 class Snapshot:  
+    s_type_map = {
+        'remote.ipfs': TpIPFSDecelium,
+        'remote_mirror.ipfs': TpIPFSDeceliumMirror,
+        'local.ipfs': TpIPFSLocal,
+        'remote.file': TpFileDecelium,
+        'remote_mirror.file': TpFileDeceliumMirror,
+        'local.file': TpFileLocal,
+    }
+
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
             result = {}
@@ -109,13 +118,6 @@ class Snapshot:
         selected_type = obj['file_type']
         assert selected_type in ['ipfs','file'], "Selected type not supported"
 
-        type_map = {}
-        type_map['remote.ipfs'] = TpIPFSDecelium
-        type_map['remote_mirror.ipfs'] = TpIPFSDeceliumMirror
-        type_map['local.ipfs'] = TpIPFSLocal
-        type_map['remote.file'] = TpFileDecelium
-        type_map['remote_mirror.file'] = TpFileDeceliumMirror
-        type_map['local.file'] = TpFileLocal
         #type_map['remote.user'] = TpUserDecelium
         #type_map['local.user'] = TpUserLocal
         #type_map['remote.user'] = TpUserDecelium
@@ -123,8 +125,8 @@ class Snapshot:
         # print("SEARCHING DATASOURCE "+f"{datasource}.{selected_type}")
         
         validation_set = {}
-        assert f"{datasource}.{selected_type}" in type_map, "Could not find the selected datasource"
-        TpDatasource:TpGeneral = type_map[f"{datasource}.{selected_type}"]
+        assert f"{datasource}.{selected_type}" in Snapshot.s_type_map, "Could not find the selected datasource"
+        TpDatasource:TpGeneral = Snapshot.s_type_map[f"{datasource}.{selected_type}"]
         prefix = datasource
         validation_set = {**validation_set,**{
             prefix:{'func':TpDatasource.validate_object,

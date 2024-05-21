@@ -235,7 +235,8 @@ def test_corruptions_repair(setup_type):
     
     modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
     for mode in modes:
-        assert validation_data[mode][0][mode] == True
+        assert mode in validation_data, "1. Could not parse validation data: "+str(validation_data)
+        assert validation_data[mode][0][mode] == True, "2. Could not parse validation data: "+str(validation_data)
     corruption_suffix = {
                         'delete_payload':['payload'],
                         'corrupt_payload':['payload'],
@@ -406,8 +407,8 @@ def test_corruptions_multi_object():
 #test_corruptions_multi_object()
 
 
-# setup_type = 'ipfs'
-setup_type = 'file'
+setup_type = 'ipfs'
+# setup_type = 'file'
 # ObjectMessages.set_assert_mode(True) # Used to force halting upon error for debugging reasons
-test_setup(setup_type)
-# test_corruptions_repair(setup_type)
+# test_setup(setup_type)
+test_corruptions_repair(setup_type)
