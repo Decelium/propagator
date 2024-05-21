@@ -1,7 +1,6 @@
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFSDecelium
-    from ..datasource.TpIPFS import TpIPFSLocal
+    from ..datasource.TpIPFS import TpIPFS
     from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
     #from ..datasource.CorruptionData import CorruptionTestData
@@ -10,8 +9,7 @@ try:
 
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFSDecelium
-    from datasource.TpIPFS import TpIPFSLocal
+    from datasource.TpIPFS import TpIPFS
     from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
@@ -146,7 +144,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
 
-        obj = TpIPFSDecelium.load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
+        obj = TpIPFS.get_datasource("remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
 
         cids = [obj['settings']['ipfs_cid']]
         if 'ipfs_cids' in obj['settings']:
@@ -196,7 +194,7 @@ class CorruptObject(Action):
         self_id = record['obj_id']
         decw = record['decw']
         connection_settings = record['connection_settings']
-        TpIPFSLocal.remove_entity(self_id,backup_path)
+        TpIPFS.get_datasource("local").remove_entity(self_id,backup_path)
 
 
       
@@ -217,7 +215,7 @@ class CorruptObject(Action):
         #random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
         #with open(file_path, 'wb') as corrupt_file:
         #    corrupt_file.write(random_bytes)
-        assert TpIPFSLocal.corrupt_attrib({'self_id':record['obj_id']},record['backup_path']) == True
+        assert TpIPFS.get_datasource("local").corrupt_attrib({'self_id':record['obj_id']},record['backup_path']) == True
         file_path = os.path.join(record['backup_path'], record['obj_id'], 'object.json')
         memory['corrupted'].append(file_path)
 
@@ -231,7 +229,7 @@ class CorruptObject(Action):
         #correct_json['dir_name'] = "corrupt_name"
         #with open(file_path, 'w') as f:
         #    f.write(json.dumps(correct_json))
-        assert TpIPFSLocal.corrupt_attrib_filename({'self_id':record['obj_id']},record['backup_path']) == True
+        assert TpIPFS.get_datasource("local").corrupt_attrib_filename({'self_id':record['obj_id']},record['backup_path']) == True
         #file_path = os.path.join(record['backup_path'], record['obj_id'], 'object.json')            
         
     @staticmethod
@@ -246,7 +244,7 @@ class CorruptObject(Action):
         #        with open(file_path, 'wb') as corrupt_file:
         #            corrupt_file.write(random_bytes)
         #        memory['corrupted'].append(file_path)  
-        success,files_affected =  TpIPFSLocal.corrupt_payload({'self_id':record['obj_id']},record['backup_path']) == True
+        success,files_affected =  TpIPFS.get_datasource("local").corrupt_payload({'self_id':record['obj_id']},record['backup_path']) == True
         assert success == True
         for file_path in files_affected:
             memory['corrupted'].append(file_path)  

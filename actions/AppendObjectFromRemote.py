@@ -2,11 +2,11 @@
 import traceback as tb
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFS
     from .Action import Action
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFS
     from .Action import Action
 
 class AppendObjectFromRemote(Action):    
@@ -44,7 +44,7 @@ class AppendObjectFromRemote(Action):
     def postvalid(self,record,response,memory=None):
         obj = response[0]
         new_cids = response[1]
-
-        assert TpIPFSDecelium.ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
+        
+        assert TpIPFS.get_datasource("remote").ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
         assert obj['dir_name'] == "test_folder.ipfs"
         return True

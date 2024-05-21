@@ -2,20 +2,22 @@ import os
 import json
 import shutil
 try:
+    from datasource.TpGeneral import TpFacade
     from datasource.TpGeneralLocal import TpGeneralLocal
     from datasource.TpGeneralDecelium import TpGeneralDecelium
     from datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
-    from datasource.TpIPFS import TpIPFSDecelium,TpIPFSDeceliumMirror,TpIPFSLocal
-    from datasource.TpFile import TpFileDecelium,TpFileLocal,TpFileDeceliumMirror
+    from datasource.TpIPFS import TpIPFS
+    from datasource.TpFile import TpFile
     from Messages import ObjectMessages
     from type.BaseData import BaseData,auto_c
     from datasource.TpGeneral import TpGeneral
 except:
+    from datasource.TpGeneral import TpFacade
     from .datasource.TpGeneralLocal import TpGeneralLocal
     from .datasource.TpGeneralDecelium import TpGeneralDecelium
     from .datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
-    from .datasource.TpIPFS import TpIPFSDecelium,TpIPFSDeceliumMirror,TpIPFSLocal
-    from .datasource.TpFile import TpFileDecelium,TpFileLocal,TpFileDeceliumMirror
+    from .datasource.TpIPFS import TpIPFS
+    from .datasource.TpFile import TpFile
     from .type.BaseData import BaseData,auto_c
     from .Messages import ObjectMessages
     from .datasource.TpGeneral import TpGeneral
@@ -63,12 +65,8 @@ class EntityRequestData(BaseData):
         '''
 class Snapshot:  
     s_type_map = {
-        'remote.ipfs': TpIPFSDecelium,
-        'remote_mirror.ipfs': TpIPFSDeceliumMirror,
-        'local.ipfs': TpIPFSLocal,
-        'remote.file': TpFileDecelium,
-        'remote_mirror.file': TpFileDeceliumMirror,
-        'local.file': TpFileLocal,
+        'ipfs': TpIPFS,
+        'file': TpFile
     }
     datasource_map = {'local':'local',
                       'local_attrib':'local',
@@ -124,37 +122,28 @@ class Snapshot:
             return result_json,messages
 
         selected_type = obj['file_type']
-        assert selected_type in ['ipfs','file'], "Selected type not supported"
-
+        assert selected_type in list(Snapshot.s_type_map.keys()), "Selected type not supported"
         assert datasource in list(Snapshot.datasource_map.keys()), "Datasource is not supported: "+datasource
-        datatype = Snapshot.datasource_map[datasource]
-        
-        type_map = {}
-        type_map['remote.ipfs'] = TpIPFSDecelium
-        type_map['remote_mirror.ipfs'] = TpIPFSDeceliumMirror
-        type_map['local.ipfs'] = TpIPFSLocal
-        
-        type_map['remote.file'] = TpFileDecelium
-        type_map['remote_mirror.file'] = TpFileDeceliumMirror
-        type_map['local.file'] = TpFileLocal
+
+        # Map something like 'remote_attrib' into 'remote'
+        datasource_location = Snapshot.datasource_map[datasource]
+        TpDataType:TpFacade = Snapshot.s_type_map[selected_type]
+        TpDatasource:TpGeneral  = TpDataType.get_datasource(datasource_location)
+
         validation_set = {}
         
-        assert f"{datatype}.{selected_type}" in type_map, "Could not find the selected datatype: " + f"{datatype}.{selected_type}"
-        TpDatasource:TpGeneral = type_map[f"{datatype}.{selected_type}"]
         if prefix:
             outfix = prefix
         else:
             outfix = datasource
             
         validation_set = {**validation_set,**{
-            datatype:{'func':TpDatasource.validate_object},
-            f'{datatype}_attrib':{'func':TpDatasource.validate_object_attrib},
-            f'{datatype}_payload':{'func':TpDatasource.validate_object_payload},
+            datasource_location:{'func':TpDatasource.validate_object},
+            f'{datasource_location}_attrib':{'func':TpDatasource.validate_object_attrib},
+            f'{datasource_location}_payload':{'func':TpDatasource.validate_object_payload},
         }}
 
-        #outfix = validation_set[datasource]['prefix']
         func = validation_set[datasource]['func']
-        #try:
         
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
@@ -162,9 +151,6 @@ class Snapshot:
         result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
 
         return   result_json,messages      
-        #except:
-        #    result_json = Snapshot.format_object_status_json(obj_id,outfix,False,previous_messages,tb.format_exc())
-        #    return   result_json,messages      
 
     @staticmethod
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
@@ -175,7 +161,7 @@ class Snapshot:
         if os.path.exists(download_path):
             local_object_ids = os.listdir(download_path)
 
-        found_objs = TpIPFSDecelium.find_batch_object_ids(decw,offset,limit,filter)
+        found_objs = TpIPFS.get_datasource("remote").find_batch_object_ids(decw,offset,limit,filter)
         needed_objs = found_objs
         results = {}
         if len(needed_objs) <= 0:
@@ -185,7 +171,7 @@ class Snapshot:
             # TODO -- Generalize TYPES fully in snapshot
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
-                object_results = TpIPFSLocal.download_object(TpIPFSDecelium,decw,[obj_id], download_path, connection_settings,overwrite )
+                object_results = TpIPFS.get_datasource("local").download_object(TpIPFS.get_datasource("remote"),decw,[obj_id], download_path, connection_settings,overwrite )
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
@@ -276,7 +262,7 @@ class Snapshot:
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFS.get_datasource("remote").validate_object(decw,obj_id, download_path, connection_settings)
             if remote_result == True:
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
@@ -322,7 +308,7 @@ class Snapshot:
                 
             # ---------
             # b) Make sure the local is complete
-            local_result, local_validation_messages = TpIPFSLocal.validate_object(decw,obj_id, download_path, connection_settings)
+            local_result, local_validation_messages = TpIPFS.get_datasource("local").validate_object(decw,obj_id, download_path, connection_settings)
             if local_result == False: # and remote_result == False:
                 results[obj_id] = (False,local_validation_messages.get_error_messages())
                 continue
@@ -333,13 +319,13 @@ class Snapshot:
 
             # ---------
             # Upload metadata
-            query,upload_messages = TpIPFSLocal.upload_object_query(obj_id,download_path,connection_settings)
+            query,upload_messages = TpIPFS.get_datasource("local").upload_object_query(obj_id,download_path,connection_settings)
             messages.append(upload_messages)
             if len(upload_messages.get_error_messages()) > 0:
                 results[obj_id] = (False,messages.get_error_messages())
                 continue
             
-            obj = TpIPFSLocal.load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
+            obj = TpIPFS.get_datasource("local").load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
             if messages.add_assert('error' not in obj,"b. Somehow the local is corrupt. Should be impossible to get this error."+ str(obj))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
@@ -353,12 +339,12 @@ class Snapshot:
                 for path,cid in obj['settings']['ipfs_cids'].items():
                     obj_cids.append(cid)
 
-                all_cids =  TpIPFSDecelium.ipfs_pin_list(decw, connection_settings,refresh=True)
+                all_cids =  TpIPFS.get_datasource("remote").ipfs_pin_list(decw, connection_settings,refresh=True)
                 missing_cids = list(set(obj_cids) - set(all_cids))
                 if(len(missing_cids) > 0):
-                    reupload_cids,upload_messages = TpIPFSLocal.upload_ipfs_data(TpIPFSDecelium,decw,download_path+'/'+obj_id,connection_settings)
+                    reupload_cids,upload_messages = TpIPFS.get_datasource("local").upload_ipfs_data(TpIPFS.get_datasource("remote"),decw,download_path+'/'+obj_id,connection_settings)
                     messages.append(upload_messages)
-                    if messages.add_assert(TpIPFSDecelium.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
+                    if messages.add_assert(TpIPFS.get_datasource("remote").ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
                                         "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                         results[obj_id]= (False,messages.get_error_messages())
                         continue
@@ -377,7 +363,7 @@ class Snapshot:
 
             # ---------
             # Verify Upload was successful
-            remote_result, remote_validation_messages = TpIPFSDecelium.validate_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = TpIPFS.get_datasource("remote").validate_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
             # results[obj_id]= (remote_result,messages.get_error_messages())
             if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
