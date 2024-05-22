@@ -255,8 +255,12 @@ def test_corruptions_repair(setup_type):
     #remote_mirror_types = ['remove_attrib']
     #remote_types = ['rename_attrib_filename']
     #remote_mirror_types = ['remove_attrib']
-    remote_types = ['delete_entity']
-    remote_mirror_types = ['delete_payload']
+    #remote_types = ['delete_entity']
+    #remote_mirror_types = ['delete_payload']
+    # remote_types = ["delete_payload"]
+    # remote_mirror_types = ["corrupt_attrib"]
+    # remote_types = ["remove_attrib"]
+    # remote_mirror_types = ["remove_attrib"]
 
     for corrupt_remote in remote_types:
         for corrupt_mirror in remote_mirror_types:

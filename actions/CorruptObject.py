@@ -128,6 +128,7 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
         assert success == True
+    
     @staticmethod
     def corrupt_remote_delete_entity(record,memory):
         backup_path = record['backup_path']
@@ -137,6 +138,7 @@ class CorruptObject(Action):
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_entity"},["admin"]))
         if type(obj) == dict:
             assert not 'error' in obj, "Got an error trying to process the corruption "+ str(obj)
+    
     @staticmethod
     def corrupt_remote_delete_payload(record,memory):
         backup_path = record['backup_path']
@@ -291,7 +293,7 @@ class CorruptObject(Action):
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
         messages:ObjectMessages = messages
         try:
-            assert local_results[mode] == False, "Corruption Failed: "+ str(record)
+            assert local_results[mode] == False, "Corruption Failed: "+ str(record)+"-:-" + str(local_results)
             if 'removed' in memory:
                 for file_path in memory['removed']:
                     assert os.path.exists(file_path) == False

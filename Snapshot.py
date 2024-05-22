@@ -205,28 +205,33 @@ class Snapshot:
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return TpIPFSLocal.remove_entity(filter,download_path)
+        return TpIPFS.get_datasource("local").remove_entity(filter,download_path)
 
     @auto_c(EntityRequestData)
     def remove_attrib(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return TpIPFSLocal.remove_attrib(filter,download_path)
+        return TpIPFS.get_datasource("local").remove_attrib(filter,download_path)
+
+    @auto_c(EntityRequestData)
+    def corrupt_attrib(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        return TpIPFS.get_datasource("local").corrupt_attrib(filter,download_path)
 
     @auto_c(EntityRequestData)
     def remove_payload(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return TpIPFSLocal.remove_payload(filter,download_path)
+        return TpIPFS.get_datasource("local").remove_payload(filter,download_path)
     
     @auto_c(EntityRequestData)
     def corrupt_attrib_filename(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return TpIPFSLocal.corrupt_attrib_filename(filter,download_path)
+        return TpIPFS.get_datasource("local").corrupt_attrib_filename(filter,download_path)
 
     @staticmethod
     @auto_c(EntityRequestData)
     def corrupt_payload(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return TpIPFSLocal.corrupt_payload(filter,download_path)
+        return TpIPFS.get_datasource("local").corrupt_payload(filter,download_path)
     
 
     @staticmethod

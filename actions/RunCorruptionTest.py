@@ -125,7 +125,7 @@ class RunCorruptionTest(Action):
                 try:
                     print (f"{k} is {validation_data[k][0][k]}")
                 except:
-                    pass #print (f"{k} is broken")
+                    print (f"{k} is broken"+str(validation_data[k]))
             # return True
 
             '''  '''
