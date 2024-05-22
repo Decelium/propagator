@@ -1,19 +1,9 @@
 
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFS
-    #from ..datasource.TpIPFSLocal import TpIPFSLocal
-    #from ..Messages import ObjectMessages
-    #from ..type.BaseData import BaseData,auto_c
-    #from ..datasource.CorruptionData import CorruptionTestData
     from .Action import Action
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFS
-    #from datasource.TpIPFSLocal import TpIPFSLocal
-    #from Messages import ObjectMessages
-    #from type.BaseData import BaseData,auto_c
-    #from datasource.CorruptionData import CorruptionTestData
     from .Action import Action,agent_action
 
 class PushFromSnapshotToRemote(Action):
@@ -51,7 +41,7 @@ class PushFromSnapshotToRemote(Action):
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
         assert results[obj_id][0] == True, "Could not validate "+ str(results)
 
-        obj = TpIPFS.get_datasource("remote").load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
+        obj = Snapshot.get_datasource("ipfs","remote").load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
         assert 'obj-' in obj['self_id']
 
     def postvalid(self,record,response,memory):

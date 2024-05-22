@@ -16,23 +16,24 @@ class TpGeneral():
 class TpFacade:
     datasource_map = None
     @classmethod
-    def get_datasource(cls,type_id:str):
+    def get_datasource_refac(cls,type_id:str) -> TpGeneral:
         if (cls.datasource_map == None):
+            # TODO -- come up with a sensible and consistent mapping strategy
             cls.datasource_map = {
                             'local':cls.Local,
-                            'local_attrib':cls.Local,
-                            'local_payload':cls.Local,
+                            'local_attrib':cls.Local, #??? -- Seems innaccurate
+                            'local_payload':cls.Local, #??? -- Seems innaccurate
                             'local_mirror':cls.LocalMirror,
-                            'local_mirror_attrib':cls.LocalMirror,
-                            'local_mirror_payload':cls.LocalMirror,
+                            'local_mirror_attrib':cls.LocalMirror, #??? -- Seems innaccurate
+                            'local_mirror_payload':cls.LocalMirror, #??? -- Seems innaccurate
                             'remote':cls.Decelium,
-                            'remote_attrib':cls.Decelium,
-                            'remote_payload':cls.Decelium,
-                            'remote_mirror':cls.DeceliumMirror,
-                            'remote_mirror_attrib':cls.DeceliumMirror,
-                            'remote_mirror_payload':cls.DeceliumMirror
+                            'remote_attrib':cls.Decelium, #??? -- Seems innaccurate
+                            'remote_payload':cls.Decelium, #??? -- Seems innaccurate
+                            'remote_mirror':cls.DeceliumMirror, 
+                            'remote_mirror_attrib':cls.DeceliumMirror, #??? -- Seems innaccurate
+                            'remote_mirror_payload':cls.DeceliumMirror #??? -- Seems innaccurate
                             }    
-        assert type_id in list(cls.datasource_map.keys())
+        assert type_id in list(cls.datasource_map.keys()), "could not find "+ type_id + " in datasource_map"
         return cls.datasource_map[type_id]
     class Local(TpGeneral):
         pass

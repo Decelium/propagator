@@ -146,7 +146,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
 
-        obj = TpIPFS.get_datasource("remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
+        obj = Snapshot.get_datasource("ipfs","remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
 
         cids = [obj['settings']['ipfs_cid']]
         if 'ipfs_cids' in obj['settings']:
