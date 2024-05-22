@@ -103,16 +103,20 @@ class Snapshot:
         messages = ObjectMessages("Snapshot.object_validation_status")
         result = True
         #    return result_json,messages
-
+        if prefix:
+            outfix = prefix
+        else:
+            outfix = datasource
+            
         obj = Snapshot.load_file_by_id(decw,obj_id,datasource,download_path)
         if messages.add_assert(not 'error' in obj,"Could not find file by id: "+str(obj)) == False:
             result = False
-            result_json = Snapshot.format_object_status_json(obj_id,datasource,result,messages.get_error_messages(),"")
+            result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
+            return result_json,messages
         
         if messages.add_assert('file_type' in obj,"Object does not have file type: "+str(obj)) == False:
             result = False
-            result_json = Snapshot.format_object_status_json(obj_id,datasource,result,messages.get_error_messages(),"")
-        if result == False:
+            result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
             return result_json,messages
 
         selected_type = obj['file_type']
@@ -137,10 +141,7 @@ class Snapshot:
         validation_set = {}
         assert f"{datatype}.{selected_type}" in type_map, "Could not find the selected datatype: " + f"{datatype}.{selected_type}"
         TpDatasource:TpGeneral = type_map[f"{datatype}.{selected_type}"]
-        if prefix:
-            outfix = prefix
-        else:
-            outfix = datasource
+
             
         validation_set = {**validation_set,**{
             datatype:{'func':TpDatasource.validate_object},
@@ -155,6 +156,13 @@ class Snapshot:
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
             messages.append(previous_messages)
+
+        print("\n \n USING OUTFIX\n")
+        print("outfix", outfix)
+        print("datasource", datasource)
+        print("datatype", datatype)
+        print("prefix", prefix)
+        
         result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
 
         return   result_json,messages      
@@ -222,6 +230,11 @@ class Snapshot:
         assert 'self_id' in filter
         return TpIPFSLocal.remove_attrib(filter,download_path)
 
+    @auto_c(EntityRequestData)
+    def corrupt_attrib(filter:EntityRequestData,download_path:str):
+        assert 'self_id' in filter
+        return TpIPFSLocal.corrupt_attrib(filter,download_path)
+    
     @auto_c(EntityRequestData)
     def remove_payload(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
