@@ -148,11 +148,15 @@ class RunCorruptionTest(Action):
                 print (f"{k} is {validation_data[k][0][k]}")
             except:
                 pass #print (f"{k} is broken")
-
+        print ("CHECKING INVALID PROPS")
+        print ("props",props)
+        print ("invalid_props",invalid_props)
         for prop in props:
             if prop not in invalid_props:
+                print("CHECKING PROP IS VALID" + prop)
                 assert validation_data[prop][0][prop] == True,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
             else:
+                print("CHECKING PROP IS IN-VALID" + prop)
                 assert validation_data[prop][0][prop] == False,"Could not find that "+prop+" was INvalid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
 
         # Step 2: After we evaluate, we want to restore the object to its original state

@@ -52,6 +52,5 @@ class DeleteObjectFromRemote(Action):
         user_context = record['user_context']
         connection_settings = record['connection_settings']
 
-        # B TODO - Check IPFS to validate the files are gone
         assert TpIPFS.get_datasource("remote").ipfs_has_cids(decw, memory['old_cids'], connection_settings,refresh=True) == False
         return True

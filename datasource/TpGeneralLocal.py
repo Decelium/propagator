@@ -158,13 +158,9 @@ class TpGeneralLocal(TpGeneral):
                 pinned = True
             if not pinned:
                 return new_cids
-            #TpIPFSDecelium.ipfs_has_cids(decw,)
-            # If pinned, proceed to download
             
             try:
                 res = client.cat(root_cid)
-                #with open(file_path+".file", 'wb') as f:
-                #    f.write(res)
                 with open(file_path + ".file", 'wb') as f:
                     for chunk in TpSource.get_cid_read_stream(client,root_cid):
                         f.write(chunk)

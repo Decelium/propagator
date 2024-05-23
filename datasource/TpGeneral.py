@@ -12,7 +12,6 @@ class TpGeneral():
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
         raise Exception("Unimplemented")
 
-
 class TpFacade:
     datasource_map = None
     @classmethod

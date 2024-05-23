@@ -55,6 +55,12 @@ class Snapshot:
         TheType:TpFacade = Snapshot.s_type_map[type_name]
         return TheType.get_datasource_refac(datasource_name)
     
+    #@staticmethod
+    #def get_obj_datasource(obj_id:str, datasource_name:str) -> TpGeneral:
+    #    Snapshot.load_entity()
+    #    type_name
+    #    return Snapshot.get_datasource(type_name, datasource_name):
+
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
             result = {}

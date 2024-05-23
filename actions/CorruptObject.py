@@ -198,8 +198,6 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         TpIPFS.get_datasource("local").remove_entity(self_id,backup_path)
 
-
-      
     @staticmethod
     def corrupt_local_remove_attrib(record,memory):
         backup_path = record['backup_path']
@@ -210,42 +208,20 @@ class CorruptObject(Action):
 
     @staticmethod
     def corrupt_local_corrupt_attrib(record,memory):
-        #backup_path = record['backup_path']
-        #self_id = record['obj_id']
-        #file_path = os.path.join(backup_path, self_id, 'object.json')
-        #random_bytes_size = 1024
-        #random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-        #with open(file_path, 'wb') as corrupt_file:
-        #    corrupt_file.write(random_bytes)
-        assert TpIPFS.get_datasource("local").corrupt_attrib({'self_id':record['obj_id']},record['backup_path']) == True
+
+        assert Snapshot.get_datasource("ipfs","local").corrupt_attrib({'self_id':record['obj_id']},record['backup_path']) == True
         file_path = os.path.join(record['backup_path'], record['obj_id'], 'object.json')
         memory['corrupted'].append(file_path)
 
     @staticmethod
     def corrupt_local_rename_attrib_filename(record,memory):
-        #backup_path = record['backup_path']
-        #self_id = record['obj_id']
-        #file_path = os.path.join(backup_path, self_id, 'object.json')
-        #with open(file_path, 'r') as f:
-        #    correct_json = json.loads(f.read())
-        #correct_json['dir_name'] = "corrupt_name"
-        #with open(file_path, 'w') as f:
-        #    f.write(json.dumps(correct_json))
-        assert TpIPFS.get_datasource("local").corrupt_attrib_filename({'self_id':record['obj_id']},record['backup_path']) == True
+
+        assert Snapshot.get_datasource("ipfs","local").corrupt_attrib_filename({'self_id':record['obj_id']},record['backup_path']) == True
         #file_path = os.path.join(record['backup_path'], record['obj_id'], 'object.json')            
         
     @staticmethod
     def corrupt_local_corrupt_payload(record,memory):
-        #backup_path = record['backup_path']
-        #self_id = record['obj_id']
-        #for filename in os.listdir(os.path.join(backup_path, self_id)):
-        #    if  filename.endswith('.file'): # filename.endswith('.dag') or
-        #        file_path = os.path.join(backup_path, self_id, filename)
-        #        random_bytes_size = 1024
-        #        random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-        #        with open(file_path, 'wb') as corrupt_file:
-        #            corrupt_file.write(random_bytes)
-        #        memory['corrupted'].append(file_path)  
+
         success,files_affected =  TpIPFS.get_datasource("local").corrupt_payload({'self_id':record['obj_id']},record['backup_path']) == True
         assert success == True
         for file_path in files_affected:
