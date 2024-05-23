@@ -1,6 +1,5 @@
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFS
     from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
     #from ..datasource.CorruptionData import CorruptionTestData
@@ -9,7 +8,6 @@ try:
 
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFS
     from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
@@ -196,7 +194,7 @@ class CorruptObject(Action):
         self_id = record['obj_id']
         decw = record['decw']
         connection_settings = record['connection_settings']
-        TpIPFS.get_datasource("local").remove_entity(self_id,backup_path)
+        Snapshot.get_datasource("ipfs","local").remove_entity({'self_id':self_id},backup_path)
 
     @staticmethod
     def corrupt_local_remove_attrib(record,memory):
@@ -221,8 +219,9 @@ class CorruptObject(Action):
         
     @staticmethod
     def corrupt_local_corrupt_payload(record,memory):
-
-        success,files_affected =  TpIPFS.get_datasource("local").corrupt_payload({'self_id':record['obj_id']},record['backup_path']) == True
+        # outputTest = Snapshot.get_datasource("ipfs","local").corrupt_payload({'self_id':record['obj_id']},record['backup_path'])
+        # print("corrupt_local_corrupt_payload.outputTest",outputTest)
+        success,files_affected =  Snapshot.get_datasource("ipfs","local").corrupt_payload({'self_id':record['obj_id']},record['backup_path'])
         assert success == True
         for file_path in files_affected:
             memory['corrupted'].append(file_path)  

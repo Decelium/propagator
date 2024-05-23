@@ -13,6 +13,7 @@ except:
     from type.BaseData import TestConfig
     from .CorruptObject import CorruptObject
     from .PullObjectFromRemote import PullObjectFromRemote
+    from .AppendObjectFromRemote import AppendObjectFromRemote
     from .EvaluateObjectStatus import evaluate_object_status #Exported as a premade function
     from .ChangeRemoteObjectName import ChangeRemoteObjectName
     from .PushFromSnapshotToRemote import PushFromSnapshotToRemote
@@ -81,9 +82,6 @@ class RunCorruptionTest(Action):
         evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
         evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
         evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})  
-        print("\n")
-        print("\n")
-        print("Ready for next test:")
         return True
     
     def postvalid(self,record,response,memory=None):
@@ -161,8 +159,21 @@ class RunCorruptionTest(Action):
 
         # Step 2: After we evaluate, we want to restore the object to its original state
         if record['push_target'] == 'local':
+            repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})
+            assert repair_status == True
             pull_object_from_remote = PullObjectFromRemote()
-            pull_object_from_remote({**setup_config,'overwrite': False,'expected_result':True,})
+            append_object_from_remote = AppendObjectFromRemote()
+            print("The Corruptions:")
+            print(record['corruptions'])
+            method_to_repair = "pull"
+            for corruption in record['corruptions']:
+                if corruption['corruption'] == 'delete_entity' and corruption['mode'] == 'local':
+                    method_to_repair = "append"
+                    break
+            if method_to_repair == "pull":
+                pull_object_from_remote({**setup_config,'overwrite': False,'expected_result':True,})
+            else:
+                append_object_from_remote({**setup_config,'overwrite': False,'expected_result':True,})
         elif record['push_target'] == 'remote':
             push_from_snapshot_to_remote = PushFromSnapshotToRemote()
             push_from_snapshot_to_remote({**setup_config,'overwrite': False,'expected_result':True,})

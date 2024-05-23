@@ -8,6 +8,7 @@ from type.CorruptionData import CorruptionTestData
 from type.BaseData import TestConfig,ConnectionConfig
 from actions.SnapshotAgent import SnapshotAgent
 from Messages import ObjectMessages
+from Snapshot import Snapshot
 
 def object_setup(agent:SnapshotAgent,
                  conn_config:ConnectionConfig,
@@ -160,7 +161,7 @@ def perliminary_tests():
     agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
     agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
 
-def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_evals:list,invalid_props:list,final_evals,do_repair:bool,post_repair_status:bool):    
+def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_evals:list,invalid_props:list,final_evals,do_repair:bool,post_repair_status:bool,push_target:str):    
     corruptions = [CorruptionTestData.Instruction(corruption) for corruption in corruptions]
     pre_evals = [CorruptionTestData.Eval(evaluation) for evaluation in pre_evals]
     final_evals = [CorruptionTestData.Eval(evaluation) for evaluation in final_evals]
@@ -174,53 +175,9 @@ def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_
             'do_repair':do_repair,
             'post_repair_status':post_repair_status,
             'final_evals':final_evals,
-            'push_target':'remote',
+            'push_target':push_target,
                 }
-def test_corruptions(file_type):
-    setup_config:TestConfig = test_setup()
-    agent = SnapshotAgent()
-    decw = setup_config.decw()
-    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
-    configs = []
-    
-    # validate_entity - 
-    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
-    # print(json.dumps(validation_data,indent=4))
-    
-    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
-    for mode in modes:
-        assert validation_data[mode][0][mode] == True
-    corruption_suffix = {
-                        'delete_payload':['payload'],
-                        'corrupt_payload':['payload'],
-                        'remove_attrib':['attrib','payload'],
-                        'rename_attrib_filename':['attrib'],
-                        'corrupt_attrib':['attrib','payload'],
-                        'delete_entity':['attrib','payload'],}
-    
-    for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
-        for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
-            #for corrupt_remote in ['delete_payload']: 
-            #    for corrupt_mirror in  ['delete_payload']:
-            assert type(corrupt_remote) == str
-            assert type(corrupt_mirror) == str
-            invalid_props = []
-            invalid_props = invalid_props +  ['_'.join(['remote',suffix]) for suffix in  corruption_suffix[corrupt_remote]]
-            invalid_props = invalid_props + ['_'.join(['remote_mirror',suffix]) for suffix in  corruption_suffix[corrupt_mirror]]
 
-            configs.append(new_corruption_config(setup_config,obj,
-                [{'corruption':corrupt_remote,"mode":'remote'},
-                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
-                [{'target':'local','status':['complete']},
-                 {'target':'remote','status':['object_missing','payload_missing']},
-                {'target':'remote_mirror','status':['object_missing','payload_missing']}],
-                invalid_props))
-
-
-    print("corruption tests :"+str(len(configs)))
-    for corruption_config in configs:
-        print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
-        agent.run_corruption_test(corruption_config)
 
 corruption_suffix = {
                     'delete_payload':['payload'],
@@ -233,10 +190,30 @@ corruption_suffix = {
 def new_repair_corruption_config(corruption_1,corrupt_2,setup_config,obj):
         assert type(corruption_1) == str
         assert type(corrupt_2) == str
+        
+        # CONFIG 1 : REMOTE REPAIR
+        # -----
+        #c_target_1 = 'remote'
+        #c_target_2 = 'remote_mirror'
+        #c_target_reserve = 'local'
+        #do_repair = False
+        # push_target = 'remote'
+        
+        # CONFIG 2 : REMOTE NO REPAIR
+        # -----
+        #c_target_1 = 'remote'
+        #c_target_2 = 'remote_mirror'
+        #c_target_reserve = 'local'
+        #do_repair = True
+        # push_target = 'remote'
+
+        # CONFIG 3 : LOCAL NO REPAIR
         c_target_1 = 'remote'
-        c_target_2 = 'remote_mirror'
-        c_target_reserve = 'local'
+        c_target_2 = 'local'
+        c_target_reserve = 'remote_mirror'
         do_repair = False
+        push_target = 'local'
+        
         invalid_props = []
         # The corruptions we can apply, and what they will break.
         if do_repair == True:
@@ -291,8 +268,17 @@ def new_repair_corruption_config(corruption_1,corrupt_2,setup_config,obj):
             invalid_props,
             final_evals,
             do_repair,
-            repair_success_expectation)
+            repair_success_expectation,
+            push_target)
         return config
+
+def get_validation_summary(decw,setup_config):
+    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
+    local_validation_attrib = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_attrib')
+    local_validation_payload = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_payload')
+    validation_data['local_attrib'] = [local_validation_attrib[0]]
+    validation_data['local_payload'] = [local_validation_payload[0]]
+    return validation_data
 
 def test_corruptions_repair(setup_type):
     setup_config:TestConfig = test_setup(setup_type)
@@ -300,19 +286,17 @@ def test_corruptions_repair(setup_type):
     decw = setup_config.decw()
     obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
     configs = []
-    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
-    
-    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
+    validation_data = get_validation_summary(decw,setup_config)
+
+    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload','local_attrib','local_payload']
     for mode in modes:
-        assert mode in validation_data, "1. Could not parse validation data: "+str(validation_data)
+        assert mode in validation_data, f"1. Could not parse validation data for mode {mode}: "+str(validation_data)
         assert validation_data[mode][0][mode] == True, "2. Could not parse validation data: "+str(validation_data)
 
     remote_types = CorruptionTestData.Instruction.corruption_types
     remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-    remote_types = ['delete_payload']
-    remote_mirror_types = ['remove_attrib']
-
-
+    # remote_types = ['delete_payload']
+    # remote_mirror_types = ['remove_attrib']
 
     for corrupt_remote in remote_types:
         for corrupt_mirror in remote_mirror_types:

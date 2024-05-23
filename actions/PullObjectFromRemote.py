@@ -16,7 +16,7 @@ class PullObjectFromRemote(Action):
 
         results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=overwrite)
         
-        assert obj_id in results
+        assert obj_id in results, "Did not get goo results from pull operation: "+ str(results)
         assert results[obj_id]['local'] == expected_result
         if expected_result == True:
             assert len(results[obj_id]['local_message']) == 0 

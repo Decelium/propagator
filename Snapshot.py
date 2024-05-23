@@ -375,8 +375,10 @@ class Snapshot:
         object_ids = object_ids[offset:offset+limit]
         found_objs = {}
         if len(object_ids) == 0:
+            print ("NO FOUND OBJECTS AT ALL")
             return found_objs
         for obj_id in object_ids:
+            print ("FOUND SOME OBJECTS")
             filter = {'attrib':{'self_id':obj_id}}
             object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite)      
             found_objs.update(object_results)       
