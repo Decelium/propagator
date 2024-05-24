@@ -37,11 +37,11 @@ class TpGeneralDecelium(TpGeneral):
                 next_batch = []
                 
     @classmethod
-    def download_payload_data(cls,TpDestination,decw,obj, download_path, connection_settings,overwrite=False):
+    def download_payload_data(cls,decw,obj):
         result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
         if type(result) == dict and 'error' in result:
             return False,None
-        return True,bytes(result)
+        return True,bytes(result.encode("utf-8"))
         
 
         
@@ -179,6 +179,19 @@ class TpGeneralDecelium(TpGeneral):
         for doc in docs:
             obj_ids.append(doc['self_id'])
         return obj_ids
+
+    @classmethod
+    def find_batch_objects(cls,decw,offset,limit,filter=None):
+        if filter ==None:
+            filter ={'attrib':{'file_type':'ipfs'}}
+        filter['limit'] = limit
+        filter['offset'] = offset
+        docs = decw.net.list(filter)
+        obj_ids = []
+        for doc in docs:
+            obj_ids.append(doc)
+        return obj_ids
+
     
     @classmethod
     def find_batch_cids(cls,decw,offset,limit,filter=None):

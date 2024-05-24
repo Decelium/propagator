@@ -13,7 +13,18 @@ from .TpGeneralDecelium import TpGeneralDecelium
 
 class TpIPFS(TpFacade):
     class Local(TpGeneralLocal):
-        pass
+        @classmethod
+        def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
+            merge_messages = ObjectMessages("TpIPFS.Local.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+    
+            new_cids = [obj['settings']['ipfs_cid']]
+            if 'ipfs_cids' in obj['settings']:
+                for cid in obj['settings']['ipfs_cids'].values():
+                    new_cids.append(cid)
+            
+            result = TpSource.download_ipfs_data(cls,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+            return result
+        
 
     class LocalMirror(TpGeneral):
         pass

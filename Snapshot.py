@@ -6,6 +6,8 @@ try:
     from datasource.TpGeneralLocal import TpGeneralLocal
     from datasource.TpGeneralDecelium import TpGeneralDecelium
     from datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
+    from datasource.TpGeneralLocalMirror import TpGeneralLocalMirror
+    
     from datasource.TpIPFS import TpIPFS
     from datasource.TpFile import TpFile
     from Messages import ObjectMessages
@@ -16,6 +18,7 @@ except:
     from .datasource.TpGeneralLocal import TpGeneralLocal
     from .datasource.TpGeneralDecelium import TpGeneralDecelium
     from .datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
+    from .datasource.TpGeneralLocalMirror import TpGeneralLocalMirror
     from .datasource.TpIPFS import TpIPFS
     from .datasource.TpFile import TpFile
     from .type.BaseData import BaseData,auto_c
@@ -55,12 +58,17 @@ class Snapshot:
         TheType:TpFacade = Snapshot.s_type_map[type_name]
         return TheType.get_datasource_refac(datasource_name)
     
-    #@staticmethod
-    #def get_obj_datasource(obj_id:str, datasource_name:str) -> TpGeneral:
-    #    Snapshot.load_entity()
-    #    type_name
-    #    return Snapshot.get_datasource(type_name, datasource_name):
-
+    @staticmethod
+    def get_general_datasource(datasource_name:str) -> TpGeneral:
+        obj_map = {
+            'local':TpGeneralLocal,
+            'local_mirror':TpGeneralLocalMirror,
+            'remote':TpGeneralDecelium,
+            'remote_mirror':TpGeneralDeceliumMirror
+        }
+        assert datasource_name in list(obj_map.keys())
+        return obj_map[datasource_name]
+        
     @staticmethod
     def format_object_status_json(self_id:str,prefix:str,status:bool,message:list,error:str):
             result = {}
@@ -145,25 +153,30 @@ class Snapshot:
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
+            file_type = 'ipfs'
+        # else:
+        #    obj = Snapshot.load_file_by_id(decw,obj_id,datasource,download_path)
+            
         local_object_ids = []
 
         if os.path.exists(download_path):
             local_object_ids = os.listdir(download_path)
-
-        #found_objs = TpIPFS.get_datasource("remote").find_batch_object_ids(decw,offset,limit,filter)
-        found_objs = Snapshot.get_datasource("ipfs","remote").find_batch_object_ids(decw,offset,limit,filter)
-        #TpIPFS.get_datasource("remote")
+        
+        found_objs = Snapshot.get_general_datasource("remote").find_batch_objects(decw,offset,limit,filter)
 
         needed_objs = found_objs
         results = {}
         if len(needed_objs) <= 0:
             return {}
         
-        for obj_id in needed_objs:
+        for obj in needed_objs:
+            obj_id = obj['self_id']
+            
             # TODO -- Generalize TYPES fully in snapshot
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
-                object_results = Snapshot.get_datasource("ipfs","local").download_object(Snapshot.get_datasource("ipfs","remote"),decw,[obj_id], download_path, connection_settings,overwrite )
+                from_remote_datasource = Snapshot.get_datasource(obj['file_type'],"remote")
+                object_results = Snapshot.get_datasource(obj['file_type'],"local").download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite)
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
