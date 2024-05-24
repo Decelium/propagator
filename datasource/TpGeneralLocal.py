@@ -17,7 +17,7 @@ class TpGeneralLocal(TpGeneral):
             object_ids = [object_ids]
         results = {}
         for obj_id in object_ids:
-            messages = ObjectMessages("TpGeneralLocal.download_object(for {obj_id})")
+            messages = ObjectMessages(f"{str(cls)}:TpGeneralLocal.download_object(for {obj_id})")
             try:
                 success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
@@ -40,18 +40,28 @@ class TpGeneralLocal(TpGeneral):
                 results[obj_id] = (False,messages)
         return results
     
+
+
     @classmethod
-    def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
-        merge_messages = ObjectMessages("TpGeneralLocal.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+    def merge_payload_from_remote(cls,TpRemote,decw,obj,download_path,connection_settings, overwrite):
+        obj_id = obj['self_id']
+        merge_messages = ObjectMessages("TpFile.Local.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+        result,the_bytes = TpRemote.download_payload_data(decw,obj)
+        assert result == True
+        assert the_bytes != None, "Could not download payload data"
+        if not os.path.exists(download_path+'/'+obj_id):
+            os.makedirs(download_path+'/'+obj_id)
+        file_path = os.path.join(download_path,obj_id,"payload.file")
+        with open(file_path, 'wb') as f:
+            f.write(the_bytes)
 
-        new_cids = [obj['settings']['ipfs_cid']]
-        if 'ipfs_cids' in obj['settings']:
-            for cid in obj['settings']['ipfs_cids'].values():
-                new_cids.append(cid)
+        current_hash = cls.generate_file_hash(file_path)
+        with open(file_path + ".hash", 'wb') as f:
+                f.write(current_hash)
         
-        result = TpSource.download_ipfs_data(cls,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
-        return result
+        return result    
 
+    
     @classmethod        
     def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
 
@@ -237,30 +247,6 @@ class TpGeneralLocal(TpGeneral):
             return False,messages
         return len(messages.get_error_messages())== 0,messages   
     
-
-    @classmethod
-    def validate_object_payload_only(cls,decw,object_id,download_path,connection_settings):
-        raise Exception("Disabled for now")
-        '''
-        messages = ObjectMessages("TpIPFSLocal.validate_object_payload_only(for {object_id})")
-        if messages.add_assert(os.path.exists(os.path.join(download_path,object_id)), "Object backup is not present") == False:
-            return False,messages   
-        
-        for item in os.listdir(download_path+'/'+object_id):
-            # Construct the full path of the item-
-            file_path = os.path.join(download_path,object_id, item)
-            
-            if item.endswith('.file') or item.endswith('.dag'):
-                try:
-                    valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
-                    if valido_hasho != True:
-                        invalid_list.append(item.split('.')[0])
-                        messages.add_assert(False, "Encountered A bad hash for cid:"+file_path)
-
-                except:
-                    messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
-        return len(messages.get_error_messages())== 0,messages  
-        '''
     
     @classmethod
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
