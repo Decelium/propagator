@@ -213,7 +213,7 @@ def new_repair_corruption_config(corruption_1,corrupt_2,setup_config,obj):
         c_target_reserve = 'remote_mirror'
         do_repair = False
         push_target = 'local'
-        
+
         invalid_props = []
         # The corruptions we can apply, and what they will break.
         if do_repair == True:
@@ -295,8 +295,8 @@ def test_corruptions_repair(setup_type):
 
     remote_types = CorruptionTestData.Instruction.corruption_types
     remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-    # remote_types = ['delete_payload']
-    # remote_mirror_types = ['remove_attrib']
+    remote_types = ['delete_payload']
+    remote_mirror_types = ['remove_attrib']
 
     for corrupt_remote in remote_types:
         for corrupt_mirror in remote_mirror_types:
@@ -311,7 +311,7 @@ def test_corruptions_repair(setup_type):
 
 
 setup_type = 'ipfs'
-# setup_type = 'file'
+#setup_type = 'file'
 # ObjectMessages.set_assert_mode(True) # Used to force halting upon error for debugging reasons
 
 # test_setup(setup_type)
