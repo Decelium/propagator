@@ -2,11 +2,11 @@
 import traceback as tb
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFS
     from .Action import Action
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFS
     from .Action import Action
 
 class AppendObjectFromRemote(Action):    
@@ -32,7 +32,7 @@ class AppendObjectFromRemote(Action):
         res = Snapshot.append_from_remote(record['decw'], record['connection_settings'], record['backup_path'], limit, offset,filter)
         print(res)
         assert len(res) > 0
-        assert res[record['obj_id']]['local'] == True
+        assert res[record['obj_id']]['local'] == True, "Could not verify record "+ str (res)
         
         obj = Snapshot.load_entity({'self_id':record['obj_id'], 'attrib':True},
                                     record['backup_path'])
@@ -44,7 +44,7 @@ class AppendObjectFromRemote(Action):
     def postvalid(self,record,response,memory=None):
         obj = response[0]
         new_cids = response[1]
-
-        assert TpIPFSDecelium.ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
+        
+        assert Snapshot.get_datasource("ipfs","remote").ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
         assert obj['dir_name'] == "test_folder.ipfs"
         return True

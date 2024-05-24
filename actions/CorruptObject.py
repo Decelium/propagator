@@ -1,7 +1,5 @@
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFSDecelium
-    from ..datasource.TpIPFS import TpIPFSLocal
     from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
     #from ..datasource.CorruptionData import CorruptionTestData
@@ -10,8 +8,6 @@ try:
 
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFSDecelium
-    from datasource.TpIPFS import TpIPFSLocal
     from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
@@ -130,6 +126,7 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
         assert success == True
+    
     @staticmethod
     def corrupt_remote_delete_entity(record,memory):
         backup_path = record['backup_path']
@@ -139,6 +136,7 @@ class CorruptObject(Action):
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_entity"},["admin"]))
         if type(obj) == dict:
             assert not 'error' in obj, "Got an error trying to process the corruption "+ str(obj)
+    
     @staticmethod
     def corrupt_remote_delete_payload(record,memory):
         backup_path = record['backup_path']
@@ -146,7 +144,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
 
-        obj = TpIPFSDecelium.load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
+        obj = Snapshot.get_datasource("ipfs","remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
 
         cids = [obj['settings']['ipfs_cid']]
         if 'ipfs_cids' in obj['settings']:
@@ -196,10 +194,8 @@ class CorruptObject(Action):
         self_id = record['obj_id']
         decw = record['decw']
         connection_settings = record['connection_settings']
-        TpIPFSLocal.remove_entity(self_id,backup_path)
+        Snapshot.get_datasource("ipfs","local").remove_entity({'self_id':self_id},backup_path)
 
-
-      
     @staticmethod
     def corrupt_local_remove_attrib(record,memory):
         backup_path = record['backup_path']
@@ -210,43 +206,22 @@ class CorruptObject(Action):
 
     @staticmethod
     def corrupt_local_corrupt_attrib(record,memory):
-        #backup_path = record['backup_path']
-        #self_id = record['obj_id']
-        #file_path = os.path.join(backup_path, self_id, 'object.json')
-        #random_bytes_size = 1024
-        #random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-        #with open(file_path, 'wb') as corrupt_file:
-        #    corrupt_file.write(random_bytes)
-        assert TpIPFSLocal.corrupt_attrib({'self_id':record['obj_id']},record['backup_path']) == True
+
+        assert Snapshot.get_datasource("ipfs","local").corrupt_attrib({'self_id':record['obj_id']},record['backup_path']) == True
         file_path = os.path.join(record['backup_path'], record['obj_id'], 'object.json')
         memory['corrupted'].append(file_path)
 
     @staticmethod
     def corrupt_local_rename_attrib_filename(record,memory):
-        #backup_path = record['backup_path']
-        #self_id = record['obj_id']
-        #file_path = os.path.join(backup_path, self_id, 'object.json')
-        #with open(file_path, 'r') as f:
-        #    correct_json = json.loads(f.read())
-        #correct_json['dir_name'] = "corrupt_name"
-        #with open(file_path, 'w') as f:
-        #    f.write(json.dumps(correct_json))
-        assert TpIPFSLocal.corrupt_attrib_filename({'self_id':record['obj_id']},record['backup_path']) == True
+
+        assert Snapshot.get_datasource("ipfs","local").corrupt_attrib_filename({'self_id':record['obj_id']},record['backup_path']) == True
         #file_path = os.path.join(record['backup_path'], record['obj_id'], 'object.json')            
         
     @staticmethod
     def corrupt_local_corrupt_payload(record,memory):
-        #backup_path = record['backup_path']
-        #self_id = record['obj_id']
-        #for filename in os.listdir(os.path.join(backup_path, self_id)):
-        #    if  filename.endswith('.file'): # filename.endswith('.dag') or
-        #        file_path = os.path.join(backup_path, self_id, filename)
-        #        random_bytes_size = 1024
-        #        random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-        #        with open(file_path, 'wb') as corrupt_file:
-        #            corrupt_file.write(random_bytes)
-        #        memory['corrupted'].append(file_path)  
-        success,files_affected =  TpIPFSLocal.corrupt_payload({'self_id':record['obj_id']},record['backup_path']) == True
+        # outputTest = Snapshot.get_datasource("ipfs","local").corrupt_payload({'self_id':record['obj_id']},record['backup_path'])
+        # print("corrupt_local_corrupt_payload.outputTest",outputTest)
+        success,files_affected =  Snapshot.get_datasource("ipfs","local").corrupt_payload({'self_id':record['obj_id']},record['backup_path'])
         assert success == True
         for file_path in files_affected:
             memory['corrupted'].append(file_path)  
@@ -293,7 +268,7 @@ class CorruptObject(Action):
         local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
         messages:ObjectMessages = messages
         try:
-            assert local_results[mode] == False, "Corruption Failed: "+ str(record)
+            assert local_results[mode] == False, "Corruption Failed: "+ str(record)+"-:-" + str(local_results)
             if 'removed' in memory:
                 for file_path in memory['removed']:
                     assert os.path.exists(file_path) == False

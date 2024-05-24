@@ -8,6 +8,7 @@ from type.CorruptionData import CorruptionTestData
 from type.BaseData import TestConfig,ConnectionConfig
 from actions.SnapshotAgent import SnapshotAgent
 from Messages import ObjectMessages
+from Snapshot import Snapshot
 
 def object_setup(agent:SnapshotAgent,
                  conn_config:ConnectionConfig,
@@ -160,7 +161,7 @@ def perliminary_tests():
     agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})  
     agent.evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})
 
-def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_evals:list,invalid_props:list,final_evals,do_repair:bool,post_repair_status:bool):    
+def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_evals:list,invalid_props:list,final_evals,do_repair:bool,post_repair_status:bool,push_target:str):    
     corruptions = [CorruptionTestData.Instruction(corruption) for corruption in corruptions]
     pre_evals = [CorruptionTestData.Eval(evaluation) for evaluation in pre_evals]
     final_evals = [CorruptionTestData.Eval(evaluation) for evaluation in final_evals]
@@ -174,54 +175,110 @@ def new_corruption_config(setup_config:TestConfig,obj:dict,corruptions:list,pre_
             'do_repair':do_repair,
             'post_repair_status':post_repair_status,
             'final_evals':final_evals,
-            'push_target':'remote',
+            'push_target':push_target,
                 }
-def test_corruptions():
-    setup_config:TestConfig = test_setup()
-    agent = SnapshotAgent()
-    decw = setup_config.decw()
-    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
-    configs = []
-    
-    # validate_entity - 
-    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
-    # print(json.dumps(validation_data,indent=4))
-    
-    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
-    for mode in modes:
-        assert validation_data[mode][0][mode] == True
-    corruption_suffix = {
-                        'delete_payload':['payload'],
-                        'corrupt_payload':['payload'],
-                        'remove_attrib':['attrib','payload'],
-                        'rename_attrib_filename':['attrib'],
-                        'corrupt_attrib':['attrib','payload'],
-                        'delete_entity':['attrib','payload'],}
-    
-    for corrupt_remote in CorruptionTestData.Instruction.corruption_types:
-        for corrupt_mirror in CorruptionTestData.Instruction.corruption_types:
-            #for corrupt_remote in ['delete_payload']: 
-            #    for corrupt_mirror in  ['delete_payload']:
-            assert type(corrupt_remote) == str
-            assert type(corrupt_mirror) == str
+
+
+corruption_suffix = {
+                    'delete_payload':['payload'],
+                    'corrupt_payload':['payload'],
+                    'remove_attrib':['attrib'], 
+                    'rename_attrib_filename':['attrib'],
+                    'corrupt_attrib':['attrib'], 
+                    'delete_entity':['attrib','payload']
+                    }   
+def new_repair_corruption_config(corruption_1,corrupt_2,setup_config,obj):
+        assert type(corruption_1) == str
+        assert type(corrupt_2) == str
+        
+        # CONFIG 1 : REMOTE REPAIR
+        # -----
+        #c_target_1 = 'remote'
+        #c_target_2 = 'remote_mirror'
+        #c_target_reserve = 'local'
+        #do_repair = False
+        # push_target = 'remote'
+        
+        # CONFIG 2 : REMOTE NO REPAIR
+        # -----
+        #c_target_1 = 'remote'
+        #c_target_2 = 'remote_mirror'
+        #c_target_reserve = 'local'
+        #do_repair = True
+        # push_target = 'remote'
+
+        # CONFIG 3 : LOCAL NO REPAIR
+        c_target_1 = 'remote'
+        c_target_2 = 'local'
+        c_target_reserve = 'remote_mirror'
+        do_repair = False
+        push_target = 'local'
+
+        invalid_props = []
+        # The corruptions we can apply, and what they will break.
+        if do_repair == True:
+            if 'attrib' in corruption_suffix[corrupt_2] and 'attrib' in corruption_suffix[corruption_1]:
+                # If both attributes are corrupt, then no repair can validate the payload
+                invalid_props = [f'{c_target_1}_payload',f'{c_target_2}_payload']
+            invalid_remote =  ['_'.join([c_target_1,suffix]) for suffix in corruption_suffix[corruption_1] if suffix in corruption_suffix[corrupt_2] ]
+            invalid_remote_mirror =  ['_'.join([c_target_2,suffix]) for suffix in  corruption_suffix[corrupt_2] if suffix in corruption_suffix[corruption_1]]
+            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
+        else:
+            if 'attrib' in corruption_suffix[corrupt_2]:
+                invalid_props =  invalid_props + [f'{c_target_2}_payload']
+            if 'attrib' in corruption_suffix[corruption_1]:
+                invalid_props =  invalid_props + [f'{c_target_1}_payload']
+            invalid_remote =  ['_'.join([c_target_1,suffix]) for suffix in corruption_suffix[corruption_1] ]
+            invalid_remote_mirror =  ['_'.join([c_target_2,suffix]) for suffix in  corruption_suffix[corrupt_2]]
+            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
+
+        print("\n\nINVALID DEBUG IN new_repair_corruption_config")
+        print("-- invalid_remote",invalid_remote)
+        print("-- invalid_remote_mirror",invalid_remote_mirror)
+        print("-- invalid_props",invalid_props)
+        print("\n\n")
+        repair_success_expectation = True
+        
+        if 'payload' in corruption_suffix[corruption_1] and 'payload' in corruption_suffix[corrupt_2]:
+            repair_success_expectation = False
+        elif 'attrib' in corruption_suffix[corruption_1] and 'attrib' in corruption_suffix[corrupt_2]:
+            repair_success_expectation = False
+        
+        pre_evals = [
+            {'target':c_target_reserve,'status':['complete']},
+            {'target':c_target_1,'status':['object_missing','payload_missing']},
+            {'target':c_target_2,'status':['object_missing','payload_missing']}
+            ]
+        final_evals = []
+
+        if repair_success_expectation == True and do_repair == True:
+            final_evals = [
+                {'target':c_target_reserve,'status':['complete']},
+                {'target':c_target_1,'status':['complete']},
+                {'target':c_target_2,'status':['complete']}
+                ]
             invalid_props = []
-            invalid_props = invalid_props +  ['_'.join(['remote',suffix]) for suffix in  corruption_suffix[corrupt_remote]]
-            invalid_props = invalid_props + ['_'.join(['remote_mirror',suffix]) for suffix in  corruption_suffix[corrupt_mirror]]
+        
+        ## TODO refactor for repair. Kind of janky
+        
+        config = new_corruption_config(setup_config,obj,
+            [{'corruption':corruption_1,"mode":c_target_1},
+                {'corruption':corrupt_2,"mode":c_target_2},],
+            pre_evals,
+            invalid_props,
+            final_evals,
+            do_repair,
+            repair_success_expectation,
+            push_target)
+        return config
 
-            configs.append(new_corruption_config(setup_config,obj,
-                [{'corruption':corrupt_remote,"mode":'remote'},
-                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
-                [{'target':'local','status':['complete']},
-                 {'target':'remote','status':['object_missing','payload_missing']},
-                {'target':'remote_mirror','status':['object_missing','payload_missing']}],
-                invalid_props))
-
-
-    print("corruption tests :"+str(len(configs)))
-    for corruption_config in configs:
-        print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
-        agent.run_corruption_test(corruption_config)
-
+def get_validation_summary(decw,setup_config):
+    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
+    local_validation_attrib = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_attrib')
+    local_validation_payload = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_payload')
+    validation_data['local_attrib'] = [local_validation_attrib[0]]
+    validation_data['local_payload'] = [local_validation_payload[0]]
+    return validation_data
 
 def test_corruptions_repair(setup_type):
     setup_config:TestConfig = test_setup(setup_type)
@@ -229,77 +286,23 @@ def test_corruptions_repair(setup_type):
     decw = setup_config.decw()
     obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
     configs = []
-    
-    # validate_entity - 
-    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
-    
-    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
+    validation_data = get_validation_summary(decw,setup_config)
+
+    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload','local_attrib','local_payload']
     for mode in modes:
-        assert validation_data[mode][0][mode] == True
-    corruption_suffix = {
-                        'delete_payload':['payload'],
-                        'corrupt_payload':['payload'],
-                        'remove_attrib':['attrib'], 
-                        'rename_attrib_filename':['attrib'],
-                        'corrupt_attrib':['attrib'], 
-                        'delete_entity':['attrib','payload']
-                        }    
+        assert mode in validation_data, f"1. Could not parse validation data for mode {mode}: "+str(validation_data)
+        assert validation_data[mode][0][mode] == True, "2. Could not parse validation data: "+str(validation_data)
+
     remote_types = CorruptionTestData.Instruction.corruption_types
     remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-    #remote_types = ['delete_payload']
-    #remote_mirror_types = ['delete_entity']
-    #remote_types = ['remove_attrib']
-    #remote_mirror_types = ['delete_payload']
-    #remote_types = ['remove_attrib']
-    #remote_mirror_types = ['remove_attrib']
-    #remote_types = ['rename_attrib_filename']
-    #remote_mirror_types = ['remove_attrib']
-    remote_types = ['delete_entity']
-    remote_mirror_types = ['delete_payload']
+    remote_types = ['delete_payload']
+    remote_mirror_types = ['remove_attrib']
 
     for corrupt_remote in remote_types:
         for corrupt_mirror in remote_mirror_types:
-            assert type(corrupt_remote) == str
-            assert type(corrupt_mirror) == str
-            invalid_props = []
-            if 'attrib' in corruption_suffix[corrupt_mirror] and 'attrib' in corruption_suffix[corrupt_remote]:
-                # If both attributes are corrupt, then no repair can validate the payload
-                invalid_props = ['remote_payload','remote_mirror_payload']
-            
-            invalid_remote =  ['_'.join(['remote',suffix]) for suffix in corruption_suffix[corrupt_remote] if suffix in corruption_suffix[corrupt_mirror] ]
-            invalid_remote_mirror =  ['_'.join(['remote_mirror',suffix]) for suffix in  corruption_suffix[corrupt_mirror] if suffix in corruption_suffix[corrupt_remote]]
-            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
-            repair_success_expectation = True
-            if 'payload' in corruption_suffix[corrupt_remote] and 'payload' in corruption_suffix[corrupt_mirror]:
-                repair_success_expectation = False
-            elif 'attrib' in corruption_suffix[corrupt_remote] and 'attrib' in corruption_suffix[corrupt_mirror]:
-                repair_success_expectation = False
-            pre_evals = [
-                {'target':'local','status':['complete']},
-                {'target':'remote','status':['object_missing','payload_missing']},
-                {'target':'remote_mirror','status':['object_missing','payload_missing']}
-                ]
-            final_evals = []
-
-            if repair_success_expectation == True:
-                final_evals = [
-                    {'target':'local','status':['complete']},
-                    {'target':'remote','status':['complete']},
-                    {'target':'remote_mirror','status':['complete']}
-                    ]
-                invalid_props = []
-            
-            ## TODO refactor for repair. Kind of janky
-            do_repair = True
-            configs.append(new_corruption_config(setup_config,obj,
-                [{'corruption':corrupt_remote,"mode":'remote'},
-                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
-                pre_evals,
-                invalid_props,
-                final_evals,
-                do_repair,
-                repair_success_expectation))
-
+            print(f"CONFIGURING {corrupt_remote} , {corrupt_mirror}")
+            config = new_repair_corruption_config(corrupt_remote,corrupt_mirror,setup_config,obj)     
+            configs.append(config)
 
     print("corruption tests :"+str(len(configs)))
     for corruption_config in configs:
@@ -307,107 +310,10 @@ def test_corruptions_repair(setup_type):
         agent.run_corruption_test(corruption_config)
 
 
-#
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-#
-#
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-#
-
-
-
-def test_corruptions_multi_object():
-    setup_config:TestConfig = test_setup()
-    agent = SnapshotAgent()
-    decw = setup_config.decw()
-    obj = decw.net.download_entity({'self_id':setup_config.obj_id(),'attrib':True})
-    configs = []
-    
-    # validate_entity - 
-    validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
-    # print(json.dumps(validation_data,indent=4))
-    
-    modes = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
-    for mode in modes:
-        assert validation_data[mode][0][mode] == True
-    corruption_suffix = {
-                        'delete_payload':['payload'],
-                        'corrupt_payload':['payload'],
-                        'remove_attrib':['attrib'], 
-                        'rename_attrib_filename':['attrib'],
-                        'corrupt_attrib':['attrib'], 
-                        'delete_entity':['attrib','payload']
-                        }    
-    remote_types = CorruptionTestData.Instruction.corruption_types
-    remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-    #remote_types = ['delete_payload']
-    #remote_mirror_types = ['delete_entity']
-    #remote_types = ['remove_attrib']
-    #remote_mirror_types = ['delete_payload']
-    #remote_types = ['remove_attrib']
-    #remote_mirror_types = ['remove_attrib']
-    #remote_types = ['rename_attrib_filename']
-    #remote_mirror_types = ['remove_attrib']
-    remote_types = ['delete_entity']
-    remote_mirror_types = ['delete_payload']
-
-    for corrupt_remote in remote_types:
-        for corrupt_mirror in remote_mirror_types:
-            assert type(corrupt_remote) == str
-            assert type(corrupt_mirror) == str
-            invalid_props = []
-            if 'attrib' in corruption_suffix[corrupt_mirror] and 'attrib' in corruption_suffix[corrupt_remote]:
-                # If both attributes are corrupt, then no repair can validate the payload
-                invalid_props = ['remote_payload','remote_mirror_payload']
-            
-            invalid_remote =  ['_'.join(['remote',suffix]) for suffix in corruption_suffix[corrupt_remote] if suffix in corruption_suffix[corrupt_mirror] ]
-            invalid_remote_mirror =  ['_'.join(['remote_mirror',suffix]) for suffix in  corruption_suffix[corrupt_mirror] if suffix in corruption_suffix[corrupt_remote]]
-            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
-            repair_success_expectation = True
-            if 'payload' in corruption_suffix[corrupt_remote] and 'payload' in corruption_suffix[corrupt_mirror]:
-                repair_success_expectation = False
-            elif 'attrib' in corruption_suffix[corrupt_remote] and 'attrib' in corruption_suffix[corrupt_mirror]:
-                repair_success_expectation = False
-            pre_evals = [
-                {'target':'local','status':['complete']},
-                {'target':'remote','status':['object_missing','payload_missing']},
-                {'target':'remote_mirror','status':['object_missing','payload_missing']}
-                ]
-            final_evals = []
-
-            if repair_success_expectation == True:
-                final_evals = [
-                    {'target':'local','status':['complete']},
-                    {'target':'remote','status':['complete']},
-                    {'target':'remote_mirror','status':['complete']}
-                    ]
-                invalid_props = []
-            
-            ## TODO refactor for repair. Kind of janky
-            do_repair = True
-            configs.append(new_corruption_config(setup_config,obj,
-                [{'corruption':corrupt_remote,"mode":'remote'},
-                 {'corruption':corrupt_mirror,"mode":'remote_mirror'},],
-                pre_evals,
-                invalid_props,
-                final_evals,
-                do_repair,
-                repair_success_expectation))
-
-
-    print("corruption tests :"+str(len(configs)))
-    for corruption_config in configs:
-        print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
-        agent.run_corruption_test(corruption_config)
-
-#test_corruptions()
-#test_corruptions_multi_object()
-
-
-# setup_type = 'ipfs'
-setup_type = 'file'
+setup_type = 'ipfs'
+#setup_type = 'file'
 # ObjectMessages.set_assert_mode(True) # Used to force halting upon error for debugging reasons
-test_setup(setup_type)
-# test_corruptions_repair(setup_type)
+
+# test_setup(setup_type)
+test_corruptions_repair(setup_type)
+# test_corruptions(setup_type)

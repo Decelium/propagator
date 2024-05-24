@@ -1,5 +1,5 @@
 try:
-    from ..datasource.TpIPFS import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFS
     #from ..datasource.TpIPFSLocal import TpIPFSLocal
     #from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
@@ -7,7 +7,7 @@ try:
     from .Action import Action
 except:
     #from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFS
     #from datasource.TpIPFSLocal import TpIPFSLocal
     #from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
@@ -26,7 +26,7 @@ class ChangeRemoteObjectName(Action):
         self_id = record['self_id']
         dir_name = record['dir_name']
         assert response == True
-        obj = TpIPFSDecelium.load_entity({'api_key':'UNDEFINED',"self_id":self_id,'attrib':True},decw)
+        obj = TpIPFS.get_datasource("remote").load_entity({'api_key':'UNDEFINED',"self_id":self_id,'attrib':True},decw)
 
         assert obj['dir_name'] == dir_name   
         return True
