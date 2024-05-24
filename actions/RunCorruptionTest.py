@@ -160,7 +160,7 @@ class RunCorruptionTest(Action):
         # Step 2: After we evaluate, we want to restore the object to its original state
         if record['push_target'] == 'local':
             repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})
-            assert repair_status == True
+            assert repair_status == True, "Should have been able to repair: "+ str(repair_status)
             pull_object_from_remote = PullObjectFromRemote()
             append_object_from_remote = AppendObjectFromRemote()
             print("The Corruptions:")

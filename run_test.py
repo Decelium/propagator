@@ -295,8 +295,10 @@ def test_corruptions_repair(setup_type):
 
     remote_types = CorruptionTestData.Instruction.corruption_types
     remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-    remote_types = ['delete_payload']
-    remote_mirror_types = ['remove_attrib']
+    # remote_types = ['delete_payload']
+    # remote_mirror_types = ['remove_attrib']
+    #remote_types = ['remove_attrib']
+    #remote_mirror_types = ['delete_payload']
 
     for corrupt_remote in remote_types:
         for corrupt_mirror in remote_mirror_types:
