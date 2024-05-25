@@ -59,6 +59,20 @@ class Snapshot:
         return TheType.get_datasource_refac(datasource_name)
     
     @staticmethod
+    def resolve_type(decw,obj_id,datasource_name,download_path,cached = True):
+        obj = Snapshot.load_file_by_id(decw,obj_id,datasource_name,download_path,cached)
+        assert 'file_type' in obj and len(obj['file_type']) > 0, "Seem to have found invalid file_type"
+        return obj['file_type']
+
+    
+    @staticmethod
+    def get_object_datasource(decw,obj_id:str,datasource_name:str,download_path:str) -> TpGeneral:
+        cached = True
+        type_name = Snapshot.resolve_type(decw,obj_id,datasource_name,download_path,cached )
+        assert type_name != None
+        return Snapshot.get_datasource(type_name,datasource_name)
+    
+    @staticmethod
     def get_general_datasource(datasource_name:str) -> TpGeneral:
         obj_map = {
             'local':TpGeneralLocal,
@@ -78,20 +92,25 @@ class Snapshot:
             return result
 
     @staticmethod
-    def load_file_by_id(decw,obj_id,datasource,download_path):
-        print("load_file_by_id "+str(obj_id))
+    def load_file_by_id(decw,obj_id,datasource,download_path,cached = False):
+        try:
+            assert type(Snapshot.__resolution_cache) == dict
+        except:
+            Snapshot.__resolution_cache = {}
+        if cached == True and obj_id in Snapshot.__resolution_cache:
+            return Snapshot.__resolution_cache[obj_id]
+            
         if 'local' in datasource:
             obj = TpGeneralLocal.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },download_path)
         elif 'remote_mirror' in datasource:
-            #print("TpGeneralDecelium searching for self_id: "+str(obj_id) )
             obj = TpGeneralDeceliumMirror.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
-            # print("RETURNING FROM TpGeneralDecelium "+ str(obj))
         elif 'remote' in datasource:
-            #print("TpGeneralDecelium searching for self_id: "+str(obj_id) )
             obj = TpGeneralDecelium.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
-            # print("RETURNING FROM TpGeneralDecelium "+ str(obj))
         else:
-            return {"error":"Could not identify type in Snapshot.load_file_by_id() "}
+            obj= {"error":"Could not identify type in Snapshot.load_file_by_id() "}
+        if "self_id" in obj:
+            Snapshot.__resolution_cache[obj_id] = obj
+        
         return obj
 
     @staticmethod
@@ -250,12 +269,9 @@ class Snapshot:
         if api_key == None:
             api_key = decw.dw.pubk("admin")
         messages = ObjectMessages("Snapshot.push_to_remote")
-        print("Snapshot.push_to_remote.download_path")
-        print(download_path)
         unfiltered_ids = os.listdir(download_path)
         object_ids = []
         for obj_id in unfiltered_ids:
-            print("STAGE 3 "+obj_id)
             if not 'obj-' in obj_id:
                 continue
             if type(filter) == dict and 'attrib' in filter and 'self_id' in filter['attrib']:
@@ -264,20 +280,16 @@ class Snapshot:
                     continue
             else:
                 object_ids.append(obj_id)
-        print("STAGE 1 Filtered Objs")
-        print(object_ids)
         object_ids = object_ids[offset:offset+limit]
         results = {}
         if len(object_ids) == 0:
             return results        
-        print("STAGE 2")
-        print(object_ids)
         for obj_id in object_ids:
-            print("EXECUTING IN: "+obj_id)            
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            remote_result, remote_validation_messages = Snapshot.get_datasource("ipfs","remote").validate_object(decw,obj_id, download_path, connection_settings)
+            
+            remote_result, remote_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).validate_object(decw,obj_id, download_path, connection_settings)
             if remote_result == True:
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
@@ -285,45 +297,38 @@ class Snapshot:
             if attrib_only == True:
                 # ---------
                 # b) Make sure the local is complete (attrib only)
-                local_result, local_validation_messages = Snapshot.get_datasource("ipfs","local").validate_object_attrib(decw,obj_id, download_path, connection_settings)
+                local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object_attrib(decw,obj_id, download_path, connection_settings)
                 if local_result == False: # and remote_result == False:
                     results[obj_id] = (False,local_validation_messages.get_error_messages())
                     continue
                 assert local_result == True and remote_result == False
                 # ---------
                 # Upload metadata (attrib only)
-                query,upload_messages = Snapshot.get_datasource("ipfs","local").upload_object_query(obj_id,download_path,connection_settings,attrib_only)
+                query,upload_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).upload_object_query(obj_id,download_path,connection_settings,attrib_only)
                 messages.append(upload_messages)
                 if len(upload_messages.get_error_messages()) > 0:
                     results[obj_id] = (False,messages.get_error_messages())
                     continue
 
                 result = decw.net.restore_attrib({**query,'api_key':api_key,'ignore_mirror':True}) # ** TODO Fix buried credential, which is now expanding as a problem
-                print("-------Z1 FINISHED PUSH ATTRIB")
                 if messages.add_assert('error' not in result,"D. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
                     
-                print("-------Z2 FINISHED PUSH ATTRIB")
                 if messages.add_assert('__entity_restored' in result and result['__entity_restored']==True,"Could not restore the attrib "+str(result))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
 
-                print("-------Z3 FINISHED PUSH ATTRIB")
                 if messages.add_assert('__mirror_restored' in result and result['__mirror_restored']==False,"The Mirror should have been ignored "+str(result))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
                 
-
-                
-                print("-------Z4 FINISHED PUSH ATTRIB")
                 results[obj_id] = (True,messages.get_error_messages())
-                print("-------ENDED PUSH ATTRIB")
                 continue
                 
             # ---------
             # b) Make sure the local is complete
-            local_result, local_validation_messages = Snapshot.get_datasource("ipfs","local").validate_object(decw,obj_id, download_path, connection_settings)
+            local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object(decw,obj_id, download_path, connection_settings)
             if local_result == False: # and remote_result == False:
                 results[obj_id] = (False,local_validation_messages.get_error_messages())
                 continue
@@ -334,13 +339,13 @@ class Snapshot:
 
             # ---------
             # Upload metadata
-            query,upload_messages = Snapshot.get_datasource("ipfs","local").upload_object_query(obj_id,download_path,connection_settings)
+            query,upload_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).upload_object_query(obj_id,download_path,connection_settings)
             messages.append(upload_messages)
             if len(upload_messages.get_error_messages()) > 0:
                 results[obj_id] = (False,messages.get_error_messages())
                 continue
             
-            obj = Snapshot.get_datasource("ipfs","local").load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
+            obj = SnapshotSnapshot.get_object_datasource(decw,obj_id,"local",download_path).load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
             if messages.add_assert('error' not in obj,"b. Somehow the local is corrupt. Should be impossible to get this error."+ str(obj))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
@@ -354,12 +359,12 @@ class Snapshot:
                 for path,cid in obj['settings']['ipfs_cids'].items():
                     obj_cids.append(cid)
 
-                all_cids =  Snapshot.get_datasource("ipfs","remote").ipfs_pin_list(decw, connection_settings,refresh=True)
+                all_cids =  Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).ipfs_pin_list(decw, connection_settings,refresh=True)
                 missing_cids = list(set(obj_cids) - set(all_cids))
                 if(len(missing_cids) > 0):
-                    reupload_cids,upload_messages = Snapshot.get_datasource("ipfs","local").upload_ipfs_data(Snapshot.get_datasource("ipfs","remote"),decw,download_path+'/'+obj_id,connection_settings)
+                    reupload_cids,upload_messages = Snapshot.get_object_datasource(decw,obj_id,"local").upload_ipfs_data(Snapshot.get_object_datasource(decw,obj_id,"remote",download_path),decw,download_path+'/'+obj_id,connection_settings)
                     messages.append(upload_messages)
-                    if messages.add_assert(Snapshot.get_datasource("ipfs","remote").ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
+                    if messages.add_assert(Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
                                         "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                         results[obj_id]= (False,messages.get_error_messages())
                         continue
@@ -378,7 +383,7 @@ class Snapshot:
 
             # ---------
             # Verify Upload was successful
-            remote_result, remote_validation_messages = Snapshot.get_datasource("ipfs","remote").validate_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).validate_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
             # results[obj_id]= (remote_result,messages.get_error_messages())
             if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
