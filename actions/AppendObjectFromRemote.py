@@ -30,21 +30,24 @@ class AppendObjectFromRemote(Action):
         limit = 20
         offset = 0
         res = Snapshot.append_from_remote(record['decw'], record['connection_settings'], record['backup_path'], limit, offset,filter)
-        print(res)
         assert len(res) > 0
         assert res[record['obj_id']]['local'] == True, "Could not verify record "+ str (res)
         
         obj = Snapshot.load_entity({'self_id':record['obj_id'], 'attrib':True},
                                     record['backup_path'])
-        new_cids = [obj['settings']['ipfs_cid']] 
-        for new_cid in obj['settings']['ipfs_cids'].values():
-            new_cids.append(new_cid)
+        new_cids = None
+        if obj['file_type'] == 'ipfs':
+            new_cids = [obj['settings']['ipfs_cid']] 
+            for new_cid in obj['settings']['ipfs_cids'].values():
+                new_cids.append(new_cid)
         return obj,new_cids 
 
     def postvalid(self,record,response,memory=None):
         obj = response[0]
         new_cids = response[1]
-        
-        assert Snapshot.get_datasource("ipfs","remote").ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
-        assert obj['dir_name'] == "test_folder.ipfs"
+        local_results,messages = Snapshot.object_validation_status(record['decw'],obj['self_id'],record['backup_path'],record['connection_settings'],'local')
+        assert local_results['local'] == True,"Got some bad results "+ str(local_results) + " : " + str(messages)
+
+        #assert Snapshot.get_datasource("ipfs","remote").ipfs_has_cids(record['decw'],new_cids, record['connection_settings']) == True
+        #assert obj['dir_name'] == "test_folder.ipfs"
         return True

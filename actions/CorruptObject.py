@@ -117,7 +117,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"remove_attrib"},["admin"]))
-
+        print("RESULT OF corrupt_remote_remove_attrib",obj)
     @staticmethod
     def corrupt_remote_rename_attrib_filename(record,memory):
         backup_path = record['backup_path']
