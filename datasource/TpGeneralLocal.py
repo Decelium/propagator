@@ -328,7 +328,18 @@ class TpGeneralLocal(TpGeneral):
         messages = ObjectMessages("TpGeneralLocal.upload_object_query(for {"+obj_id+"})")
         if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
             return False,messages
-            
+        if attrib_only != True:
+            decw = None
+            local_result, local_validation_messages = cls.validate_object_attrib(decw,obj_id, download_path, connection_settings)
+        else:
+            decw = None
+            local_result, local_validation_messages = cls.validate_object(decw,obj_id, download_path, connection_settings)
+        if messages.add_assert(local_result == True, "Did not prepare a query, bcause the data is invalid for "+obj_id) == False:
+            messages.append(local_validation_messages)
+            return False,messages
+        obj = cls.load_entity({'self_id':obj_id,'attrib':True},download_path)
+        
+        '''
         obj = cls.load_entity({'self_id':obj_id,'attrib':True},download_path)
         if messages.add_assert('settings' in obj, "no settings in "+obj_id) == False:
             return False,messages
@@ -351,7 +362,7 @@ class TpGeneralLocal(TpGeneral):
                 file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
                 if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
                     return False,messages
-
+        '''
         query = {
             'attrib':obj
         }
