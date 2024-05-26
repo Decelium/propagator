@@ -54,8 +54,9 @@ class TpFile(TpFacade):
             messages.add_assert('region' in obj_remote['settings'], "missing settings.region for {object_id}")
             messages.add_assert('bucket' in obj_remote['settings'], "missing settings.region for {object_id}")
             payload_data = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id})
-
-            #TODO -- Add in a standard payload / hash verification method across files for verifying payloads
+            print("FOUND THE FOLLOWING PAYLOAD DATA"+str(payload_data))
+            if type(payload_data) is dict and 'error' in payload_data and payload_data['error'] == 'This file is empty':
+                messages.add_assert(False, "Payload is missing.")
 
             return len(messages.get_error_messages()) == 0, messages  
 

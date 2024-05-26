@@ -89,6 +89,7 @@ class TpGeneralDecelium(TpGeneral):
    
     @classmethod
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        print("\n\n\n\nvalidate_object_payload\n\n\n\n")
         messages = ObjectMessages("TpGeneralDecelium.validate_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
