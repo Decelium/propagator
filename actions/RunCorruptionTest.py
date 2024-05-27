@@ -1,5 +1,5 @@
 try:
-    #from ..Snapshot import Snapshot
+    from ..Snapshot import Snapshot
     #from ..datasource.TpIPFSDecelium import TpIPFSDecelium
     #from ..datasource.TpIPFSLocal import TpIPFSLocal
     #from ..Messages import ObjectMessages
@@ -9,6 +9,7 @@ try:
     from .Action import Action
 
 except:
+    from Snapshot import Snapshot
     from type.CorruptionData import CorruptionTestData
     from type.BaseData import TestConfig
     from .CorruptObject import CorruptObject
@@ -84,6 +85,14 @@ class RunCorruptionTest(Action):
         evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})  
         return True
     
+    def get_validation_summary(self,decw,setup_config):
+        validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
+        local_validation_attrib = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_attrib')
+        local_validation_payload = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_payload')
+        validation_data['local_attrib'] = [local_validation_attrib[0]]
+        validation_data['local_payload'] = [local_validation_payload[0]]
+        return validation_data
+
     def postvalid(self,record,response,memory=None):
 
         # Step 1: In post, we want to first make sure the corruption indeed caused the kind of corruption we are looking for
@@ -99,7 +108,8 @@ class RunCorruptionTest(Action):
         print("CORRUPTION SHOULD BE APPLIED")
         # TODO -- make sure after payload is removed, that the data is absolutely not online.
         #return True
-        validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        #validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
         if 'error' in validation_data:
             print(validation_data)
         print("PRE-REPAIR VALIDATUION SUMMARY:")
@@ -115,7 +125,8 @@ class RunCorruptionTest(Action):
             print(repair_status)
             # return True
             '''  '''
-            validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+            # validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+            validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
             if 'error' in validation_data:
                 print(validation_data)
             print("TEMP VALIDATUION SUMMARY:")
@@ -136,8 +147,8 @@ class RunCorruptionTest(Action):
                 evaluate_object_status({**setup_config.eval_context(),**eval})
         #else:
         #    print("SKIPPING REPAIR")
-        props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
-        validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload','local_attrib','local_payload']
+        validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
         if 'error' in validation_data:
             print(validation_data)
         print("VALIDATUION SUMMARY:")
