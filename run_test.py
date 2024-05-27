@@ -208,7 +208,7 @@ def new_repair_corruption_config(corruption_1,
         assert type(corruption_2) == str # The second corruption to apply to c_target_2
         assert c_target_1 in ['remote','local','remote_mirror'] # The first datasource to corrupt
         assert c_target_2 in ['remote','local','remote_mirror'] # The second datasource to corrupt
-        assert c_target_reserve in ['remote_mirror'] # The datasource that will be held stable, so we can restore after
+        assert c_target_reserve in ['remote_mirror','local'] # The datasource that will be held stable, so we can restore after
         assert do_repair in [True,False] # Are we testing the repair process? (Only relevant for remote and remote_mirror tests)
         assert push_target in ['local','remote'] # Where we would like to push the repair data
 
@@ -278,7 +278,7 @@ def get_validation_summary(decw,setup_config):
     validation_data['local_payload'] = [local_validation_payload[0]]
     return validation_data
 
-def test_corruptions_repair(setup_type):
+def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_types):
     setup_config:TestConfig = test_setup(setup_type)
     agent = SnapshotAgent()
     decw = setup_config.decw()
@@ -291,43 +291,39 @@ def test_corruptions_repair(setup_type):
         assert mode in validation_data, f"1. Could not parse validation data for mode {mode}: "+str(validation_data)
         assert validation_data[mode][0][mode] == True, "2. Could not parse validation data: "+str(validation_data)
 
-    remote_types = CorruptionTestData.Instruction.corruption_types
-    remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-    # remote_types = ['delete_payload']
-    # remote_mirror_types = ['remove_attrib']
-    #remote_types = ['remove_attrib']
-    #remote_mirror_types = ['delete_payload']
 
-    remote_types = ['delete_payload']
-    remote_mirror_types = ['delete_payload']
+    target_type = setup_type
 
+    assert test_type in ['remote_repair','remote_no_repair','local_no_repair']
     # CONFIG 1 : REMOTE REPAIR
     # -----
-    #c_target_1 = 'remote'
-    #c_target_2 = 'remote_mirror'
-    #c_target_reserve = 'local'
-    #do_repair = False
-    # push_target = 'remote'
+    if test_type == 'remote_repair':
+        c_target_1 = 'remote'
+        c_target_2 = 'remote_mirror'
+        c_target_reserve = 'local'
+        do_repair = False
+        push_target = 'remote'
     
     # CONFIG 2 : REMOTE NO REPAIR
     # -----
-    #c_target_1 = 'remote'
-    #c_target_2 = 'remote_mirror'
-    #c_target_reserve = 'local'
-    #do_repair = True
-    # push_target = 'remote'
+    if test_type == 'remote_no_repair':
+        c_target_1 = 'remote'
+        c_target_2 = 'remote_mirror'
+        c_target_reserve = 'local'
+        do_repair = True
+        push_target = 'remote'
 
     # CONFIG 3 : LOCAL NO REPAIR
-    target_type = setup_type
-    c_target_1 = 'remote'
-    c_target_2 = 'local'
-    c_target_reserve = 'remote_mirror'
-    do_repair = False
-    push_target = 'local'
+    if test_type == 'local_no_repair':
+        c_target_1 = 'remote'
+        c_target_2 = 'local'
+        c_target_reserve = 'remote_mirror'
+        do_repair = False
+        push_target = 'local'
 
     assert c_target_1 in ['remote','local','remote_mirror'] # The first datasource to corrupt
     assert c_target_2 in ['remote','local','remote_mirror'] # The second datasource to corrupt
-    assert c_target_reserve in ['remote_mirror'] # The datasource that will be held stable, so we can restore after
+    assert c_target_reserve in ['remote_mirror','local'] # The datasource that will be held stable, so we can restore after
     assert do_repair in [True,False] # Are we testing the repair process? (Only relevant for remote and remote_mirror tests)
     assert push_target in ['local','remote'] # Where we would like to push the repair data
     assert target_type in ['ipfs','file']
@@ -353,14 +349,23 @@ def test_corruptions_repair(setup_type):
         agent.run_corruption_test(corruption_config)
 
 
-# setup_type = 'ipfs'
+# setup_type - 'ipfs', 'file'
+#test_type - 'remote_repair', 'remote_no_repair', 'local_no_repair'
+
 setup_type = 'file'
-
-
-# ObjectMessages.set_assert_mode(True) # Used to force halting upon error for debugging reasons
+test_type = 'remote_no_repair'
+remote_types = CorruptionTestData.Instruction.corruption_types
+remote_mirror_types = CorruptionTestData.Instruction.corruption_types
+# remote_types = ['delete_payload']
+# remote_mirror_types = ['remove_attrib']
+#remote_types = ['remove_attrib']
+#remote_mirror_types = ['delete_payload']
+#remote_types = ['delete_payload']
+#remote_mirror_types = ['delete_payload']
 
 # test_setup(setup_type)
-test_corruptions_repair(setup_type)
+test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_types)
+print ("FINISHED")
 # test_corruptions(setup_type)
 
 
