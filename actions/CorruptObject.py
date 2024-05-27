@@ -145,7 +145,16 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
 
         obj = Snapshot.get_datasource("ipfs","remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
+        status = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload"},["admin"]))
+        print("corrupt_entity status"+ str(status))
+        assert status == True, "Could not corrupt the entity "+str(status)
 
+        validation_status = decw.net.validate_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk()},["admin"]))
+        assert 'remote_payload' in validation_status, "a. Could not validate_entity " + str(validation_status)
+        assert validation_status['remote_payload'][0]['remote_payload'] == False, "b. Could not validate_entity " + str(validation_status)
+
+        '''
+        # status =  Snapshot.remove_payload({'self_id':record['self_id']},record['backup_path']) 
         cids = [obj['settings']['ipfs_cid']]
         if 'ipfs_cids' in obj['settings']:
             for cid in obj['settings']['ipfs_cids'].values():
@@ -157,6 +166,7 @@ class CorruptObject(Action):
                 'connection_settings':connection_settings,
                 'payload_type':'cid',
                 'payload':cids})
+        assert status == True
         #corrupt_result = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload",'mirror':True},["admin"]))
         #assert corrupt_result == True
 
@@ -177,6 +187,8 @@ class CorruptObject(Action):
                     'connection_settings':connection_settings,
                     'cid': r['cid']})
             assert result_verify == False
+        '''
+
     
     @staticmethod
     def corrupt_local_delete_payload(record,memory):

@@ -295,8 +295,12 @@ def test_corruptions_repair(setup_type):
     remote_mirror_types = CorruptionTestData.Instruction.corruption_types
     # remote_types = ['delete_payload']
     # remote_mirror_types = ['remove_attrib']
-    remote_types = ['remove_attrib']
+    #remote_types = ['remove_attrib']
+    #remote_mirror_types = ['delete_payload']
+
+    remote_types = ['delete_payload']
     remote_mirror_types = ['delete_payload']
+
     # CONFIG 1 : REMOTE REPAIR
     # -----
     #c_target_1 = 'remote'
@@ -351,8 +355,13 @@ def test_corruptions_repair(setup_type):
 
 # setup_type = 'ipfs'
 setup_type = 'file'
+
+
 # ObjectMessages.set_assert_mode(True) # Used to force halting upon error for debugging reasons
 
 # test_setup(setup_type)
 test_corruptions_repair(setup_type)
 # test_corruptions(setup_type)
+
+
+# TODO -- compare backed up file bytes with actual file bytes for all file mirrors

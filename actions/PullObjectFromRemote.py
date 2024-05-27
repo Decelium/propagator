@@ -26,7 +26,7 @@ class PullObjectFromRemote(Action):
         obj = Snapshot.load_entity({'self_id':record['obj_id'], 'attrib':True},
                                     record['backup_path'])
         
-        new_cids = [obj['settings']['ipfs_cid']] 
-        for new_cid in obj['settings']['ipfs_cids'].values():
-            new_cids.append(new_cid)
-        return obj,new_cids 
+        local_results,messages = Snapshot.object_validation_status(record['decw'],obj['self_id'],record['backup_path'],record['connection_settings'],'local')
+        assert local_results['local'] == True,"Got some bad results "+ str(local_results) + " : " + str(messages)
+
+        return obj,None 
