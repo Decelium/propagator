@@ -379,6 +379,26 @@ class TpGeneralLocal(TpGeneral):
                 chunk = f.read(4096)
         
         return hasher.hexdigest().encode('utf-8')
+    @classmethod
+    def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
+        # TODO Assert ds_remote is of IPFS Type
+        obj_id = obj['self_id']
+        messages = ObjectMessages("TpGeneralLocal(for IPFS).push_payload_to")
+        
+        for path,cid in obj['settings']['ipfs_cids'].items():
+            obj_cids.append(cid)
+
+        all_cids =  ds_remote.ipfs_pin_list(decw, connection_settings,refresh=True)
+        missing_cids = list(set(obj_cids) - set(all_cids))
+        if(len(missing_cids) > 0):
+            reupload_cids,upload_messages = cls.upload_ipfs_data(ds_remote,decw,download_path+'/'+obj_id,connection_settings)
+            messages.append(upload_messages)
+            if messages.add_assert(ds_remote.ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
+                                "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
+                return False,messages
+        return len(messages.get_error_messages()) == 0, messages
+        
+
     
     # TODO remove all hard path requirements from this file
     @staticmethod

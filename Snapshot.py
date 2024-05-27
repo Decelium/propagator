@@ -345,50 +345,62 @@ class Snapshot:
                 results[obj_id] = (False,messages.get_error_messages())
                 continue
             
-            obj = SnapshotSnapshot.get_object_datasource(decw,obj_id,"local",download_path).load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
+            obj = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).load_entity({'api_key':api_key,"self_id":obj_id,'attrib':True},download_path)
             if messages.add_assert('error' not in obj,"b. Somehow the local is corrupt. Should be impossible to get this error."+ str(obj))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
             # TODO - Check if payload is missing using validate remote
             obj_cids = []
-            if remote_result == False:
+            print("EVALUATING PUSH PAYLOAD FUNCTION")
+            if remote_result == False:                
+                print("EVALUATING PUSH PAYLOAD FUNCTION 2")
                 results[obj_id]= (False,messages.get_error_messages())
                 # ---------
                 # Upload cids
-
-                for path,cid in obj['settings']['ipfs_cids'].items():
-                    obj_cids.append(cid)
-
-                all_cids =  Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).ipfs_pin_list(decw, connection_settings,refresh=True)
-                missing_cids = list(set(obj_cids) - set(all_cids))
-                if(len(missing_cids) > 0):
-                    reupload_cids,upload_messages = Snapshot.get_object_datasource(decw,obj_id,"local").upload_ipfs_data(Snapshot.get_object_datasource(decw,obj_id,"remote",download_path),decw,download_path+'/'+obj_id,connection_settings)
-                    messages.append(upload_messages)
-                    if messages.add_assert(Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).ipfs_has_cids(decw,obj_cids, connection_settings,refresh=True) == True,
-                                        "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
-                        results[obj_id]= (False,messages.get_error_messages())
-                        continue
+                ds_local = Snapshot.get_object_datasource(decw,obj_id,"local",download_path)
+                ds_remote = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path)
+                print("STARTED ds_local.push_payload_to")
+                success, payload_messages = ds_local.push_payload_to(ds_remote,decw,obj,download_path,connection_settings)
+                if len(payload_messages.get_error_messages()) > 0:
+                    results[obj_id] = (False,payload_messages.get_error_messages() + ['failure in Snapshot.ds_local.push_payload_to()'])
+                    continue
+                if success == False:
+                    results[obj_id] = (False,payload_messages.get_error_messages() + ['failure in Snapshot.ds_local.push_payload_to()'])
+                    continue
+                print("FINISHED ds_local.push_payload_to")
+                
             # TODO - Check if attrib is missing before calling repair attrib
             # TODO - Restore attrib will also restore the mirror as needed.
             # result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
+            print("Snapshot. Now running restore restore_attrib")
             result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential 
+            print("Snapshot. Finished running restore restore_attrib")
             
+            print("Snapshot. Now confirming restore")            
             if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
+            print("Snapshot. FINISHED confirming restore")            
+            print("Snapshot. Now confirming mirrir")            
             if '__mirror_restored' in result and type(result['__mirror_restored'])==dict:
+                print("Mirror Failed:")
+                print(result)
                 if messages.add_assert('error' not in result['__mirror_restored'],"b. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
+            print("Snapshot. FINISHED confirming mirrir")            
 
             # ---------
             # Verify Upload was successful
+            print("Snapshot. Now running validation")
+            
             remote_result, remote_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).validate_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
             # results[obj_id]= (remote_result,messages.get_error_messages())
             if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
+            print("Snapshot. Now running validation FINISHED")
 
             results[obj_id]= (remote_result,messages.get_error_messages())
 
