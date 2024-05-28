@@ -360,8 +360,8 @@ remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 # remote_mirror_types = ['remove_attrib']
 #remote_types = ['remove_attrib']
 #remote_mirror_types = ['delete_payload']
-#remote_types = ['delete_payload']
-#remote_mirror_types = ['delete_payload']
+remote_types = ['delete_payload']
+remote_mirror_types = ['remove_attrib']
 
 # test_setup(setup_type)
 test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_types)
