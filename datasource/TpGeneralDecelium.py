@@ -40,7 +40,7 @@ class TpGeneralDecelium(TpGeneral):
     def download_payload_data(cls,decw,obj):
         result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
         if type(result) == dict and 'error' in result:
-            return False,None
+            return result,None
         return True,bytes(result.encode("utf-8"))
         
 

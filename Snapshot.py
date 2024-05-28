@@ -128,12 +128,12 @@ class Snapshot:
         obj = Snapshot.load_file_by_id(decw,obj_id,datasourceproperty,download_path)
         if messages.add_assert(not 'error' in obj,"Could not find file by id: "+str(obj)) == False:
             result = False
-            result_json = Snapshot.format_object_status_json(obj_id,datasourceproperty,result,messages.get_error_messages(),"")
+            result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
             return result_json,messages      
             
         if messages.add_assert('file_type' in obj,"Object does not have file type: "+str(obj)) == False:
             result = False
-            result_json = Snapshot.format_object_status_json(obj_id,datasourceproperty,result,messages.get_error_messages(),"")
+            result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
             return result_json,messages      
 
         selected_type = obj['file_type']
@@ -169,7 +169,7 @@ class Snapshot:
         return   result_json,messages      
 
     @staticmethod
-    def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False):
+    def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key="undefined",attrib=None):
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
             file_type = 'ipfs'
@@ -195,7 +195,7 @@ class Snapshot:
             #if (not os.path.exists(download_path+'/'+obj_id)) or overwrite==True:
             try:
                 from_remote_datasource = Snapshot.get_datasource(obj['file_type'],"remote")
-                object_results = Snapshot.get_datasource(obj['file_type'],"local").download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite)
+                object_results = Snapshot.get_datasource(obj['file_type'],"local").download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite,attrib)
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
@@ -229,38 +229,50 @@ class Snapshot:
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs","local").remove_entity(filter,download_path)
+        decw = None
+        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        return file_datasoruce.remove_entity(filter,download_path)
 
     @auto_c(EntityRequestData)
     def remove_attrib(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs","local").remove_attrib(filter,download_path)
+        decw = None
+        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        return file_datasoruce.remove_attrib(filter,download_path)
 
     @auto_c(EntityRequestData)
     def corrupt_attrib(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs","local").corrupt_attrib(filter,download_path)
+        decw = None
+        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        return file_datasoruce.corrupt_attrib(filter,download_path)
 
-    @auto_c(EntityRequestData)
-    def corrupt_attrib(filter:EntityRequestData,download_path:str):
-        assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs",filter,download_path)
+    #@auto_c(EntityRequestData)
+    #def corrupt_attrib(filter:EntityRequestData,download_path:str):
+    #    assert 'self_id' in filter
+    #    return Snapshot.get_datasource("ipfs",filter,download_path)
     
     @auto_c(EntityRequestData)
     def remove_payload(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs","local").remove_payload(filter,download_path)
+        decw = None
+        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        return file_datasoruce.remove_payload(filter,download_path)
     
     @auto_c(EntityRequestData)
     def corrupt_attrib_filename(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs","local").corrupt_attrib_filename(filter,download_path)
+        decw = None
+        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        return file_datasoruce.corrupt_attrib_filename(filter,download_path)
 
     @staticmethod
     @auto_c(EntityRequestData)
     def corrupt_payload(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        return Snapshot.get_datasource("ipfs","local").corrupt_payload(filter,download_path)
+        decw = None
+        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        return file_datasoruce.corrupt_payload(filter,download_path)
     
 
     @staticmethod
@@ -294,7 +306,10 @@ class Snapshot:
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
             # TODO Generalize, and split attrib / payload functions (?) or not (?)
+            print("Snapshot.push_to_remote PROCESSING")
             if attrib_only == True:
+                print("Snapshot.push_to_remote attrib ONLY")
+                
                 # ---------
                 # b) Make sure the local is complete (attrib only)
                 local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object_attrib(decw,obj_id, download_path, connection_settings)
@@ -304,13 +319,16 @@ class Snapshot:
                 assert local_result == True and remote_result == False
                 # ---------
                 # Upload metadata (attrib only)
+                print("Snapshot.push_to_remote attrib ONLY 1")
                 query,upload_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).upload_object_query(obj_id,download_path,connection_settings,attrib_only)
                 messages.append(upload_messages)
                 if len(upload_messages.get_error_messages()) > 0:
                     results[obj_id] = (False,messages.get_error_messages())
                     continue
 
+                print("Snapshot.push_to_remote attrib ONLY 2")
                 result = decw.net.restore_attrib({**query,'api_key':api_key,'ignore_mirror':True}) # ** TODO Fix buried credential, which is now expanding as a problem
+                print("Snapshot.push_to_remote attrib ONLY 3")
                 if messages.add_assert('error' not in result,"D. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
@@ -322,7 +340,8 @@ class Snapshot:
                 if messages.add_assert('__mirror_restored' in result and result['__mirror_restored']==False,"The Mirror should have been ignored "+str(result))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
-                
+                print("Snapshot.push_to_remote attrib ONLY FINISHED")
+
                 results[obj_id] = (True,messages.get_error_messages())
                 continue
                 
@@ -410,17 +429,15 @@ class Snapshot:
     
     @staticmethod
     # TODO / Verify
-    def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
+    def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False,api_key="undefined",attrib=None):
         object_ids = os.listdir(download_path)
         object_ids = object_ids[offset:offset+limit]
         found_objs = {}
         if len(object_ids) == 0:
-            print ("NO FOUND OBJECTS AT ALL")
             return found_objs
         for obj_id in object_ids:
-            print ("FOUND SOME OBJECTS")
             filter = {'attrib':{'self_id':obj_id}}
-            object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite)      
+            object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite,api_key,attrib)      
             found_objs.update(object_results)       
         return found_objs
     

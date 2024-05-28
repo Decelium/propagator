@@ -12,7 +12,7 @@ import random
 from .TpGeneral import TpGeneral
 class TpGeneralLocal(TpGeneral):
     @classmethod
-    def download_object(cls,TpSource,decw,object_ids,download_path,connection_settings, overwrite=False):
+    def download_object(cls,TpSource,decw,object_ids,download_path,connection_settings, overwrite=False,attrib=None):
         if type(object_ids) == str:
             object_ids = [object_ids]
         results = {}
@@ -25,7 +25,8 @@ class TpGeneralLocal(TpGeneral):
                     if messages.add_assert(merged_object['self_id'] == obj_id,"There is a serious consistency problem with the local DB. Halt now" ) == False:
                         raise Exception("Halt Now. The data is corrupt.")
                     # TODO should verify the success of the merge operation
-                    cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
+                    if attrib != True:
+                        cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
                     results[obj_id] = (True,messages)
                 else:
                     results[obj_id] = (False,messages)
@@ -47,7 +48,7 @@ class TpGeneralLocal(TpGeneral):
         obj_id = obj['self_id']
         merge_messages = ObjectMessages("TpFile.Local.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
         result,the_bytes = TpRemote.download_payload_data(decw,obj)
-        assert result == True
+        assert result == True, "result is not true: "+str(result)
         assert the_bytes != None, "Could not download payload data"
         if not os.path.exists(download_path+'/'+obj_id):
             os.makedirs(download_path+'/'+obj_id)
@@ -328,7 +329,7 @@ class TpGeneralLocal(TpGeneral):
         messages = ObjectMessages("TpGeneralLocal.upload_object_query(for {"+obj_id+"})")
         if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
             return False,messages
-        if attrib_only != True:
+        if attrib_only == True:
             decw = None
             local_result, local_validation_messages = cls.validate_object_attrib(decw,obj_id, download_path, connection_settings)
         else:
