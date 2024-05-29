@@ -237,7 +237,7 @@ class CorruptObject(Action):
         assert success == True
         for file_path in files_affected:
             memory['corrupted'].append(file_path)  
-
+    
     def run_corruption(self,mode: str, corruption: str, record: dict, memory: dict):
         method_name = "corrupt_" + mode + "_" + corruption
         method = getattr(CorruptObject, method_name, None)

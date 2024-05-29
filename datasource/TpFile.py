@@ -100,33 +100,7 @@ class TpFile(TpFacade):
                 return False, messages
             return len(messages.get_error_messages()) == 0, messages    
 
-    class Local(TpGeneralLocal):
-    
-        #@classmethod
-        #def validate_object(cls,decw,object_id,download_path,connection_settings):
-        #    entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
-        #    payload_success,payload_messages = cls.validate_object_payload(decw,object_id,download_path,connection_settings)
-        #    entity_messages:ObjectMessages = entity_messages
-        #    all_messages:ObjectMessages = payload_messages
-        #    all_messages.append(entity_messages)
-        #    return entity_success and payload_success,all_messages
-        
-        #@classmethod
-        #def validate_object_attrib(cls,decw,object_id,download_path,connection_settings):
-        #    # Validate the local representation of an object
-        #    messages = ObjectMessages("TpFile.Local.validate_object(for {object_id})")
-        #    try:
-        #        file_path_test = download_path+'/'+object_id+'/object.json'
-        #        with open(file_path_test,'r') as f:
-        #            obj_local = json.loads(f.read())
-        #        valido_hasho = cls.compare_file_hash(file_path_test)
-        #        if valido_hasho != True:
-        #            messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
-        #            return False,messages
-        #    except:
-        #        messages.add_assert(False==True, "Could not validate presense of file file:"+str(download_path+'/'+object_id+'/object.json'))
-        #        return False,messages
-        #    return len(messages.get_error_messages())== 0,messages   
+    class Local(TpGeneralLocal): 
         @classmethod
         def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
             messages = ObjectMessages("TpFileLocal(for IPFS).push_payload_to_remote")

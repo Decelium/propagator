@@ -13,7 +13,8 @@ from Snapshot import Snapshot
 def object_setup(agent:SnapshotAgent,
                  conn_config:ConnectionConfig,
                  setup_type:str):
-    assert setup_type in ['ipfs','file']
+    print("object_setup.setup_type",setup_type)
+    assert setup_type in list(Snapshot.s_type_map.keys())
     user_context = conn_config.user_context()
     connection_settings = conn_config.connection_settings()
     local_test_folder = conn_config.local_test_folder()
@@ -37,7 +38,7 @@ def object_setup(agent:SnapshotAgent,
         #did1  = pq.create_directory({'api_key':api_key,'path':'/test_directory'},remote=remote)
         raise Exception("Not Supported")
     
-    if setup_type in ['file']:
+    if setup_type in ['file','json']:
         if setup_type == 'file':
             delete_request = { 'path':'/example_html_file_test.html',
             }
@@ -47,6 +48,15 @@ def object_setup(agent:SnapshotAgent,
                 'file_type':'file',
                 'payload':'''<h1>This is a file</h1>''',
             }
+        elif setup_type == 'json':
+            delete_request = { 'path':'/temp_dict.json',
+            }
+            create_request = {
+                'path':'/',
+                'name':'temp_dict.json',
+                'file_type':'json',
+                'payload':{"example":"value"},
+            }       
         else:
             raise Exception("Unsuported file type")
         decelium_path = '/example_html_file_test.html'
@@ -73,11 +83,7 @@ def object_setup(agent:SnapshotAgent,
     
     return {"error":"Did not register the existing type."}, None
 
-    #if setup_type == 'json':
-    #if setup_type == 'host':
-    #if setup_type == 'user':
-    #if setup_type == 'node':
-    #if setup_type == 'file':    
+
 
 
 def test_setup(setup_type = 'ipfs') -> TestConfig:
@@ -111,10 +117,12 @@ def test_setup(setup_type = 'ipfs') -> TestConfig:
                  'backup_path':backup_path,
                  'user_context':user_context,
                 })
+    print("setup_type",setup_type)
     obj_id, decelium_path =  object_setup(
                  agent,
                  conn_config,
                  setup_type)
+    print("run_test",obj_id)
     assert 'obj-' in obj_id
     eval_context = {key: conn_config.get(key) for key in ['backup_path','self_id','connection_settings','decw']}
     eval_context['self_id'] = obj_id
@@ -326,7 +334,7 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
     assert c_target_reserve in ['remote_mirror','local'] # The datasource that will be held stable, so we can restore after
     assert do_repair in [True,False] # Are we testing the repair process? (Only relevant for remote and remote_mirror tests)
     assert push_target in ['local','remote'] # Where we would like to push the repair data
-    assert target_type in ['ipfs','file']
+    #assert target_type in ['ipfs','file']
 
     for corrupt_remote in remote_types:
         for corrupt_mirror in remote_mirror_types:
@@ -352,14 +360,19 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 # setup_type - 'ipfs', 'file'
 #test_type - 'remote_repair', 'remote_no_repair', 'local_no_repair'
 
-setup_type = 'file'
+# setup_type = 'file'
 # setup_type = 'ipfs'
+setup_type =  'json'
+# setup_type =  'host'
+# setup_type =  'user'
+# setup_type =  'node'
+
 
 test_type = 'remote_repair'
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-# remote_types = ['delete_payload']
-# remote_mirror_types = ['remove_attrib']
+remote_types = ['delete_payload']
+remote_mirror_types = ['remove_attrib']
 #remote_types = ['remove_attrib']
 #remote_mirror_types = ['delete_payload']
 

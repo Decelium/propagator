@@ -7,7 +7,7 @@ try:
     from datasource.TpGeneralDecelium import TpGeneralDecelium
     from datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
     from datasource.TpGeneralLocalMirror import TpGeneralLocalMirror
-    
+    from datasource.TpAttrib import TpAttrib
     from datasource.TpIPFS import TpIPFS
     from datasource.TpFile import TpFile
     from Messages import ObjectMessages
@@ -19,6 +19,7 @@ except:
     from .datasource.TpGeneralDecelium import TpGeneralDecelium
     from .datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
     from .datasource.TpGeneralLocalMirror import TpGeneralLocalMirror
+    from .datasource.TpAttrib import TpAttrib
     from .datasource.TpIPFS import TpIPFS
     from .datasource.TpFile import TpFile
     from .type.BaseData import BaseData,auto_c
@@ -38,7 +39,11 @@ class EntityRequestData(BaseData):
 class Snapshot:  
     s_type_map = {
         'ipfs': TpIPFS,
-        'file': TpFile
+        'file': TpFile,
+        'json': TpFile,
+        'host': TpAttrib,
+        'user': TpAttrib,
+        'node': TpAttrib,
     }
     s_property = ['attrib','payload','']
     s_datasource = ['local','local_mirror','remote','remote_mirror']
