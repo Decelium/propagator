@@ -9,6 +9,8 @@ from type.BaseData import TestConfig,ConnectionConfig
 from actions.SnapshotAgent import SnapshotAgent
 from Messages import ObjectMessages
 from Snapshot import Snapshot
+from datetime import datetime,timedelta,time
+
 
 def object_setup(agent:SnapshotAgent,
                  conn_config:ConnectionConfig,
@@ -38,8 +40,21 @@ def object_setup(agent:SnapshotAgent,
         #did1  = pq.create_directory({'api_key':api_key,'path':'/test_directory'},remote=remote)
         raise Exception("Not Supported")
     
-    if setup_type in ['file','json']:
-        if setup_type == 'file':
+    if setup_type in ['file','json','host']:
+        if setup_type == 'host':
+            delete_request = { 'path':'/example_domain.dns',
+            }
+            # You must place the public_key into the servers TXT records
+            create_request = {
+                'path':'/',
+                'name':'example_domain.dns',
+                'file_type':'host',
+                'attrib':{'host':'techoactivism.com',
+                          'target_id':'obj-INVALID_FOR_TESTING',
+                                'secret_password':"api_key"},
+            }
+
+        elif setup_type == 'file':
             delete_request = { 'path':'/example_html_file_test.html',
             }
             create_request = {
@@ -361,19 +376,20 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 #test_type - 'remote_repair', 'remote_no_repair', 'local_no_repair'
 
 # setup_type = 'ipfs'
-setup_type =  'json'
+# setup_type =  'json'
 # setup_type = 'file'
 
-# setup_type =  'host'
-# setup_type =  'user'
-# setup_type =  'node'
+setup_type =  'host' # Awaiting DNS update 
+# setup_type =  'directory' # Requires some refatoring
+# setup_type =  'node' # *Should* work
+# setup_type =  'user' # *Should* work
 
 
 test_type = 'remote_repair'
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
-remote_types = ['delete_payload']
-remote_mirror_types = ['remove_attrib']
+# remote_types = ['delete_payload']
+# remote_mirror_types = ['remove_attrib']
 #remote_types = ['remove_attrib']
 #remote_mirror_types = ['delete_payload']
 
