@@ -37,7 +37,11 @@ class TpAttrib(TpFacade):
         
         @classmethod
         def validate_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+            print("\nTpAttrib.validate_object\n")
             entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+            print("entity_success",entity_success)
+            print("entity_messages",entity_messages)
+            print("\n")
             #payload_success,payload_messages = cls.validate_object_payload(decw,object_id,download_path,connection_settings)
             #entity_messages:ObjectMessages = entity_messages
             #all_messages:ObjectMessages = payload_messages
@@ -134,6 +138,15 @@ class TpAttrib(TpFacade):
 
             '''
             return None, messages        
+        @classmethod
+        def validate_object(cls,decw,object_id,download_path,connection_settings):
+            entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+            #payload_success,payload_messages = cls.validate_object_payload(decw,object_id,download_path,connection_settings)
+            #entity_messages:ObjectMessages = entity_messages
+            #all_messages:ObjectMessages = payload_messages
+            #all_messages.append(entity_messages)
+            return entity_success,entity_messages        
+
         
         @classmethod
         def validate_object_payload(cls,decw,object_id,download_path,connection_settings):

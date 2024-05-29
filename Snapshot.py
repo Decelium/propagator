@@ -163,7 +163,9 @@ class Snapshot:
         }}
 
         func = validation_set[datasourceproperty]['func']
-        
+        print("Snapshort.object_validation_status running func")
+        print(func)
+        print(TpDatasource)
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
             messages.append(previous_messages)
@@ -192,7 +194,7 @@ class Snapshot:
         results = {}
         if len(needed_objs) <= 0:
             return {}
-        
+        print("Snapshot.append_from_remote RUNNING APPEND")
         for obj in needed_objs:
             obj_id = obj['self_id']
             
@@ -205,6 +207,8 @@ class Snapshot:
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
                     messages = object_results[obj_id][1]
+                    print("Snapshot.object_validation_status RUNNING object_validation_status")
+                    
                     results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
                 else:
                     result = False
