@@ -23,6 +23,7 @@ class TpFile(TpFacade):
             assert 'payload' in obj
             
             messages = ObjectMessages("TpFileDecelium.reupload_payload(for {"+obj['self_id']+"})")
+            print("TpFile.reupload_payload.reupload_entity_payload CALL"+str(obj))
             res = decw.net.reupload_entity_payload({'self_id':obj['self_id'],'payload':obj['payload']})
             print("TpFile.reupload_payload.reupload_entity_payload result")
             print(res)
@@ -118,7 +119,7 @@ class TpFile(TpFacade):
                     messages.add_assert(False, "Encountered A bad hash for payload.file:"+file_path)
                 with open(file_path,'r') as f:
                     payload = f.read()
-                
+                print("Tp.File Local -- reuploading payload "+ str(payload))
                 success, messages = ds_remote.reupload_payload(decw,{'self_id':obj['self_id'],'payload':payload})
                 assert type(success) == bool
                 assert type(messages) == ObjectMessages
