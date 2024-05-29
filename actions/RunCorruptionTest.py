@@ -112,13 +112,15 @@ class RunCorruptionTest(Action):
         validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
         if 'error' in validation_data:
             print(validation_data)
-        print("PRE-REPAIR VALIDATUION SUMMARY:")
+        print("\nPRE-REPAIR VALIDATUION SUMMARY:")
         for k in validation_data.keys():
             try:
                 print (f"{k} is {validation_data[k][0][k]}")
             except:
-                print (f"{k} is broken:"+str(validation_data[k]))
-        
+                pass
+                #print (f"{k} is broken:"+str(validation_data[k]))
+        print("\n")
+        print("\n")
         if record['do_repair'] == True:
             print("EXECUTING REPAIR")
             repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})
@@ -129,14 +131,16 @@ class RunCorruptionTest(Action):
             validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
             if 'error' in validation_data:
                 print(validation_data)
-            print("TEMP VALIDATUION SUMMARY:")
+            print("\nPOST-REPAIR VALIDATUION SUMMARY:")
             for k in validation_data.keys():
                 try:
                     print (f"{k} is {validation_data[k][0][k]}")
                 except:
-                    print (f"{k} is broken"+str(validation_data[k]))
+                    pass
+                    # print (f"{k} is broken"+str(validation_data[k]))
             # return True
-
+            print("\n")
+            print("\n")
             '''  '''
             if record['post_repair_status']  == True:
                 assert record['post_repair_status'] == repair_status, "Expected Successful Repair:\n" + str(repair_status)

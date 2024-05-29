@@ -373,6 +373,10 @@ class Snapshot:
             print("EVALUATING PUSH PAYLOAD FUNCTION")
             if remote_result == False:                
                 print("EVALUATING PUSH PAYLOAD FUNCTION 2")
+                # We toss up a restore, that may fail, as some files require attrib-first restore, and others require payload first restore.
+                # Here I am testing doing attrib - payload - attrib (again) which should be able to resotre any general entity.
+                ignore_result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential 
+
                 results[obj_id]= (False,messages.get_error_messages())
                 # ---------
                 # Upload cids
@@ -381,10 +385,10 @@ class Snapshot:
                 print("STARTED ds_local.push_payload_to")
                 success, payload_messages = ds_local.push_payload_to(ds_remote,decw,obj,download_path,connection_settings)
                 if len(payload_messages.get_error_messages()) > 0:
-                    results[obj_id] = (False,payload_messages.get_error_messages() + ['failure in Snapshot.ds_local.push_payload_to()'])
+                    results[obj_id] = (False,payload_messages.get_error_messages() + ['a. failure in Snapshot.ds_local.push_payload_to()'])
                     continue
                 if success == False:
-                    results[obj_id] = (False,payload_messages.get_error_messages() + ['failure in Snapshot.ds_local.push_payload_to()'])
+                    results[obj_id] = (False,payload_messages.get_error_messages() + ['b. failure in Snapshot.ds_local.push_payload_to()'])
                     continue
                 print("FINISHED ds_local.push_payload_to")
                 

@@ -385,7 +385,7 @@ class TpGeneralLocal(TpGeneral):
         # TODO Assert ds_remote is of IPFS Type
         obj_id = obj['self_id']
         messages = ObjectMessages("TpGeneralLocal(for IPFS).push_payload_to")
-        
+        obj_cids = []
         for path,cid in obj['settings']['ipfs_cids'].items():
             obj_cids.append(cid)
 

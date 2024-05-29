@@ -353,15 +353,22 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 #test_type - 'remote_repair', 'remote_no_repair', 'local_no_repair'
 
 setup_type = 'file'
-test_type = 'remote_no_repair'
+# setup_type = 'ipfs'
+
+test_type = 'remote_repair'
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 # remote_types = ['delete_payload']
 # remote_mirror_types = ['remove_attrib']
 #remote_types = ['remove_attrib']
 #remote_mirror_types = ['delete_payload']
-remote_types = ['delete_payload']
-remote_mirror_types = ['remove_attrib']
+
+#remote_types = ['delete_payload']
+#remote_mirror_types = ['remove_attrib']
+
+# remote_types = ['remove_attrib']
+# remote_mirror_types = ['remove_attrib']
+
 
 # test_setup(setup_type)
 test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_types)
