@@ -7,7 +7,7 @@ except:
 import traceback as tb
 import ipfshttpclient
 from .TpGeneral import TpGeneral
-
+import json
 
 class TpGeneralDecelium(TpGeneral):
     @classmethod
@@ -41,7 +41,16 @@ class TpGeneralDecelium(TpGeneral):
         result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
         if type(result) == dict and 'error' in result:
             return result,None
-        return True,bytes(result.encode("utf-8"))
+        # Cretae bytes
+        if type(result) == str:
+            dat = bytes(result.encode("utf-8"))
+        elif type(result) in [dict,list]:
+            dat = bytes(json.dumps(result).encode("utf-8"))
+        elif type(result) == bytes:
+            dat = bytes
+        else:
+            raise Exception("Could not parse type "+str(type(result)))
+        return True,dat
         
 
         
