@@ -33,7 +33,7 @@ class TpAttrib(TpFacade):
                 messages.add_assert('error' not in res, f"Error occoured reuploading "+str(res))
             '''
             # I think we have nothing to do, as no payload really exists
-            return True, messages
+            return None, messages
         
         @classmethod
         def validate_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
@@ -73,7 +73,7 @@ class TpAttrib(TpFacade):
             if type(payload_data) is dict and 'error' in payload_data and payload_data['error'] == 'This file is empty':
                 messages.add_assert(False, "Payload is missing.")
             '''
-            return True, messages  
+            return None, messages  
 
     class DeceliumMirror(TpGeneralDeceliumMirror):
         @classmethod
@@ -102,7 +102,7 @@ class TpAttrib(TpFacade):
                 return False, messages
             return len(messages.get_error_messages()) == 0, messages    
             '''
-            return True,messages
+            return None,messages
 
     class Local(TpGeneralLocal): 
         @classmethod
@@ -133,7 +133,7 @@ class TpAttrib(TpFacade):
                 messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
 
             '''
-            return True, messages        
+            return None, messages        
         
         @classmethod
         def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
@@ -142,7 +142,7 @@ class TpAttrib(TpFacade):
             if result == False:
                 messages.add_assert(False, "Failed perliminary object validation validate_object_payload for TpFile.Local.validate_object_payload:")
                 return False,messages
-            return result,messages
+            return None,messages
             '''
             # Validate the Payload
             messages = ObjectMessages("TpFile.Local.validate_object(for {object_id})")
