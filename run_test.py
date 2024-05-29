@@ -360,9 +360,10 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 # setup_type - 'ipfs', 'file'
 #test_type - 'remote_repair', 'remote_no_repair', 'local_no_repair'
 
-# setup_type = 'file'
 # setup_type = 'ipfs'
 setup_type =  'json'
+# setup_type = 'file'
+
 # setup_type =  'host'
 # setup_type =  'user'
 # setup_type =  'node'

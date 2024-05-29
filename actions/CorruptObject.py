@@ -145,10 +145,18 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
 
         obj = Snapshot.get_datasource("ipfs","remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
+        # obj = Snapshot.get_object_datasource(record['obj_id'],"remote").load_entity({'self_id':self_id,'api_key':decw.dw.pubk(),"attrib":True},decw)
+
         status = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"delete_payload"},["admin"]))
         print("corrupt_entity status"+ str(status))
-        assert status == True, "Could not corrupt the entity "+str(status)
 
+        print("corrupt_entity - test_data")
+        test_data = decw.net.download_entity({'self_id':self_id,'api_key':"UNDEFINED"})
+        print(test_data)
+        # assert True == False
+        assert status == True, "Could not corrupt the entity "+str(status)
+        print("corrupt_remote_delete_payload - payload")
+        print(obj)
         validation_status = decw.net.validate_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk()},["admin"]))
         assert 'remote_payload' in validation_status, "a. Could not validate_entity " + str(validation_status)
         assert validation_status['remote_payload'][0]['remote_payload'] in [False,None], "b. Could not validate_entity " + str(validation_status)
