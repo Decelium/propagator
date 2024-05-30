@@ -67,7 +67,7 @@ class Snapshot:
     @staticmethod
     def resolve_type(decw,obj_id,datasource_name,download_path,cached = True):
         obj = Snapshot.load_file_by_id(decw,obj_id,datasource_name,download_path,cached)
-        assert 'file_type' in obj and len(obj['file_type']) > 0, "Seem to have found invalid file_type"
+        assert 'file_type' in obj and len(obj['file_type']) > 0, "Seem to have found invalid file_type:" + str(obj)
         return obj['file_type']
 
     
