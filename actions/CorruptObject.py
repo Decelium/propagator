@@ -285,20 +285,43 @@ class CorruptObject(Action):
         connection_settings = record['connection_settings']
         decw = record['decw']
         mode = record['mode']
-        local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
-        messages:ObjectMessages = messages
-        try:
-            assert local_results[mode] == False, "Corruption Failed: "+ str(record)+"-:-" + str(local_results)
-            if 'removed' in memory:
-                for file_path in memory['removed']:
-                    assert os.path.exists(file_path) == False
-            if 'corrupted' in memory:
-                for file_path in memory['corrupted']:
-                    assert os.path.exists(file_path) == True
-        except Exception as e:
-            print("Printing messages along with failed corruption")
-            print(record)
-            print(local_results)
-            print(messages.get_error_messages())
-            raise e
+        corruption = record['corruption']
+        if 'payload' in corruption:
+            local_results_attrib,messages_attrib = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode+"_attrib")
+            local_results_payload,messages_payload = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode+"_payload")
+            messages:ObjectMessages = messages_attrib
+            try:
+                assert local_results_payload[mode+"_payload"] in [False,None], "Corruption Failed: "+ str(record)+"-:-" + str(local_results)
+                if 'removed' in memory:
+                    for file_path in memory['removed']:
+                        assert os.path.exists(file_path) == False
+                if 'corrupted' in memory:
+                    for file_path in memory['corrupted']:
+                        assert os.path.exists(file_path) == True
+            except Exception as e:
+                print("Printing messages along with failed corruption")
+                print(record)
+                print(local_results_payload)
+                print(messages.get_error_messages())
+                raise e
+        else:
+            local_results,messages = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode)
+            local_results_attrib,messages_attrib = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode+"_attrib")
+            local_results_payload,messages_attrib = Snapshot.object_validation_status(decw,self_id,backup_path,connection_settings,mode+"_payload")
+            messages:ObjectMessages = messages
+            try:
+                assert local_results[mode] == False, "Corruption Failed: "+ str(record)+"-:-" + str(local_results)
+                if 'removed' in memory:
+                    for file_path in memory['removed']:
+                        assert os.path.exists(file_path) == False
+                if 'corrupted' in memory:
+                    for file_path in memory['corrupted']:
+                        assert os.path.exists(file_path) == True
+            except Exception as e:
+                print("Printing messages along with failed corruption")
+                print(record)
+                print(local_results)
+                print(messages.get_error_messages())
+                raise e
+
         return True

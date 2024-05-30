@@ -37,8 +37,9 @@ class PushFromSnapshotToRemote(Action):
         #new_cids = record['new_cids']
         user_context = record['user_context']
         obj_id = record['obj_id']
-        
+        print("PushFromSnapshotToRemote.run " +obj_id)
         results = Snapshot.push_to_remote(decw, connection_settings, backup_path,limit=100, offset=0)
+        print("PushFromSnapshotToRemote.result " +str(results))
         assert results[obj_id][0] == True, "Could not validate "+ str(results)
 
         obj = Snapshot.get_datasource("ipfs","remote").load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)

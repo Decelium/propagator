@@ -42,7 +42,6 @@ class RunCorruptionTest(Action):
         backup_instruction["corruption"] = corruption['corruption']
         backup_instruction["mode"] = corruption['mode']
         # backup_instruction.update(corruption)
-        print("\n RUNNIN CORRUPTION")
         print(backup_instruction)
         corrupt_object_backup(backup_instruction)
 
@@ -99,13 +98,9 @@ class RunCorruptionTest(Action):
         setup_config:TestConfig = record['setup_config']
         invalid_props = record['invalid_props']
         for eval in record['corruption_evals']:
-            print("Evaluating Corruption:")
-            print(eval)
             evaluate_object_status({**setup_config.eval_context(),**eval})
         rec = record.copy()
         del rec['setup_config']
-        print(json.dumps(rec,indent=2))
-        print("CORRUPTION SHOULD BE APPLIED")
         # TODO -- make sure after payload is removed, that the data is absolutely not online.
         #return True
         #validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
@@ -155,31 +150,28 @@ class RunCorruptionTest(Action):
         validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
         if 'error' in validation_data:
             print(validation_data)
-        print("VALIDATUION SUMMARY:")
-        for k in validation_data.keys():
-            try:
-                print (f"{k} is {validation_data[k][0][k]}")
-            except:
-                pass #print (f"{k} is broken")
-        print ("CHECKING INVALID PROPS")
-        print ("props",props)
-        print ("invalid_props",invalid_props)
         for prop in props:
             if prop not in invalid_props:
-                print("CHECKING PROP IS VALID" + prop)
-                assert validation_data[prop][0][prop] == True,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+                if 'payload' in prop:
+                    checklist = [True,None]
+                else:
+                    checklist = [True]
+                assert validation_data[prop][0][prop] in checklist,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+
             else:
-                print("CHECKING PROP IS IN-VALID" + prop)
-                assert validation_data[prop][0][prop] == False,"Could not find that "+prop+" was INvalid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+                if 'payload' in prop:
+                    checklist = [False,None]
+                else:
+                    checklist = [False]
+                assert validation_data[prop][0][prop] in checklist,"Could not find that "+prop+" was INvalid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
 
         # Step 2: After we evaluate, we want to restore the object to its original state
+
         if record['push_target'] == 'local':
             repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})
             assert repair_status == True, "Should have been able to repair: "+ str(repair_status)
             pull_object_from_remote = PullObjectFromRemote()
             append_object_from_remote = AppendObjectFromRemote()
-            print("The Corruptions:")
-            print(record['corruptions'])
             method_to_repair = "pull"
             for corruption in record['corruptions']:
                 if corruption['corruption'] == 'delete_entity' and corruption['mode'] == 'local':
@@ -196,7 +188,7 @@ class RunCorruptionTest(Action):
             assert True==False, "Forcing a failure as we are not corrupting remote or local"
 
         evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
+        evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})    
         evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})       
         return True
    

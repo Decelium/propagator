@@ -44,6 +44,7 @@ class Snapshot:
         'host': TpAttrib,
         'user': TpAttrib,
         'node': TpAttrib,
+        'directory':TpAttrib
     }
     s_property = ['attrib','payload','']
     s_datasource = ['local','local_mirror','remote','remote_mirror']
@@ -163,9 +164,6 @@ class Snapshot:
         }}
 
         func = validation_set[datasourceproperty]['func']
-        print("Snapshort.object_validation_status running func")
-        print(func)
-        print(TpDatasource)
         result,messages = func(decw,obj_id,download_path,connection_settings)
         if previous_messages:
             messages.append(previous_messages)
@@ -194,7 +192,6 @@ class Snapshot:
         results = {}
         if len(needed_objs) <= 0:
             return {}
-        print("Snapshot.append_from_remote RUNNING APPEND")
         for obj in needed_objs:
             obj_id = obj['self_id']
             
@@ -207,7 +204,6 @@ class Snapshot:
                 result = object_results[obj_id][0]
                 if object_results[obj_id][0] == True:
                     messages = object_results[obj_id][1]
-                    print("Snapshot.object_validation_status RUNNING object_validation_status")
                     
                     results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
                 else:
@@ -286,7 +282,6 @@ class Snapshot:
 
     @staticmethod
     def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
-        print("Snapshot.push_to_remote.download_path")
         if api_key == None:
             api_key = decw.dw.pubk("admin")
         messages = ObjectMessages("Snapshot.push_to_remote")
@@ -303,21 +298,27 @@ class Snapshot:
                 object_ids.append(obj_id)
         object_ids = object_ids[offset:offset+limit]
         results = {}
+
         if len(object_ids) == 0:
             return results        
         for obj_id in object_ids:
+
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
+            remote_result_mirror, remote_validation_messages_mirror = Snapshot.get_object_datasource(decw,obj_id,"remote_mirror",download_path).validate_object(decw,obj_id, download_path, connection_settings)
             
             remote_result, remote_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).validate_object(decw,obj_id, download_path, connection_settings)
-            if remote_result == True:
+            #if remote_result == True and remote_result_mirror == False:
+
+            
+            if remote_result == True and remote_result_mirror == True:
+                print("Both remote results are true (Snapshot)")
                 results[obj_id]= (True,remote_validation_messages.get_error_messages())
                 continue
+            print("GOINF FOR RESTORE(Snapshot)")
             # TODO Generalize, and split attrib / payload functions (?) or not (?)
-            print("Snapshot.push_to_remote PROCESSING")
             if attrib_only == True:
-                print("Snapshot.push_to_remote attrib ONLY")
                 
                 # ---------
                 # b) Make sure the local is complete (attrib only)
@@ -328,16 +329,13 @@ class Snapshot:
                 assert local_result == True and remote_result == False
                 # ---------
                 # Upload metadata (attrib only)
-                print("Snapshot.push_to_remote attrib ONLY 1")
                 query,upload_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).upload_object_query(obj_id,download_path,connection_settings,attrib_only)
                 messages.append(upload_messages)
                 if len(upload_messages.get_error_messages()) > 0:
                     results[obj_id] = (False,messages.get_error_messages())
                     continue
 
-                print("Snapshot.push_to_remote attrib ONLY 2")
                 result = decw.net.restore_attrib({**query,'api_key':api_key,'ignore_mirror':True}) # ** TODO Fix buried credential, which is now expanding as a problem
-                print("Snapshot.push_to_remote attrib ONLY 3")
                 if messages.add_assert('error' not in result,"D. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
@@ -349,11 +347,9 @@ class Snapshot:
                 if messages.add_assert('__mirror_restored' in result and result['__mirror_restored']==False,"The Mirror should have been ignored "+str(result))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
-                print("Snapshot.push_to_remote attrib ONLY FINISHED")
 
                 results[obj_id] = (True,messages.get_error_messages())
                 continue
-                
             # ---------
             # b) Make sure the local is complete
             local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object(decw,obj_id, download_path, connection_settings)
@@ -363,7 +359,7 @@ class Snapshot:
 
             # ---------
             # assert the case (a,b)
-            assert local_result == True and remote_result == False
+            assert local_result == True and (remote_result == False or remote_result_mirror == False)
 
             # ---------
             # Upload metadata
@@ -379,9 +375,7 @@ class Snapshot:
                 continue
             # TODO - Check if payload is missing using validate remote
             obj_cids = []
-            print("EVALUATING PUSH PAYLOAD FUNCTION")
             if remote_result == False:                
-                print("EVALUATING PUSH PAYLOAD FUNCTION 2")
                 # We toss up a restore, that may fail, as some files require attrib-first restore, and others require payload first restore.
                 # Here I am testing doing attrib - payload - attrib (again) which should be able to resotre any general entity.
                 ignore_result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential 
@@ -391,7 +385,6 @@ class Snapshot:
                 # Upload cids
                 ds_local = Snapshot.get_object_datasource(decw,obj_id,"local",download_path)
                 ds_remote = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path)
-                print("STARTED ds_local.push_payload_to")
                 success, payload_messages = ds_local.push_payload_to(ds_remote,decw,obj,download_path,connection_settings)
                 if len(payload_messages.get_error_messages()) > 0:
                     results[obj_id] = (False,payload_messages.get_error_messages() + ['a. failure in Snapshot.ds_local.push_payload_to()'])
@@ -399,32 +392,22 @@ class Snapshot:
                 if success == False:
                     results[obj_id] = (False,payload_messages.get_error_messages() + ['b. failure in Snapshot.ds_local.push_payload_to()'])
                     continue
-                print("FINISHED ds_local.push_payload_to")
                 
             # TODO - Check if attrib is missing before calling repair attrib
             # TODO - Restore attrib will also restore the mirror as needed.
             # result = decw.net.restore_attrib(decw.dw.sr({**query,'api_key':api_key},["admin"])) # ** TODO Fix buried credential 
-            print("Snapshot. Now running restore restore_attrib")
             result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential 
-            print("Snapshot. Finished running restore restore_attrib")
             
-            print("Snapshot. Now confirming restore")            
             if messages.add_assert('error' not in result,"a. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
-            print("Snapshot. FINISHED confirming restore")            
-            print("Snapshot. Now confirming mirrir")            
             if '__mirror_restored' in result and type(result['__mirror_restored'])==dict:
-                print("Mirror Failed:")
-                print(result)
                 if messages.add_assert('error' not in result['__mirror_restored'],"b. Upload did not secceed at all:"+str(result)+ "for object "+str(query))==False:
                     results[obj_id]= (False,messages.get_error_messages())
                     continue
-            print("Snapshot. FINISHED confirming mirrir")            
 
             # ---------
             # Verify Upload was successful
-            print("Snapshot. Now running validation")
             
             remote_result, remote_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).validate_object(decw,obj_id, download_path, connection_settings)
             messages.append(remote_validation_messages)
@@ -432,7 +415,6 @@ class Snapshot:
             if messages.add_assert(remote_result == True,"Could not complete proper remote restore")==False:
                 results[obj_id]= (False,messages.get_error_messages())
                 continue
-            print("Snapshot. Now running validation FINISHED")
 
             results[obj_id]= (remote_result,messages.get_error_messages())
 
