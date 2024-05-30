@@ -42,7 +42,7 @@ class Snapshot:
         'file': TpFile,
         'json': TpFile,
         'host': TpAttrib,
-        'user': TpAttrib,
+        'user': TpFile,
         'node': TpAttrib,
         'directory':TpAttrib
     }
