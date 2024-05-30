@@ -36,13 +36,27 @@ def object_setup(agent:SnapshotAgent,
             'user_context': user_context
         })
         return obj_id, decelium_path
-    if setup_type == 'dir':
-        #did1  = pq.create_directory({'api_key':api_key,'path':'/test_directory'},remote=remote)
-        raise Exception("Not Supported")
-    
+    if setup_type == 'user':
+        wallet_contents = decw.dw.get_raw()
+
+        access_keys = wallet_contents["admin"]['user'].copy()
+        access_keys['private_key'] = "destroy it"
+
+        feature = {'username': "example_user",
+                   'api_key': decw.dw.pubk("admin"),
+                   'access_key':access_keys,
+                   'password': "example_pass",
+                   'password2': "example_pass",}
+        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'system_users','name':"example_user",}))   
+        print("Delete result > "+str(result))
+        decelium_path = 'system_users/example_user'
+        obj_id = decw.net.user_register(feature)        
+        assert 'obj-' in obj_id, "Could not create the user "+str(obj_id)
+        return obj_id, decelium_path
+
     if setup_type in ['file','json','host','directory']:
         if setup_type == 'directory':
-            delete_request = { 'path':'/example_dir/',
+            delete_request = { 'path':'/example_user.user',
             }
             # You must place the public_key into the servers TXT records
             create_request = {
@@ -418,18 +432,21 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 # setup_type =  'json'
 # setup_type = 'file'
 # setup_type =  'host' # Awaiting DNS update 
+# setup_type =  'directory' # Requires some refatoring
 
-setup_type =  'directory' # Requires some refatoring
+setup_type =  'user' # *Should* work
+
 
 # setup_type =  'node' # *Should* work
-# setup_type =  'user' # *Should* work
 
 test_type = 'remote_repair'
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
-#remote_types = ['rename_attrib_filename']
-#remote_mirror_types = ['delete_payload']
+# remote_types = ['remove_attrib']
+# remote_mirror_types = ['delete_payload']
+
+
 #remote_types = ['delete_payload']
 #remote_mirror_types = ['delete_payload']
 
