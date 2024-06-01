@@ -117,7 +117,6 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         obj = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"remove_attrib"},["admin"]))
-        print("RESULT OF corrupt_remote_remove_attrib",obj)
     @staticmethod
     def corrupt_remote_rename_attrib_filename(record,memory):
         backup_path = record['backup_path']
@@ -159,7 +158,7 @@ class CorruptObject(Action):
         print(obj)
         validation_status = decw.net.validate_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk()},["admin"]))
         assert 'remote_payload' in validation_status, "a. Could not validate_entity " + str(validation_status)
-        assert validation_status['remote_payload'][0]['remote_payload'] in [False,None], "b. Could not validate_entity " + str(validation_status)
+        assert validation_status['remote_payload'][0]['remote_payload'] in [False,None], "b. Could not validate_entity " + str(validation_status) 
 
         '''
         # status =  Snapshot.remove_payload({'self_id':record['self_id']},record['backup_path']) 

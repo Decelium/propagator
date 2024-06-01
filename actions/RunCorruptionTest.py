@@ -98,6 +98,8 @@ class RunCorruptionTest(Action):
         setup_config:TestConfig = record['setup_config']
         invalid_props = record['invalid_props']
         for eval in record['corruption_evals']:
+            print("Evaluating pre repar corruption")
+            print(eval)
             evaluate_object_status({**setup_config.eval_context(),**eval})
         rec = record.copy()
         del rec['setup_config']

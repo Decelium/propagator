@@ -56,7 +56,7 @@ def object_setup(agent:SnapshotAgent,
 
     if setup_type in ['file','json','host','directory']:
         if setup_type == 'directory':
-            delete_request = { 'path':'/example_user.user',
+            delete_request = { 'path':'/example_dir',
             }
             # You must place the public_key into the servers TXT records
             create_request = {
@@ -64,6 +64,7 @@ def object_setup(agent:SnapshotAgent,
                 'name':'example_dir',
                 'file_type':'directory',
             }
+        
         elif setup_type == 'host':
             delete_request = { 'path':'/example_domain.dns',
             }
@@ -116,7 +117,7 @@ def object_setup(agent:SnapshotAgent,
         singed_req = decw.dw.sr({**user_context, **create_request})
         print(singed_req)
         obj_id = decw.net.create_entity(singed_req)
-        assert 'obj-' in obj_id, "Could not create the object "+str(obj_id)
+        assert 'obj-' in obj_id, "Could not create the object "+str(obj_id) + "delete res "+ str(del_try)
         return obj_id, decelium_path
     
     return {"error":"Did not register the existing type."}, None
@@ -268,32 +269,41 @@ def new_repair_corruption_config(corruption_1,
         assert c_target_reserve in ['remote_mirror','local'] # The datasource that will be held stable, so we can restore after
         assert do_repair in [True,False] # Are we testing the repair process? (Only relevant for remote and remote_mirror tests)
         assert push_target in ['local','remote'] # Where we would like to push the repair data
-        attrib_only_targets = ['host','user','directory']
+        attrib_only_targets = ['host','dict','directory','node']
         corruption_map = corruption_suffix_full
         if (target_type in attrib_only_targets):
             corruption_map = corruption_suffix_attrib_only
         invalid_props = []
+        pre_invalid_props = []
+        post_invalid_props = []
         # The corruptions we can apply, and what they will break.
-        if do_repair == True:
-            if 'attrib' in corruption_map[corruption_2] and 'attrib' in corruption_map[corruption_1]:
-                # If both attributes are corrupt, then no repair can validate the payload
-                invalid_props = [f'{c_target_1}_payload',f'{c_target_2}_payload']
-            invalid_remote =  ['_'.join([c_target_1,suffix]) for suffix in corruption_map[corruption_1] if suffix in corruption_map[corruption_2] ]
-            invalid_remote_mirror =  ['_'.join([c_target_2,suffix]) for suffix in  corruption_map[corruption_2] if suffix in corruption_map[corruption_1]]
-            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
-        else:
-            if 'attrib' in corruption_map[corruption_2]:
-                invalid_props =  invalid_props + [f'{c_target_2}_payload']
-            if 'attrib' in corruption_map[corruption_1]:
-                invalid_props =  invalid_props + [f'{c_target_1}_payload']
-            invalid_remote =  ['_'.join([c_target_1,suffix]) for suffix in corruption_map[corruption_1] ]
-            invalid_remote_mirror =  ['_'.join([c_target_2,suffix]) for suffix in  corruption_map[corruption_2]]
-            invalid_props = invalid_props+ invalid_remote + invalid_remote_mirror
+        #
+        if 'attrib' in corruption_map[corruption_2] and 'attrib' in corruption_map[corruption_1]:
+            # If both attributes are corrupt, then no repair can validate the payload
+            post_invalid_props = [f'{c_target_1}_payload',f'{c_target_2}_payload']
+        post_invalid_remote =  ['_'.join([c_target_1,suffix]) for suffix in corruption_map[corruption_1] if suffix in corruption_map[corruption_2] ]
+        post_invalid_remote_mirror =  ['_'.join([c_target_2,suffix]) for suffix in  corruption_map[corruption_2] if suffix in corruption_map[corruption_1]]
+        post_invalid_props = post_invalid_props+ post_invalid_remote + post_invalid_remote_mirror
 
+        #
+        if 'attrib' in corruption_map[corruption_2]:
+            pre_invalid_props =  pre_invalid_props + [f'{c_target_2}_payload']
+        if 'attrib' in corruption_map[corruption_1]:
+            pre_invalid_props =  pre_invalid_props + [f'{c_target_1}_payload']
+        pre_invalid_remote =  ['_'.join([c_target_1,suffix]) for suffix in corruption_map[corruption_1] ]
+        pre_invalid_remote_mirror =  ['_'.join([c_target_2,suffix]) for suffix in  corruption_map[corruption_2]]
+        pre_invalid_props = pre_invalid_props+ pre_invalid_remote + pre_invalid_remote_mirror
+
+        #
+        if do_repair == True:
+            invalid_props  = post_invalid_props
+        else:
+            invalid_props = pre_invalid_props
         print("\n\nINVALID DEBUG IN new_repair_corruption_config")
-        print("-- invalid_remote",invalid_remote)
-        print("-- invalid_remote_mirror",invalid_remote_mirror)
-        print("-- invalid_props",invalid_props)
+        print("-- do_repair",do_repair)
+        print("-- pre_invalid_remote",pre_invalid_remote)
+        print("-- pre_invalid_remote_mirror",pre_invalid_remote_mirror)
+        print("-- pre_invalid_props",pre_invalid_props)
         print("\n\n")
         repair_success_expectation = True
         
@@ -305,13 +315,16 @@ def new_repair_corruption_config(corruption_1,
         pre_eval_2 = {'target':c_target_2,'status':['object_missing','payload_missing']}
 
         # Small patch to acknolwedge that payload corruption of attribute only entities should not have any effect
-        if len(invalid_remote) == 0:
+        if len(pre_invalid_remote) == 0:
             pre_eval_1 = {'target':c_target_1,'status':['complete']} # The corruption should not do anything
-            assert corruption_1 in ['delete_payload','corrupt_payload']
+            if do_repair == False:
+                assert corruption_1 in ['delete_payload','corrupt_payload']
             assert target_type in attrib_only_targets
-        if len(invalid_remote_mirror) == 0:
+
+        if len(pre_invalid_remote_mirror) == 0:
             pre_eval_2 = {'target':c_target_2,'status':['complete']} # The corruption should not do anything
-            assert corruption_2 in ['delete_payload','corrupt_payload']
+            if do_repair == False:
+                assert corruption_2 in ['delete_payload','corrupt_payload']
             assert target_type in attrib_only_targets
 
         pre_evals = [
@@ -377,7 +390,7 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
         c_target_1 = 'remote'
         c_target_2 = 'remote_mirror'
         c_target_reserve = 'local'
-        do_repair = False
+        do_repair = True
         push_target = 'remote'
     
     # CONFIG 2 : REMOTE NO REPAIR
@@ -386,7 +399,7 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
         c_target_1 = 'remote'
         c_target_2 = 'remote_mirror'
         c_target_reserve = 'local'
-        do_repair = True
+        do_repair = False
         push_target = 'remote'
 
     # CONFIG 3 : LOCAL NO REPAIR
@@ -417,11 +430,16 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
                                                     do_repair,
                                                     push_target,
                                                     target_type)     
+            print(f"FINISHED CONFIGURING {corrupt_remote} , {corrupt_mirror}")
             configs.append(config)
 
     print("corruption tests :"+str(len(configs)))
     for corruption_config in configs:
+        print("----------------------------")
+        print("----------------------------")
         print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
+        print("setup_type,"+setup_type)
+        print("test_type,"+test_type)
         agent.run_corruption_test(corruption_config)
 
 
@@ -433,34 +451,26 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 # setup_type = 'file'
 # setup_type =  'host' # Awaiting DNS update 
 # setup_type =  'directory' # Requires some refatoring
+# setup_type =  'user' # *Should* work
 
-setup_type =  'user' # *Should* work
 
 
-# setup_type =  'node' # *Should* work
-
-test_type = 'remote_repair'
+test_types = ['remote_repair','remote_no_repair','local_no_repair']
+file_types = ['ipfs','json','file','host','directory','user']
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
-# remote_types = ['remove_attrib']
-# remote_mirror_types = ['delete_payload']
 
+# file_types = ['host']
 
-#remote_types = ['delete_payload']
-#remote_mirror_types = ['delete_payload']
-
-# dec_api_key_e66eebeb3b56bd627c082a36fb0528e45d1fa8d6a1b9e47d478c3af9a11baaf6431bfdb491ceb6d8c5a3674433dcf5a1a1f9af74cf5a9414d026b68fdcedfc5d
-# dec_api_key_e66eebeb3b56bd627c082a36fb0528e45d1fa8d6a1b9e47d478c3af9a11baaf6431bfdb491ceb6d8c5a3674433dcf5a1a1f9af74cf5a9414d026b68fdcedfc5d
+#test_types = ['remote_repair']
 #remote_types = ['delete_payload']
 #remote_mirror_types = ['remove_attrib']
+#file_types = ['directory']
 
-# remote_types = ['remove_attrib']
-# remote_mirror_types = ['remove_attrib']
-
-
-# test_setup(setup_type)
-test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_types)
+for test_type in test_types:
+    for file_type in file_types:
+        test_corruptions_repair(file_type,test_type,remote_types,remote_mirror_types)
 print ("FINISHED")
 # test_corruptions(setup_type)
 
