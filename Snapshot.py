@@ -239,15 +239,17 @@ class Snapshot:
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        decw = None
-        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        decw = None # get_general_datasource(datasource_name:str)
+        # file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        file_datasoruce = Snapshot.get_general_datasource("local")
         return file_datasoruce.remove_entity(filter,download_path)
 
     @auto_c(EntityRequestData)
     def remove_attrib(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
         decw = None
-        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        # file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        file_datasoruce = Snapshot.get_general_datasource("local")
         return file_datasoruce.remove_attrib(filter,download_path)
 
     @auto_c(EntityRequestData)
