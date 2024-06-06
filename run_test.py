@@ -461,12 +461,10 @@ remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
 
-# file_types = ['host']
-
-#test_types = ['remote_repair']
-#remote_types = ['delete_payload']
-#remote_mirror_types = ['remove_attrib']
-#file_types = ['directory']
+file_types = ['ipfs']
+test_types = ['remote_repair']
+remote_types = ['delete_payload']
+remote_mirror_types = ['remove_attrib']
 
 for test_type in test_types:
     for file_type in file_types:

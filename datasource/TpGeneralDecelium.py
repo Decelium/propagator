@@ -11,7 +11,7 @@ import json
 
 class TpGeneralDecelium(TpGeneral):
     @classmethod
-    def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False):
+    def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False,failure_limit=5):
         c = connection_settings
         ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
 
@@ -19,6 +19,7 @@ class TpGeneralDecelium(TpGeneral):
         next_batch = []
 
         all_pins = cls.ipfs_pin_list(decw, connection_settings)
+        failures = 0
         with ipfshttpclient.connect(ipfs_string) as client:
             while len(current_docs) > 0:
                 for item in current_docs:
@@ -31,6 +32,10 @@ class TpGeneralDecelium(TpGeneral):
                         all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
                         
                     new_pins = TpDestination.backup_ipfs_entity(TpGeneralDecelium,dic,all_pins,download_path,client,overwrite)
+                    if len(new_pins) == 0:
+                        failures = failures + 1
+                        if failures > failure_limit and failure_limit >0:
+                            return {'error':"too many failures"}
                     if len(new_pins) > 0:
                         next_batch = next_batch + new_pins
                 current_docs = next_batch
@@ -98,11 +103,9 @@ class TpGeneralDecelium(TpGeneral):
    
     @classmethod
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        print("\n\n\n\nvalidate_object_payload\n\n\n\n")
         messages = ObjectMessages("TpGeneralDecelium.validate_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
-        print("LOW LEVEL TpGeneralDecelium.validate_object_payload")
 
         obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
         if messages.add_assert(obj_valid == True, f"B. validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_object_entity:"+str(obj_valid)) == False:
@@ -194,9 +197,13 @@ class TpGeneralDecelium(TpGeneral):
     def find_batch_objects(cls,decw,offset,limit,filter=None):
         if filter ==None:
             filter ={'attrib':{'file_type':'ipfs'}}
+        #print("Searching Filter = "+str(filter))
         filter['limit'] = limit
         filter['offset'] = offset
         docs = decw.net.list(filter)
+        if type(docs) == dict and 'error' in docs:
+            return filter
+        #print(docs)
         obj_ids = []
         for doc in docs:
             obj_ids.append(doc)

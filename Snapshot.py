@@ -178,6 +178,7 @@ class Snapshot:
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
             file_type = 'ipfs'
+            
         # else:
         #    obj = Snapshot.load_file_by_id(decw,obj_id,datasource,download_path)
             
@@ -187,12 +188,16 @@ class Snapshot:
             local_object_ids = os.listdir(download_path)
         
         found_objs = Snapshot.get_general_datasource("remote").find_batch_objects(decw,offset,limit,filter)
+        # print("append_from_remote- found_objs:",found_objs)
+        # print(found_objs)
 
         needed_objs = found_objs
         results = {}
         if len(needed_objs) <= 0:
             return {}
         for obj in needed_objs:
+            # print("obj",obj)
+            print(f"syncing {obj['self_id']}")
             obj_id = obj['self_id']
             
             # TODO -- Generalize TYPES fully in snapshot
@@ -438,7 +443,9 @@ class Snapshot:
     
     @staticmethod
     def validate_snapshot(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
+        print(download_path)
         object_ids = os.listdir(download_path)
+        print(len(object_ids))
         found_objs = []
         results = {}
         current_offset = 0
@@ -449,9 +456,10 @@ class Snapshot:
             results[obj_id] = {'self_id':obj_id}       
             local_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
             remote_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote')
+            remote_mirror_results,_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'remote_mirror')
             results[obj_id].update(local_results)
             results[obj_id].update(remote_results)
-
+            results[obj_id].update(remote_mirror_results)
             current_offset += 1
             if current_offset >= limit+offset:
                 break
