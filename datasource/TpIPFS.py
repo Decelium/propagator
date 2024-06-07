@@ -21,7 +21,7 @@ class TpIPFS(TpFacade):
             if 'ipfs_cids' in obj['settings']:
                 for cid in obj['settings']['ipfs_cids'].values():
                     new_cids.append(cid)
-            
+            print("TpIPFS merge_payload_from_remote Downloading IPFS data for "+obj['self_id'])
             result = TpSource.download_ipfs_data(cls,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
             return result
         

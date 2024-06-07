@@ -17,7 +17,7 @@ class TpGeneralLocal(TpGeneral):
             object_ids = [object_ids]
         results = {}
         for obj_id in object_ids:
-            messages = ObjectMessages(f"{str(cls)}:TpGeneralLocal.download_object(for {obj_id})")
+            messages = ObjectMessages(f"{str(cls)}:in TpGeneralLocal.download_object(for {obj_id})")
             try:
                 success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
@@ -26,8 +26,14 @@ class TpGeneralLocal(TpGeneral):
                         raise Exception("Halt Now. The data is corrupt.")
                     # TODO should verify the success of the merge operation
                     if attrib != True:
-                        cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
-                    results[obj_id] = (True,messages)
+                        result = cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
+                        if type(result) == dict:
+                            if messages.add_assert( "error" not in result,"Could not retrieve IPFS pins from merge_payload_from_remote: "+result['error'] ) == False:
+                                results[obj_id] = (False,messages)
+                        else:
+                            results[obj_id] = (result,messages)
+                    else:
+                        results[obj_id] = (True,messages)
                 else:
                     results[obj_id] = (False,messages)
             except:
@@ -159,6 +165,11 @@ class TpGeneralLocal(TpGeneral):
         if not os.path.exists(download_path):
             os.makedirs(download_path)
         file_path = os.path.join(download_path, root_cid)
+        if os.path.exists(file_path + ".file") and os.path.exists(file_path + ".file.hash"):
+            if cls.compare_file_hash(file_path + ".file") == True:
+                # print("backup_ipfs_entity cached ")
+                return [root_cid]
+
         # Check if root the file already exists to avoid double writing
         if overwrite == False and cls.has_backedup_cid(download_path, root_cid) == True:
             return new_cids
@@ -179,7 +190,8 @@ class TpGeneralLocal(TpGeneral):
                 current_hash = cls.generate_file_hash(file_path+ ".file")
                 with open(file_path + ".file.hash", 'wb') as f:
                         f.write(current_hash)
-                
+                print("backup_ipfs_entity.SHOULD HAVE WRITTEN "+file_path)
+                new_cids.append(root_cid)
             except Exception as e:
                 
                 if "is a directory" in str(e):
@@ -192,6 +204,7 @@ class TpGeneralLocal(TpGeneral):
                         f.write(json.dumps(dir_json))
                     cls.overwrite_file_hash(file_path+ ".dag")
                 else:
+                    print("backup_ipfs_entity.failed")
                     raise e
             return new_cids
         except Exception as e:
@@ -301,7 +314,8 @@ class TpGeneralLocal(TpGeneral):
                 cids_downloaded.append(item.split('.')[0])
         missing = []
         for pin in cids_pinned:
-            messages.add_assert(pin in cids_downloaded, "a local pin ("+pin+") from pinned object for "+object_id+" was not downloaded")
+            if messages.add_assert(pin in cids_downloaded, "At least one pin ("+pin+") for "+object_id+" is missing") == False:
+                break
         return len(messages.get_error_messages())== 0,messages   
     
     @classmethod

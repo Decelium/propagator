@@ -14,32 +14,39 @@ class TpGeneralDecelium(TpGeneral):
     def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False,failure_limit=5):
         c = connection_settings
         ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
-
+        print(ipfs_string)
         current_docs = cids
         next_batch = []
 
         all_pins = cls.ipfs_pin_list(decw, connection_settings)
         failures = 0
+        count = 0
+        print("A")
+        length = len(current_docs) 
+        print("B")
         with ipfshttpclient.connect(ipfs_string) as client:
-            while len(current_docs) > 0:
-                for item in current_docs:
-                    dic = None
-                    if type(item) == dict:
-                        dic = item.copy()
-                    if type(item) == str:
-                        dic = {'cid':item,'self_id':None}
-                    if not dic['cid'] in all_pins:
-                        all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
-                        
-                    new_pins = TpDestination.backup_ipfs_entity(TpGeneralDecelium,dic,all_pins,download_path,client,overwrite)
-                    if len(new_pins) == 0:
-                        failures = failures + 1
-                        if failures > failure_limit and failure_limit >0:
-                            return {'error':"too many failures"}
-                    if len(new_pins) > 0:
-                        next_batch = next_batch + new_pins
-                current_docs = next_batch
-                next_batch = []
+            for item in current_docs:
+                count = count + 1
+                dic = None
+                if type(item) == dict:
+                    dic = item.copy()
+                if type(item) == str:
+                    dic = {'cid':item,'self_id':None}
+                if not dic['cid'] in all_pins:
+                    all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
+                
+                print(f"{count}/{length} - Backing up "+dic['cid'] )
+                new_pins = TpDestination.backup_ipfs_entity(TpGeneralDecelium,dic,all_pins,download_path,client,overwrite)
+                if len(new_pins) == 0:
+                    failures = failures + 1
+                    if failures > failure_limit and failure_limit >0:
+                        print("Hit Failure Limit")
+                        return {'error':"too many failures"}
+                if len(new_pins) > 0:
+                    next_batch = next_batch + new_pins
+            current_docs = next_batch
+            next_batch = []
+        return True
                 
     @classmethod
     def download_payload_data(cls,decw,obj):

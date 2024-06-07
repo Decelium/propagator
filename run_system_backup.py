@@ -80,6 +80,10 @@ class SystemBackup():
         validation_report = self.backup_status(file_type,backup_path,early_stop)
         assert 'corrupt' in  validation_report
         for item in validation_report['corrupt'].values():
+            if not "obj-" in item['self_id']:
+                continue
+
+            print("purge_corrupt")
             print(item)
             assert item['local'] == False
             assert item['remote'] == False
@@ -87,16 +91,33 @@ class SystemBackup():
             #assert Snapshot.remove_entity({'self_id':item['self_id']},backup_path) == True
             #
             file_datasoruce = Snapshot.get_datasource(file_type,"local")
-            assert file_datasoruce.remove_entity({'self_id':item['self_id']},backup_path) == True
+            result = file_datasoruce.remove_entity({'self_id':item['self_id']},backup_path) 
+            print(result)
+            assert result == True
             del_req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk(),'as_node_admin':True},["admin"])
             del_resp =  self.decw.net.delete_entity(del_req)
             print(del_resp)
             assert del_resp == True or ('error' in del_resp and 'could not find' in del_resp['error'])
             print("Purged "+item['self_id'])
         print("Finished purge")
-        #self.create_validation_report(self,file_type,backup_path,early_stop)
-        #print("Finished New report")
-        #return True
+
+    def repair(self,file_type,backup_path,early_stop = False):
+        validation_report = self.backup_status(file_type,backup_path,early_stop)
+        assert 'repairable' in  validation_report
+        for item in validation_report['repairable'].values():
+            if not "obj-" in item['self_id']:
+                continue
+
+            print("repairable")
+            print(item)
+            assert item['remote'] == False or item['remote_mirror'] == False
+            assert item['remote'] == True or item['remote_mirror'] == True
+
+            req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk()},["admin"])
+            repair_resp =  self.decw.net.repair_entity(req)
+            assert repair_resp == True, "Could not repair "+str(repair_resp)
+            print("Repaired "+item['self_id'])
+        print("Finished repair")    
     
     def create_validation_report(self,file_type,backup_path,early_stop = False):
         import pprint
@@ -115,14 +136,7 @@ class SystemBackup():
         
         if early_stop == True:
             return res_new
-        '''
-            ...
-            'obj-06dbfa8e-d534-45ae-b569-ea3870711653': {'local': False,
-                                                        'remote': False,
-                                                        'remote_mirror': False,
-                                                        'self_id': 'obj-06dbfa8e-d534-45ae-b569-ea3870711653'},   
-            ...     
-        '''
+        
         res = {}
         res.update(res_new)
         while len(res_new) >= chunk_size:
@@ -158,11 +172,42 @@ class SystemBackup():
             res = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
         return res
     
+    def push(self,file_type,backup_path,early_stop = False):
+        import pprint
+        filter = {'attrib':{'file_type':file_type}}
+        chunk_size = 20
+        limit = chunk_size + 1
+        offset = 0
+        res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
+        if early_stop == True:
+            return res
+        while len(res) >= chunk_size:
+            offset = offset + chunk_size
+            print(f"RUNNING {offset} {limit}")
+            res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
+        return res    
+
+    def pull(self,file_type,backup_path,early_stop = False):
+        validation_report = self.backup_status(file_type,backup_path,early_stop)
+        assert 'pullable' in  validation_report
+        res = {}
+        for item in validation_report['pullable'].values():
+            if not "obj-" in item['self_id']:
+                continue
+            print("PULLING")
+            filter = {'attrib':{'self_id':item['self_id']}}
+            chunk_size = 20
+            filter = {'attrib':{'self_id':item['self_id']}}
+            overwrite = True
+            res_add = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path,1, 0,filter,overwrite,api_key=self.decw.dw.pubk(),attrib=False)      
+            res.update(res_add)
+        return res   
+
 
     def run(self,job_id,file_types,early_stop=False):
         import pprint
         func = None
-        if job_id == 'validation':
+        if job_id == 'validate':
             func = self.create_validation_report
         if job_id == 'backup':
             func = self.backup_all_type
@@ -170,6 +215,12 @@ class SystemBackup():
             func = self.backup_status
         if job_id == 'purge_corrupt':
             func = self.purge_corrupt
+        if job_id == 'push':
+            func = self.push
+        if job_id == 'repair':
+            func = self.repair
+        if job_id == 'pull':
+            func = self.pull
         self.setup()
         results = {}
         for type in file_types:
@@ -191,13 +242,30 @@ file_types = ['ipfs']
 
 # sb.run_backup(file_types, early_stop)
 #sb.run('repair',file_types, early_stop)
-results = sb.run('purge_corrupt',file_types, early_stop)
+# results = sb.run('purge_corrupt',file_types, early_stop)
 #pprint.pprint(results['ipfs']['summary'])
 
-# sb.run('validation',file_types, early_stop)
+
+import pprint
+# sb.run('status',file_types, early_stop)
+
+
+
+#pprint.pprint(sb.run('pull',file_types, early_stop))
+sb.run('validate',file_types, early_stop)
+pprint.pprint(sb.run('status',file_types, early_stop))
 
 # - Purge the corrupt local and on server
 # - repair the repairable
 # - pull the pullable
 # - push the pushable
-
+'''
+          'pullable': {'obj-3595f855-10ff-48e8-9aeb-8046ccf19c37': {'local': False,
+                                                                    'remote': True,
+                                                                    'remote_mirror': True,
+                                                                    'self_id': 'obj-3595f855-10ff-48e8-9aeb-8046ccf19c37'},
+                       'obj-b01a9f03-b802-479e-aa20-00d30232e35e': {'local': False,
+                                                                    'remote': True,
+                                                                    'remote_mirror': True,
+                                                                    'self_id': 'obj-b01a9f03-b802-479e-aa20-00d30232e35e'}},
+'''
