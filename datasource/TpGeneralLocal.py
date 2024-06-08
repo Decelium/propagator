@@ -18,6 +18,7 @@ class TpGeneralLocal(TpGeneral):
         results = {}
         for obj_id in object_ids:
             messages = ObjectMessages(f"{str(cls)}:in TpGeneralLocal.download_object(for {obj_id})")
+            print("TpGeneralLocal download_object/INSIDE DOWNLOAD")
             try:
                 success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
@@ -36,6 +37,8 @@ class TpGeneralLocal(TpGeneral):
                         results[obj_id] = (True,messages)
                 else:
                     results[obj_id] = (False,messages)
+                print(" TpGeneralLocal download_object/FINISHED  DOWNLOAD")
+                
             except:
                 exc = tb.format_exc()
                 if not os.path.exists(download_path+'/'+obj_id):
