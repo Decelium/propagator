@@ -4,7 +4,12 @@ import os
 import base64
 
 class TombstoneArchive:
-
+    @staticmethod
+    def exists(repo,self_id):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
+        if not os.path.exists(file_name):
+            return False
+        return True
     @staticmethod
     def initalize(repo,self_id,initial_commit):
         file_name = os.path.join(repo,self_id+".tombstone.json")
@@ -135,6 +140,9 @@ class TombstoneManager:
         return final_encoding
         
     def verify(self, self_id, data):
+        if not TombstoneArchive.exists(self.repo,self_id):
+            self.commit(self_id, data)       
+        
         latest_index = self.commit_len(self_id) - 1
         previous_index = latest_index-1
         

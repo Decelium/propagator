@@ -109,7 +109,7 @@ class TpFile(TpFacade):
             try:
                 file_path = os.path.join(download_path,obj['self_id'], "payload.file")
                 if not os.path.exists(file_path):
-                    messages.add_assert(False==True, "Could not find local payload file")
+                    messages.add_assert(False==True, "a. Could not find local payload file")
                     return False,messages
 
                 
@@ -144,7 +144,7 @@ class TpFile(TpFacade):
             try:
                 file_path = os.path.join(download_path,object_id, "payload.file")
                 if not os.path.exists(file_path):
-                    messages.add_assert(False==True, "Could not find local payload file")
+                    messages.add_assert(False==True, "b. Could not find local payload file")
                     return False,messages
                 
                 valido_hasheesh = cls.compare_file_hash(file_path, hash_func='sha2-256')

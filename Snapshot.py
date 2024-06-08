@@ -193,6 +193,10 @@ class Snapshot:
             # print("obj",obj)
             print(f"syncing {obj['self_id']}")
             obj_id = obj['self_id']
+            if attrib == True:
+                validation_target = 'local_attrib'
+            else:
+                validation_target = 'local'
             try:
                 from_remote_datasource = Snapshot.get_datasource(obj['file_type'],"remote")
                 object_results = Snapshot.get_datasource(obj['file_type'],"local").download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite,attrib)
@@ -200,10 +204,12 @@ class Snapshot:
                 print(obj['file_type'])
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
-                if object_results[obj_id][0] == True:
-                    messages = object_results[obj_id][1]
                     
-                    results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local',messages)
+                if object_results[obj_id][0] == True:
+                    print("append_from_remote. NOW DOING VALIDATION " +str(attrib))
+                    messages = object_results[obj_id][1]
+                    # (decw,obj_id,download_path,connection_settings,datasourceproperty,previous_messages=None,prefix=None):
+                    results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,validation_target,messages,'local')
                 else:
                     result = False
                     messages = object_results[obj_id][1]
@@ -232,15 +238,17 @@ class Snapshot:
     @auto_c(EntityRequestData)
     def remove_entity(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
-        decw = None
-        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        decw = None # get_general_datasource(datasource_name:str)
+        # file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        file_datasoruce = Snapshot.get_general_datasource("local")
         return file_datasoruce.remove_entity(filter,download_path)
 
     @auto_c(EntityRequestData)
     def remove_attrib(filter:EntityRequestData,download_path:str):
         assert 'self_id' in filter
         decw = None
-        file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        # file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
+        file_datasoruce = Snapshot.get_general_datasource("local")
         return file_datasoruce.remove_attrib(filter,download_path)
 
     @auto_c(EntityRequestData)
