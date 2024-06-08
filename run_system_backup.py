@@ -1,9 +1,12 @@
 import decelium_wallet.core as core
 from Snapshot import Snapshot
 import os,json
+from type.BaseData import BaseData
+
+# class SearchFilter(BaseData):
+
 
 class SystemBackup():
-
     def setup(self):
         wallet_path= '../.wallet.dec'
         wallet_password_path =  '../.wallet.dec.password'
@@ -104,19 +107,21 @@ class SystemBackup():
     def repair(self,file_type,backup_path,early_stop = False):
         validation_report = self.backup_status(file_type,backup_path,early_stop)
         assert 'repairable' in  validation_report
-        for item in validation_report['repairable'].values():
-            if not "obj-" in item['self_id']:
-                continue
+        #assert 'pushable' in  validation_report
+        for k in ['repairable']:
+            for item in validation_report[k].values():
+                if not "obj-" in item['self_id']:
+                    continue
 
-            print("repairable")
-            print(item)
-            assert item['remote'] == False or item['remote_mirror'] == False
-            assert item['remote'] == True or item['remote_mirror'] == True
+                print(k)
+                print(item)
+                assert item['remote'] == False or item['remote_mirror'] == False
+                assert item['remote'] == True or item['remote_mirror'] == True
 
-            req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk()},["admin"])
-            repair_resp =  self.decw.net.repair_entity(req)
-            assert repair_resp == True, "Could not repair "+str(repair_resp)
-            print("Repaired "+item['self_id'])
+                req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk()},["admin"])
+                repair_resp =  self.decw.net.repair_entity(req)
+                assert repair_resp == True, "Could not repair "+str(repair_resp)
+                print("Repaired "+item['self_id'])
         print("Finished repair")    
     
     def create_validation_report(self,file_type,backup_path,early_stop = False):
@@ -125,25 +130,9 @@ class SystemBackup():
         chunk_size = 20
         limit = chunk_size+1
         offset = 0
+        show_errors = True 
         res_new = Snapshot.validate_snapshot(self.decw, self.connection_settings, backup_path,limit, offset)
-        for k in res_new:
-            del res_new[k]['local_error']
-            del res_new[k]['local_message']
-            del res_new[k]['remote_error']
-            del res_new[k]['remote_message']
-            del res_new[k]['remote_mirror_error']
-            del res_new[k]['remote_mirror_message']
-        
-        if early_stop == True:
-            return res_new
-        
-        res = {}
-        res.update(res_new)
-        while len(res_new) >= chunk_size:
-            offset = offset + chunk_size
-            print("Running "+ str(offset))
-
-            res_new = Snapshot.validate_snapshot(self.decw, self.connection_settings, backup_path,limit, offset)
+        if show_errors == False:
             for k in res_new:
                 del res_new[k]['local_error']
                 del res_new[k]['local_message']
@@ -151,7 +140,32 @@ class SystemBackup():
                 del res_new[k]['remote_message']
                 del res_new[k]['remote_mirror_error']
                 del res_new[k]['remote_mirror_message']
+        
+        if early_stop == True:
+            with open(os.path.join(backup_path,'validation_report_latest.json'),'w') as f:
+                f.write(json.dumps(res_new,indent=1))
+            print("EARLY STOP")
+            return True
+        
+        res = {}
+        res.update(res_new)
+        print(len(res_new))
+        while len(res_new) >= chunk_size:
+            offset = offset + chunk_size
+            print("Running "+ str(offset))
+
+            res_new = Snapshot.validate_snapshot(self.decw, self.connection_settings, backup_path,limit, offset)
+
+            if show_errors == False:
+                for k in res_new:
+                    del res_new[k]['local_error']
+                    del res_new[k]['local_message']
+                    del res_new[k]['remote_error']
+                    del res_new[k]['remote_message']
+                    del res_new[k]['remote_mirror_error']
+                    del res_new[k]['remote_mirror_message']
             res.update(res_new)
+        print("FULL DATA SET")
         with open(os.path.join(backup_path,'validation_report_latest.json'),'w') as f:
             f.write(json.dumps(res,indent=1))
         return True
@@ -205,7 +219,7 @@ class SystemBackup():
 
 
     def run(self,job_id,file_types,early_stop=False):
-        import pprint
+        print(job_id,file_types)
         func = None
         if job_id == 'validate':
             func = self.create_validation_report
@@ -234,38 +248,38 @@ class SystemBackup():
                 break
         return results
        
-import pprint
-sb = SystemBackup()
-early_stop = False
-file_types = ['ipfs','json','file','host','directory','user']
-file_types = ['ipfs']
+import pprint, argparse
 
-# sb.run_backup(file_types, early_stop)
-#sb.run('repair',file_types, early_stop)
-# results = sb.run('purge_corrupt',file_types, early_stop)
-#pprint.pprint(results['ipfs']['summary'])
+#sb = SystemBackup()
+#early_stop = False
+#file_types = ['ipfs','json','file','host','directory','user']
+#file_types = ['json']
+def main(mode, types):
+    sb = SystemBackup()
+    early_stop = False
+    file_types = types.split(',')
+    results = sb.run(mode, file_types, early_stop)
+    pprint.pprint(results)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run SystemBackup with specified mode and files.')
+    parser.add_argument('--mode', type=str, help='The mode to run the SystemBackup in')
+    parser.add_argument('--types', type=str, help='Comma-separated list of file types')
+
+    args = parser.parse_args()
+    mode = args.mode
+    types = args.types
+    main(mode, types)
 
 
-import pprint
-# sb.run('status',file_types, early_stop)
+#sb.run('validate',file_types, early_stop)
+#pprint.pprint(sb.run('status',file_types, early_stop))
+#if __name__ == "__main__":
+#    ...
 
 
-
-#pprint.pprint(sb.run('pull',file_types, early_stop))
-sb.run('validate',file_types, early_stop)
-pprint.pprint(sb.run('status',file_types, early_stop))
-
-# - Purge the corrupt local and on server
-# - repair the repairable
-# - pull the pullable
-# - push the pushable
-'''
-          'pullable': {'obj-3595f855-10ff-48e8-9aeb-8046ccf19c37': {'local': False,
-                                                                    'remote': True,
-                                                                    'remote_mirror': True,
-                                                                    'self_id': 'obj-3595f855-10ff-48e8-9aeb-8046ccf19c37'},
-                       'obj-b01a9f03-b802-479e-aa20-00d30232e35e': {'local': False,
-                                                                    'remote': True,
-                                                                    'remote_mirror': True,
-                                                                    'self_id': 'obj-b01a9f03-b802-479e-aa20-00d30232e35e'}},
-'''
+# Next Tasks - 
+# All FileTypes working
+# Edits / Create / Modified dates need to be present, considered when pulling / pushing
+# All Payloads protected with hashes
+# Unit tests of all above, in either regular tests or backup tests

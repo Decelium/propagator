@@ -436,13 +436,16 @@ class Snapshot:
     
     @staticmethod
     def validate_snapshot(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
-        print(download_path)
+        if not os.path.exists(download_path):
+            os.mkdir(download_path)
         object_ids = os.listdir(download_path)
-        print(len(object_ids))
         found_objs = []
         results = {}
         current_offset = 0
         for obj_id in object_ids:
+            if not 'obj-' in obj_id:
+                continue
+
             if current_offset < offset:
                 current_offset += 1
                 continue
