@@ -2,6 +2,30 @@ import hashlib
 import json
 import os
 import base64
+import datetime
+class jsondateencode_local:
+    def loads(dic):
+        return json.loads(dic,object_hook=jsondateencode_local.datetime_parser)
+    def dumps(dic):
+        return json.dumps(dic,default=jsondateencode_local.datedefault)
+
+    def datedefault(o):
+        if isinstance(o, tuple):
+            l = ['__ref']
+            l = l + o
+            return l
+        if isinstance(o, (datetime.date, datetime.datetime,)):
+            return o.isoformat()
+
+    def datetime_parser(dct):
+        DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
+        for k, v in dct.items():
+            if isinstance(v, str) and "T" in v:
+                try:
+                    dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
+                except:
+                    pass
+        return dct
 
 class TombstoneArchive:
     @staticmethod
@@ -83,7 +107,7 @@ class TombstoneManager:
             "hash": previous_entry["hash"],
             "data": data,
         }
-        this_hash = self._generate_hash(json.dumps(commit_data))
+        this_hash = self._generate_hash(jsondateencode_local.dumps(commit_data))
         return this_hash
 
     def decode_data(self, encoded_data):
@@ -126,9 +150,9 @@ class TombstoneManager:
         elif isinstance(raw_data, int):
             data_bytes = ("01:int:" + str(raw_data)).encode()
         elif isinstance(raw_data, dict):
-            data_bytes = ("01:dict:" + json.dumps(raw_data)).encode()
+            data_bytes = ("01:dict:" + jsondateencode_local.dumps(raw_data)).encode()
         elif isinstance(raw_data, list):
-            data_bytes = ("01:list:" + json.dumps(raw_data)).encode()
+            data_bytes = ("01:list:" + jsondateencode_local.dumps(raw_data)).encode()
         else:
             raise ValueError("Unsupported data type")
         
