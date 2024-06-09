@@ -308,13 +308,21 @@ class Snapshot:
         if len(object_ids) == 0:
             return results        
         for obj_id in object_ids:
-
+            local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object_attrib(decw,obj_id, download_path, connection_settings)
+            if local_result == False: # and remote_result == False:
+                results[obj_id] = (False,local_validation_messages.get_error_messages())
+                continue
+            # WORKING HERE
+            local_obj = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },download_path)
+            the_type = local_obj['file_type']
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            remote_result_mirror, remote_validation_messages_mirror = Snapshot.get_object_datasource(decw,obj_id,"remote_mirror",download_path).validate_object(decw,obj_id, download_path, connection_settings)
+            print("BEFORE MIRROR CHECK")
+            remote_result_mirror, remote_validation_messages_mirror = Snapshot.get_datasource(the_type,"remote_mirror").validate_object(decw,obj_id, download_path, connection_settings)
+            print("AFTER MIRROR CHECK")
             
-            remote_result, remote_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path).validate_object(decw,obj_id, download_path, connection_settings)
+            remote_result, remote_validation_messages = Snapshot.get_datasource(the_type,"remote").validate_object(decw,obj_id, download_path, connection_settings)
             #if remote_result == True and remote_result_mirror == False:
 
             
@@ -327,11 +335,7 @@ class Snapshot:
             if attrib_only == True:
                 
                 # ---------
-                # b) Make sure the local is complete (attrib only)
-                local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object_attrib(decw,obj_id, download_path, connection_settings)
-                if local_result == False: # and remote_result == False:
-                    results[obj_id] = (False,local_validation_messages.get_error_messages())
-                    continue
+
                 assert local_result == True and remote_result == False
                 # ---------
                 # Upload metadata (attrib only)
@@ -389,6 +393,7 @@ class Snapshot:
                 results[obj_id]= (False,messages.get_error_messages())
                 # ---------
                 # Upload cids
+                # .get_datasource(the_type,"remote")
                 ds_local = Snapshot.get_object_datasource(decw,obj_id,"local",download_path)
                 ds_remote = Snapshot.get_object_datasource(decw,obj_id,"remote",download_path)
                 success, payload_messages = ds_local.push_payload_to(ds_remote,decw,obj,download_path,connection_settings)

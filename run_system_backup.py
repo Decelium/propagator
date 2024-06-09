@@ -219,7 +219,26 @@ class SystemBackup():
 
 
     def run(self,job_id,file_types,early_stop=False):
+        obj_id = 'obj-e3df2506-60c5-4b25-b515-cc8997724ce8'
+        self.setup()
+        user_context = {"api_key":self.decw.dw.pubk()}
+        #singed_req = self.decw.dw.sr({**user_context, **{"path":"/temp_test.dat","file_type":"json","payload":{"content":True}}})   
+        #print("1\n",self.decw.net.create_entity(singed_req))
+        #print("1\n",self.decw.net.delete_entity(singed_req))
+        filter = {'attrib':{'self_id':obj_id}}
+        limit = 1
+        offset = 0
+        backup_path = "../devdecelium_systembackup/file/"
+        res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
+        with open("debug_dump.txt",'w') as f:
+            f.write(json.dumps(res,indent=2))
+        import pprint
+        pprint.pprint(res)
+        #print("2\n",self.decw.net.validate_entity_hash({"self_id":obj_id,"api_key":"undefined"}))
+        return 
         print(job_id,file_types)
+        
+        
         func = None
         if job_id == 'validate':
             func = self.create_validation_report
