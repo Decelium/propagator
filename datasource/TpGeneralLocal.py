@@ -10,6 +10,32 @@ import hashlib
 import shutil
 import random
 from .TpGeneral import TpGeneral
+
+import datetime
+class jsondateencode_local:
+    def loads(dic):
+        return json.loads(dic,object_hook=jsondateencode_local.datetime_parser)
+    def dumps(dic):
+        return json.dumps(dic,default=jsondateencode_local.datedefault)
+
+    def datedefault(o):
+        if isinstance(o, tuple):
+            l = ['__ref']
+            l = l + o
+            return l
+        if isinstance(o, (datetime.date, datetime.datetime,)):
+            return o.isoformat()
+
+    def datetime_parser(dct):
+        DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
+        for k, v in dct.items():
+            if isinstance(v, str) and "T" in v:
+                try:
+                    dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
+                except:
+                    pass
+        return dct
+
 class TpGeneralLocal(TpGeneral):
     @classmethod
     def download_object(cls,TpSource,decw,object_ids,download_path,connection_settings, overwrite=False,attrib=None):
@@ -133,7 +159,7 @@ class TpGeneralLocal(TpGeneral):
                 os.makedirs(dir_path)
             file_path = os.path.join(dir_path, 'object.json')
             with open(file_path,'w') as f:
-                f.write(json.dumps(merged_object)) 
+                f.write(jsondateencode_local.dumps(merged_object)) 
 
             cls.overwrite_file_hash(file_path)
             return True,merged_object,merge_messages
@@ -204,7 +230,7 @@ class TpGeneralLocal(TpGeneral):
                     # dir_json = client.object.get(cid)
                     # print(json.dumps(dict(dir_json)))
                     with open(file_path+".dag", 'w') as f:
-                        f.write(json.dumps(dir_json))
+                        f.write(jsondateencode_local.dumps(dir_json))
                     cls.overwrite_file_hash(file_path+ ".dag")
                 else:
                     print("backup_ipfs_entity.failed")
@@ -272,7 +298,7 @@ class TpGeneralLocal(TpGeneral):
         try:
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
-                obj_local = json.loads(f.read())
+                obj_local = jsondateencode_local.loads(f.read())
             valido_hasho = cls.compare_file_hash(file_path_test)
             if valido_hasho != True:
                 messages.add_assert(False, "B. Encountered A bad hash object.json :"+file_path_test)
@@ -333,7 +359,7 @@ class TpGeneralLocal(TpGeneral):
         assert 'attrib' in filter and filter['attrib'] == True
         try:
             with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
-                obj_attrib = json.loads(f.read())
+                obj_attrib = jsondateencode_local.loads(f.read())
             return obj_attrib
         except:
             return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
@@ -480,7 +506,7 @@ class TpGeneralLocal(TpGeneral):
         file_path = os.path.join(download_path, self_id, 'object.json')
 
         with open(file_path, 'r') as f:
-            correct_json = json.loads(f.read())
+            correct_json = jsondateencode_local.loads(f.read())
         correct_json['dir_name'] = "corrupt_name"
         with open(file_path, 'w') as f:
             f.write(json.dumps(correct_json))
