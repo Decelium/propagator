@@ -51,7 +51,8 @@ def object_setup(agent:SnapshotAgent,
         print("Delete result > "+str(result))
         decelium_path = 'system_users/example_user'
         obj_id = decw.net.user_register(feature)        
-        assert 'obj-' in obj_id, "Could not create the user "+str(obj_id)
+        
+        assert decw.has_entity_prefix(obj_id), "Could not create the user "+str(obj_id)
         return obj_id, decelium_path
 
     if setup_type in ['file','json','host','directory']:
@@ -74,7 +75,7 @@ def object_setup(agent:SnapshotAgent,
                 'name':'example_domain.dns',
                 'file_type':'host',
                 'attrib':{'host':'techoactivism.com',
-                          'target_id':'obj-INVALID_FOR_TESTING',
+                          'target_id':'xbj-INVALID_FOR_TESTING',
                                 'secret_password':"api_key"},
             }
 
@@ -117,7 +118,7 @@ def object_setup(agent:SnapshotAgent,
         singed_req = decw.dw.sr({**user_context, **create_request})
         print(singed_req)
         obj_id = decw.net.create_entity(singed_req)
-        assert 'obj-' in obj_id, "Could not create the object "+str(obj_id) + "delete res "+ str(del_try)
+        assert decw.has_entity_prefix(obj_id), "Could not create the object "+str(obj_id) + "delete res "+ str(del_try)
         return obj_id, decelium_path
     
     return {"error":"Did not register the existing type."}, None
@@ -162,7 +163,7 @@ def test_setup(setup_type = 'ipfs') -> TestConfig:
                  conn_config,
                  setup_type)
     print("run_test",obj_id)
-    assert 'obj-' in obj_id
+    assert decw.has_entity_prefix(obj_id)
     eval_context = {key: conn_config.get(key) for key in ['backup_path','self_id','connection_settings','decw']}
     eval_context['self_id'] = obj_id
     agent.evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})

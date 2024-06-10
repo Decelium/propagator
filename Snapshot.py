@@ -284,14 +284,14 @@ class Snapshot:
     
 
     @staticmethod
-    def push_to_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
+    def push_to_remote(decw:core, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
         if api_key == None:
             api_key = decw.dw.pubk("admin")
         messages = ObjectMessages("Snapshot.push_to_remote")
         unfiltered_ids = os.listdir(download_path)
         object_ids = []
         for obj_id in unfiltered_ids:
-            if not 'obj-' in obj_id:
+            if not decw.has_entity_prefix(obj_id):
                 continue
             if type(filter) == dict and 'attrib' in filter and 'self_id' in filter['attrib']:
                 if obj_id == filter['attrib']['self_id']:
@@ -451,7 +451,7 @@ class Snapshot:
         results = {}
         current_offset = 0
         for obj_id in object_ids:
-            if not 'obj-' in obj_id:
+            if not decw.has_entity_prefix(obj_id):
                 continue
 
             if current_offset < offset:

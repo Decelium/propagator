@@ -54,7 +54,7 @@ def upload_directory_to_remote(self,record,memory=None):
             'payload':pins}})
     obj_id = decw.net.create_entity(singed_req)
     try:
-        assert 'obj-' in obj_id, "Dam, Could not even create an entity : "+str(obj_id)  
+        assert decw.has_entity_prefix(obj_id), "Dam, Could not even create an entity : "+str(obj_id)  
     except Exception as e:
         print("Failing Object Id" + str(obj_id))
         raise e

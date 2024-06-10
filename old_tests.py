@@ -210,7 +210,8 @@ def test_object_backup():
             'payload_type':'ipfs_pin_list',
             'payload':pins}})
     obj_id = decw.net.create_entity(singed_req)
-    assert 'obj-' in obj_id
+    # assert 'xbj-' in obj_id
+    assert decw.has_entity_prefix(obj_id)
 
     # -- Download Object --
     obj = decw.net.download_entity( {**user_context, **{'self_id':obj_id,'attrib':True}})
@@ -268,7 +269,9 @@ def test_object_backup():
     # -- Restore the object with object re-upload -- 
     query = Migrator.upload_object_query(decw,obj_id, download_obj_path, connection_settings)
     result = decw.net.create_entity(decw.dw.sr({**query,**user_context},["admin"]))
-    assert 'obj-' in result
+    #assert 'xbj-' in result
+    assert decw.has_entity_prefix(result)
+
     obj_new = decw.net.download_entity( {**user_context, **{'self_id':result,'attrib':True}})
     assert obj_new['self_id'] == obj_old['self_id']
     assert obj_new['parent_id'] == obj_old['parent_id']
