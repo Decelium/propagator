@@ -171,19 +171,28 @@ class TpGeneralLocal(TpGeneral):
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
         cids = [] 
-        for item in os.listdir(download_path):
-            file_path = os.path.join(download_path, item)
-            if file_path.endswith('.file'):
-                payload_type = 'local_path'
-            elif file_path.endswith('.dag'):
-                payload_type = 'ipfs_pin_list'
-            else:
-                continue
-            result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
-            messages = ObjectMessages("Migrator.upload_ipfs_data")
-                    
-            messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
-            cids.append(result[0]['cid'])
+        print("TpGeneralLocal.upload_ipfs_data 1")      
+        messages = ObjectMessages("TpGeneralLocal.upload_ipfs_data")
+        def do_upload_by_type(type_str):
+            for item in os.listdir(download_path):
+                file_path = os.path.join(download_path, item)
+                if file_path.endswith('.file'):
+                    payload_type = 'local_path'
+                elif file_path.endswith('.dag'):
+                    payload_type = 'ipfs_pin_list'
+                else:
+                    continue
+                print("TpGeneralLocal.upload_ipfs_data 2")        
+                result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
+                print("TpGeneralLocal.upload_ipfs_data 3")        
+                try:
+                    result[0]
+                    messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
+                    cids.append(result[0]['cid'])
+                except:
+                    messages.add_assert(False,"could not parse upload_ipfs_data() result: "+str(result) ) 
+        do_upload_by_type('.file')
+        do_upload_by_type('.dag')
         return cids,messages
     
     @classmethod
