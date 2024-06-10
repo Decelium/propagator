@@ -283,7 +283,7 @@ import pprint, argparse
 #file_types = ['json']
 def main(mode, types):
     sb = SystemBackup()
-    early_stop = True
+    early_stop = False
     file_types = types.split(',')
     results = sb.run(mode, file_types, early_stop)
     pprint.pprint(results)
