@@ -43,7 +43,7 @@ class PushFromSnapshotToRemote(Action):
         assert results[obj_id][0] == True, "Could not validate "+ str(results)
 
         obj = Snapshot.get_datasource("ipfs","remote").load_entity({'api_key':'UNDEFINED',"self_id":obj_id,'attrib':True},decw)
-        assert 'obj-' in obj['self_id']
+        assert decw.has_entity_prefix(obj['self_id'])
 
     def postvalid(self,record,response,memory):
         decw = record['decw']

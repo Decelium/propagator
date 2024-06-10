@@ -261,7 +261,7 @@ class TestsTombstone():
                                'payload':source_data,
                               },remote=remote,show_errors=True)
         # Ensure tomstone ex
-        assert 'obj-' in fil
+        assert 'xbj-' in fil
         self_id = fil
 
         

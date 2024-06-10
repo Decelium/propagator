@@ -4,7 +4,7 @@ import os,json
 from type.BaseData import BaseData
 
 # class SearchFilter(BaseData):
-
+import time
 
 class SystemBackup():
     def setup(self):
@@ -83,7 +83,7 @@ class SystemBackup():
         validation_report = self.backup_status(file_type,backup_path,early_stop)
         assert 'corrupt' in  validation_report
         for item in validation_report['corrupt'].values():
-            if not "obj-" in item['self_id']:
+            if not self.decw.has_entity_prefix(item['self_id']):
                 continue
 
             print("purge_corrupt")
@@ -110,7 +110,7 @@ class SystemBackup():
         #assert 'pushable' in  validation_report
         for k in ['repairable']:
             for item in validation_report[k].values():
-                if not "obj-" in item['self_id']:
+                if not self.decw.has_entity_prefix(item['self_id']):
                     continue
 
                 print(k)
@@ -120,6 +120,11 @@ class SystemBackup():
 
                 req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk()},["admin"])
                 repair_resp =  self.decw.net.repair_entity(req)
+                if type(repair_resp) == dict and 'error' in repair_resp:
+                    print("Retry Repair... Sometimes IPFS can be slow.")
+                    time.sleep(3)
+                    repair_resp =  self.decw.net.repair_entity(req)
+
                 assert repair_resp == True, "Could not repair "+str(repair_resp)
                 print("Repaired "+item['self_id'])
         print("Finished repair")    
@@ -206,7 +211,7 @@ class SystemBackup():
         assert 'pullable' in  validation_report
         res = {}
         for item in validation_report['pullable'].values():
-            if not "obj-" in item['self_id']:
+            if not self.decw.has_entity_prefix(item['self_id']):
                 continue
             print("PULLING")
             filter = {'attrib':{'self_id':item['self_id']}}
@@ -217,25 +222,28 @@ class SystemBackup():
             res.update(res_add)
         return res   
 
-
     def run(self,job_id,file_types,early_stop=False):
-        obj_id = 'obj-e3df2506-60c5-4b25-b515-cc8997724ce8'
-        self.setup()
-        user_context = {"api_key":self.decw.dw.pubk()}
+        #obj_id = 'xbj-b01a9f03-b802-479e-aa20-00d30232e35e' #obj-101cf921-d7ab-4cff-ad04-8805181bdb00
+        #self.setup()
+        #user_context = {"api_key":self.decw.dw.pubk()}
+        #import pprint
+        #pprint.pprint(self.decw.net.validate_entity({"self_id":obj_id,"api_key":"undefined"}))
+        #print("\n\nrepair\n",self.decw.net.repair_entity({"self_id":obj_id,"api_key":"undefined"}))
+        #return
+        
         #singed_req = self.decw.dw.sr({**user_context, **{"path":"/temp_test.dat","file_type":"json","payload":{"content":True}}})   
         #print("1\n",self.decw.net.create_entity(singed_req))
-        #print("1\n",self.decw.net.delete_entity(singed_req))
-        filter = {'attrib':{'self_id':obj_id}}
-        limit = 1
-        offset = 0
-        backup_path = "../devdecelium_systembackup/file/"
-        res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
-        with open("debug_dump.txt",'w') as f:
-            f.write(json.dumps(res,indent=2))
-        import pprint
-        pprint.pprint(res)
-        #print("2\n",self.decw.net.validate_entity_hash({"self_id":obj_id,"api_key":"undefined"}))
-        return 
+        #print("2\n",self.decw.net.delete_entity(singed_req))
+        #filter = {'attrib':{'self_id':obj_id}}
+        #limit = 1
+        #offset = 0
+        #backup_path = "../devdecelium_systembackup/file/"
+        #res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
+        #with open("debug_dump.txt",'w') as f:
+        #    f.write(json.dumps(res,indent=2))
+        #import pprint
+        #pprint.pprint(res)
+         
         print(job_id,file_types)
         
         
@@ -275,7 +283,7 @@ import pprint, argparse
 #file_types = ['json']
 def main(mode, types):
     sb = SystemBackup()
-    early_stop = False
+    early_stop = True
     file_types = types.split(',')
     results = sb.run(mode, file_types, early_stop)
     pprint.pprint(results)
