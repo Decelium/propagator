@@ -30,14 +30,50 @@ class BaseData(dict):
     
     def do_validation(self,key,value):
         return value,""
+
+    def _validate_and_convert(self, key, expected_type, init_dict):
+        value = init_dict[key]
+        """Validates and converts a single key value based on its expected type."""
+        if isinstance(expected_type, FunctionType):
+            value = expected_type(value)
+        elif issubclass(expected_type, BaseData) and isinstance(value, dict):
+            value = expected_type(value)
+        elif not isinstance(value, expected_type):
+            raise TypeError(f"Expected type {expected_type} for key '{key}', got {type(value)}")
+
+        new_val, message = self.do_validation(key, value)
+        if new_val is None:
+            raise TypeError(f"do_validation did not pass for {expected_type} , {value}")
+
+        init_dict[key] = new_val
     
-    def __init__(self, init_dict):
-        if isinstance(init_dict,type(self)):
+    def __init__(self, in_dict,trim=False):
+        if isinstance(in_dict,type(self)):
             super().__init__(init_dict)      
             return
         required_keys, optional_keys = self.get_keys()
-        init_data = init_dict
         
+        if trim == False:
+            init_dict = in_dict
+        else:
+            all_keys = list(required_keys.keys()) + list(optional_keys.keys())
+            init_dict = in_dict.copy()
+            for k in init_dict.keys():
+                if k not in all_keys:
+                    del(init_dict[k])
+                
+        # Validate and convert required keys
+        for key, expected_type in required_keys.items():
+            if key not in init_dict:
+                raise ValueError(f"Key '{key}' must be in the initialization dictionary")
+            self._validate_and_convert(key, expected_type, init_dict)
+
+        # Validate and convert optional keys if they are present
+        for key, expected_type in optional_keys.items():
+            if key in init_dict:
+                self._validate_and_convert(key, expected_type, init_dict)        
+        super().__init__(init_dict)
+        '''
         for key, expected_type in required_keys.items():
             if key not in init_dict:
                 raise ValueError(f"Key '{key}' must be in the initialization dictionary")
@@ -66,7 +102,10 @@ class BaseData(dict):
                 if new_val == None:
                     raise TypeError(f"do_validation did not pass for {expected_type} , {value}")                
                 init_data[key] = value
+        super().__init__(init_dict)
 
+        '''
+        
         super().__init__(init_dict)
     def __setitem__(self, key, value):
         # TODO, Generalize the validation check, and run it on set in a complete manner
@@ -107,7 +146,6 @@ def run_simple_test():
             return required, optional    
         
         def do_validation(self,key,value):
-            print ("Validating "+ key)
             if key == 'age':
                 assert value > 0 and value < 120, "Humans must have a valid age range"
             return value,""
