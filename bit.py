@@ -29,7 +29,7 @@ def get_config_filepath(dirstr,originstr):
     config_dir = os.path.join(dirstr,originstr+'.remote.json')
     return config_dir
 
-def command_remote():
+def command_remote(command_in):
     parser = argparse.ArgumentParser(description='Create a remote snapshot directory')
     parser.add_argument('command', type=str, help='The command (remote)')
     parser.add_argument('subcommand', type=str, help='The sub command (add or remove)')
@@ -65,13 +65,8 @@ def command_remote():
             print(".empty")
     else:
         print("could not process remote command. Sub command should be (add,remove,ls)")
-def command_push():
-    pass
 
-def command_pull():
-    pass
-
-def command_validate():
+def parse_standard_command():
     parser = argparse.ArgumentParser(description='Create a remote snapshot directory')
     parser.add_argument('command', type=str, help='The command (validate)')
     parser.add_argument('origin', type=str,  help='The name of the origin')
@@ -92,14 +87,26 @@ def command_validate():
     sb = BackupManager()
     early_stop = True
     file_types = ['json']
-    results = sb.run(remote_config['dir'],host,protocol,'validate', file_types, early_stop)
-    assert 'json' in results and results['json'] == True,"Could not run validation query"
-    
-    print(results)
-def command_status():
-    pass
-def command_append():
-    pass
+    return {
+        'protocol':protocol,
+        'host':host,
+        'backup_manager':sb,
+        'early_stop':early_stop,
+        'file_types':file_types,
+        'dir':remote_config['dir']
+    }
+def command_standard(command_in):
+    command_info = parse_standard_command()
+    backup_manager = command_info['backup_manager']
+    results = backup_manager.run(command_info['dir'],
+                                 command_info['host'],
+                                 command_info['protocol'],
+                                 command_in, 
+                                 command_info['file_types'], 
+                                 command_info['early_stop'])
+    #assert 'json' in results and results['json'] == True,"Could not run validation query"
+    import pprint
+    pprint.pprint(results)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -110,15 +117,15 @@ if __name__ == "__main__":
     command = sys.argv[1]
     commands = {
                 'remote':command_remote,
-                'push':command_push,
-                'pull':command_pull,
-                'validate':command_validate,
-                'append':command_append,
-                'status':command_status,
+                'push':command_standard,
+                'pull':command_standard,
+                'validate':command_standard,
+                'append':command_standard,
+                'status':command_standard,
                 }
     if not command in commands:
         print("Could not find command in "+ str(list(commands.keys())) )
-    commands[command]()
+    commands[command](command)
 
 # Git interface
 # remote add origin ADDRESS

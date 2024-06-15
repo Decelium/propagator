@@ -228,6 +228,8 @@ class BackupManager():
             func = self.create_validation_report
         if job_id == 'backup':
             func = self.backup_all_type
+        if job_id == 'append':
+            func = self.backup_all_type
         if job_id == 'status':
             func = self.backup_status
         if job_id == 'purge_corrupt':
