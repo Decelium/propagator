@@ -37,6 +37,8 @@ class TombstoneArchive:
     @staticmethod
     def initalize(repo,self_id,initial_commit):
         file_name = os.path.join(repo,self_id+".tombstone.json")
+        if not os.path.exists(repo):
+            os.makedirs(repo)
         if not os.path.exists(file_name):
             with open(file_name, "w") as file:
                 json.dump([initial_commit], file, indent=4)
@@ -77,6 +79,9 @@ class TombstoneManager:
 
     def __init__(self,repo, hash_algo='sha256'):
         self.repo = repo
+        if not os.path.exists(repo):
+            os.makedirs(repo)
+        
         self.hash_function = getattr(hashlib, hash_algo, hashlib.sha256)
 
     def purge_commits(self, self_id):
