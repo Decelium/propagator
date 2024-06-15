@@ -91,6 +91,10 @@ class TombstoneManager:
         data = self.encode_data(raw_data) # A reversable encoding
         hash_obj = self.hash_function()
         hash_obj.update(data.encode('utf-8'))
+        print("_generate_hash")
+        print(raw_data)
+        print(hash_obj.hexdigest())
+        print("")
         return hash_obj.hexdigest()
     def commit_len(self, self_id,):
         return TombstoneArchive.length(self.repo,self_id)
@@ -170,13 +174,17 @@ class TombstoneManager:
         
     def verify(self, self_id, data):
         if not TombstoneArchive.exists(self.repo,self_id):
+            print("Tombstone DOING FIRST COMMIT")
+            #return None # Cant validate as there is no tombstone
             self.commit(self_id, data)       
         
         latest_index = self.commit_len(self_id) - 1
         previous_index = latest_index-1
         
         last_hash = self.get_commit(self_id,latest_index)['hash']
-                
+        #print("hash compare")
+        #print(self.generate_hash(self_id,data,previous_index))
+        #print(last_hash)
         if self.generate_hash(self_id,data,previous_index) ==  last_hash:
             return True
         return False
@@ -195,8 +203,10 @@ class TombstoneManager:
             is_duplicate = True
         if is_duplicate:
             return last_hash
+        new_hash = self.generate_hash(self_id,data,latest_index)
+        print("new hash,",new_hash)
         commit_data = {
-            "hash": self.generate_hash(self_id,data,latest_index),
+            "hash": new_hash,
         }
         TombstoneArchive.append(self.repo,self_id,commit_data)
         return commit_data['hash']
