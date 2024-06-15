@@ -104,15 +104,13 @@ class TpFile(TpFacade):
     class Local(TpGeneralLocal): 
         @classmethod
         def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
-            messages = ObjectMessages("TpFileLocal(for IPFS).push_payload_to_remote")
+            messages = ObjectMessages("TpFileLocal(for File).push_payload_to_remote")
             # For this kind of file, no additional payload handshaking is required. Create handles payload managment via attrib
             try:
                 file_path = os.path.join(download_path,obj['self_id'], "payload.file")
                 if not os.path.exists(file_path):
                     messages.add_assert(False==True, "a. Could not find local payload file")
                     return False,messages
-
-                
                 
                 valido_hasheesh = cls.compare_file_hash(file_path, hash_func='sha2-256')
                 if valido_hasheesh != True:
