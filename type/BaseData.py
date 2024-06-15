@@ -131,10 +131,10 @@ def run_simple_test():
                     'age': 30,
                     'arm':arm})
 
-from decelium_wallet import core as core
+#from decelium_wallet import core as core
 
 class ConnectionConfig(BaseData):
-    def decw(self) -> core:
+    def decw(self):
         return self['decw']
     def user_context(self) -> str:
         return self['user_context']
@@ -146,7 +146,7 @@ class ConnectionConfig(BaseData):
         return self['local_test_folder']
     
     def get_keys(self):
-        required = {'decw':core,
+        required = {'decw':lambda v:v, # (╯°□°)╯︵ ┻━┻ 
                     'user_context':dict,
                     'connection_settings':dict,
                     'backup_path':str,
@@ -154,7 +154,7 @@ class ConnectionConfig(BaseData):
                     }
         return required,{}
 
-
+# lambda v: v if (v in self.corruption_types and type(v) is str) else self.do_raise("corruption"),
 class TestConfig(ConnectionConfig):
     def decelium_path(self) ->str:
         return self['decelium_path']

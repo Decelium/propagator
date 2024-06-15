@@ -1,5 +1,6 @@
 
 import traceback as tb
+'''
 try:
     from ..datasource.TpIPFS import TpIPFS
     from ..Messages import ObjectMessages
@@ -10,7 +11,7 @@ except:
     from Messages import ObjectMessages
     from type.BaseData import BaseData,auto_c
     #from type.CorruptionData import CorruptionTestData
-
+'''
 def agent_action(**overrides):
     def decorator(run_func):
         class CustomAction(Action):

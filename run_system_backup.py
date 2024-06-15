@@ -7,10 +7,10 @@ from type.BaseData import BaseData
 import time
 
 class SystemBackup():
-    def setup(self):
+    def setup(self,host='devdecelium.com',protocol='http'):
         wallet_path= '../.wallet.dec'
         wallet_password_path =  '../.wallet.dec.password'
-        node_url =  'http://devdecelium.com:5000/data/query'
+        node_url =  f'{protocol}://{host}:5000/data/query'
         decw = core()
         decw:core.core = core()
         loaded = decw.load_wallet(decw.rd_path(wallet_path),decw.rd_path(wallet_password_path))
@@ -18,9 +18,9 @@ class SystemBackup():
         self.user_context = {
                 'api_key':decw.dw.pubk()
         }
-        self.connection_settings = {'host': "devdecelium.com",
+        self.connection_settings = {'host': host,
                                 'port':5001,
-                                'protocol':"http"
+                                'protocol':'http'
         }
         self.ipfs_req_context = {**self.user_context, **{
                 'file_type':'ipfs', 
@@ -222,31 +222,9 @@ class SystemBackup():
             res.update(res_add)
         return res   
 
-    def run(self,job_id,file_types,early_stop=False):
-        #obj_id = 'xbj-b01a9f03-b802-479e-aa20-00d30232e35e' #obj-101cf921-d7ab-4cff-ad04-8805181bdb00
-        #self.setup()
-        #user_context = {"api_key":self.decw.dw.pubk()}
-        #import pprint
-        #pprint.pprint(self.decw.net.validate_entity({"self_id":obj_id,"api_key":"undefined"}))
-        #print("\n\nrepair\n",self.decw.net.repair_entity({"self_id":obj_id,"api_key":"undefined"}))
-        #return
-        
-        #singed_req = self.decw.dw.sr({**user_context, **{"path":"/temp_test.dat","file_type":"json","payload":{"content":True}}})   
-        #print("1\n",self.decw.net.create_entity(singed_req))
-        #print("2\n",self.decw.net.delete_entity(singed_req))
-        #filter = {'attrib':{'self_id':obj_id}}
-        #limit = 1
-        #offset = 0
-        #backup_path = "../devdecelium_systembackup/file/"
-        #res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
-        #with open("debug_dump.txt",'w') as f:
-        #    f.write(json.dumps(res,indent=2))
-        #import pprint
-        #pprint.pprint(res)
+    def run(self,dir,host,protocol,job_id,file_types,early_stop=False):
          
         print(job_id,file_types)
-        
-        
         func = None
         if job_id == 'validate':
             func = self.create_validation_report
@@ -262,10 +240,11 @@ class SystemBackup():
             func = self.repair
         if job_id == 'pull':
             func = self.pull
-        self.setup()
+        self.setup(host,protocol)
         results = {}
         for type in file_types:
-            result = func(type,'../devdecelium_systembackup/'+type+"/",early_stop)
+            type_path = os.path.join(dir,type)
+            result = func(type,type_path,early_stop)
             results[type] = result
             if result == True:
                 print("SUCCESS" + type)
@@ -281,22 +260,23 @@ import pprint, argparse
 #early_stop = False
 #file_types = ['ipfs','json','file','host','directory','user']
 #file_types = ['json']
-def main(mode, types):
+def main(dir,host,protocol,mode, types):
     sb = SystemBackup()
     early_stop = False
     file_types = types.split(',')
-    results = sb.run(mode, file_types, early_stop)
+    results = sb.run(dir,host,protocol,mode, file_types, early_stop)
     pprint.pprint(results)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run SystemBackup with specified mode and files.')
     parser.add_argument('--mode', type=str, help='The mode to run the SystemBackup in')
     parser.add_argument('--types', type=str, help='Comma-separated list of file types')
+    parser.add_argument('--host', type=str, help='The host URL of the remote node',default='devdecelium.com')
+    parser.add_argument('--protocol', type=str, help='The protocol to use',default='http')
+    parser.add_argument('--dir', type=str, help='The local dir to use',default='../devdecelium.com_systembackup')
 
     args = parser.parse_args()
-    mode = args.mode
-    types = args.types
-    main(mode, types)
+    main(args.dir,args.host,args.protocol,args.mode, args.types)
 
 
 #sb.run('validate',file_types, early_stop)
@@ -310,3 +290,26 @@ if __name__ == "__main__":
 # Edits / Create / Modified dates need to be present, considered when pulling / pushing
 # All Payloads protected with hashes
 # Unit tests of all above, in either regular tests or backup tests
+
+
+# python3 -u deploy_raw_api.py >> /app/database/job_logs//deploy_raw_api.py_out.txt 2>> /app/database/job_logs//deploy_raw_api.py_errors.txt
+
+
+# Next Steps
+# --------------------------------------------
+
+# June 17 1 - System runs without crashing:
+# - Can clean IPFS and reboot just the IPFS server though the signal mechanism
+# - Can trigger IPFS reboot and clean at 50% disk capacity
+# - (Passive) Test Server runs 1 week without needing intervention
+
+# June 17 2 - System can be monitored easily
+# - Can get disk, memory, processes, and DB status from endpoint
+# - Can raise alert (locally) if node starts "misbehaving"
+
+# June 24 3 - Node can be automatically administered
+# - Can deploy node from outside
+# - Can restore data
+# - And rebase
+# - And shutdown / delete node
+# - All with simple CLI tool (SecretAgent)
