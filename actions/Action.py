@@ -25,40 +25,49 @@ def agent_action(**overrides):
     return decorator
 
 class Action():
-    def __init__(self,memory = None):
-        if memory == None:
-            self.__memory = {}
-        else:
-            self.__memory = memory.copy()
+    
+    def __init__(self,**kwargs):
+        self.__memory = None
+        if kwargs.get('memory', None) != None:
+            self.__memory = kwargs['memory']
 
-    def __call__(self, record, memory=None):
-        if memory == None:
-            memory = {}
-        return self.crun(record, memory)    
+    def __call__(self, **kwargs):
+        print("Action.Calling 1 ")
+        if self.__memory == None:
+            self.__memory = {}
+        kwargs['memory'] = self.__memory
+        print("Action.Calling")
+        print(kwargs)
+        return self.crun(**kwargs)    
       
-    def run(self,record,memory):
+    def run(self,**kwargs):
         raise Exception("Unimplemented")
         return
 
-    def prevalid(self,record,memory):
+    def prevalid(self,**kwargs):
         return True
     
-    def postvalid(self,record,response,memory):
+    def postvalid(self,**kwargs):
         return True
     
-    def crun(self,record,memory=None):
-        if memory == None:
-            memory = {}
+    def crun(self,**kwargs):
+        if kwargs.get('memory', None)  == None:
+            kwargs['memory'] = self.__memory
+
         err_str = "Unknown Error"
         try:
-            assert self.prevalid(record,memory)
-            response = self.run(record,memory)
-            assert self.postvalid(record,response,memory)
-            return response
+            assert self.prevalid(**kwargs) #record, memory
+            kwargs['response'] = self.run(**kwargs)  #record, memory
+            
+            assert self.postvalid(**kwargs)  #record, memory, response
+            return kwargs['response']
         except Exception as e :
             # Package up a highly detailed exception log for record keeping
             exc = tb.format_exc()
-            goal_text = self.explain(record,memory)
+            err_args = kwargs.copy()
+            if 'response' in kwargs:
+                del(kwargs['response'])
+            goal_text = self.explain(**kwargs)  #record, memory
             err_str = "Encountered an exception when seeking action:\n\n "
             err_str += goal_text
             #err_str += "\n\nException:\n\n"
@@ -69,10 +78,10 @@ class Action():
     def test(self):
         return True
 
-    def explain(self,record,memory):
+    def explain(self,**kwargs):
         return ""
     
-    def generate(self,lang,record,memory):
+    def generate(self,**kwargs):
         return ""
     
 class ExampleAction(Action):
@@ -83,6 +92,7 @@ class ExampleAction(Action):
         return True
     def postvalid(self,record,response,memory):
         return True
+    
     def explain(self,record,memory):
         return ""
     def test(self):
