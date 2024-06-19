@@ -43,7 +43,7 @@ class RunCorruptionTest(Action):
         backup_instruction["mode"] = corruption['mode']
         # backup_instruction.update(corruption)
         print(backup_instruction)
-        corrupt_object_backup(backup_instruction)
+        corrupt_object_backup(record=backup_instruction)
 
     def run_corruption_test(self,setup_config:TestConfig,
                             obj:dict,
@@ -79,9 +79,9 @@ class RunCorruptionTest(Action):
         assert 'final_evals' in record
         assert 'push_target' in record
         setup_config:TestConfig = record['setup_config']
-        evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})  
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'local','status':['complete']})  
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote','status':['complete']})        
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})  
         return True
     
     def get_validation_summary(self,decw,setup_config):
@@ -100,7 +100,7 @@ class RunCorruptionTest(Action):
         for eval in record['corruption_evals']:
             print("Evaluating pre repar corruption")
             print(eval)
-            evaluate_object_status({**setup_config.eval_context(),**eval})
+            evaluate_object_status(record={**setup_config.eval_context(),**eval})
         rec = record.copy()
         del rec['setup_config']
         # TODO -- make sure after payload is removed, that the data is absolutely not online.

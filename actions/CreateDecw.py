@@ -14,9 +14,12 @@ except:
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
     from .Action import Action
+
 from decelium_wallet import core as core
+
 class CreateDecw(Action):
-    def run(self,record,memory):
+    def run(self,record,memory=None):
+        
         decw = core()
         with open(record['wallet_path'],'r') as f:
             data = f.read()

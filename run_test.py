@@ -28,7 +28,7 @@ def object_setup(agent:SnapshotAgent,
                 'connection_settings':connection_settings
         }}
         print("---- 2: Doing Small Upload")
-        obj_id = agent.upload_directory_to_remote({
+        obj_id = agent.upload_directory_to_remote(record={
             'local_path': local_test_folder,
             'decelium_path': decelium_path,
             'decw': decw,
@@ -129,8 +129,9 @@ def object_setup(agent:SnapshotAgent,
 def test_setup(setup_type = 'ipfs') -> TestConfig:
     print("---- 1: Doing Setup")
     agent = SnapshotAgent()
-
-    decw, connected = agent.create_wallet_action({
+    print("run_test.Calling 1 ")
+    print(agent.create_wallet_action)
+    decw, connected = agent.create_wallet_action(record={
          'wallet_path': '../.wallet.dec',
          'wallet_password_path':'../.wallet.dec.password',
          'fabric_url': 'http://devdecelium.com:5000/data/query',
@@ -166,9 +167,9 @@ def test_setup(setup_type = 'ipfs') -> TestConfig:
     assert decw.has_entity_prefix(obj_id)
     eval_context = {key: conn_config.get(key) for key in ['backup_path','self_id','connection_settings','decw']}
     eval_context['self_id'] = obj_id
-    agent.evaluate_object_status({**eval_context,'target':'local','status':['object_missing','payload_missing']})
-    agent.evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
-    agent.evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+    agent.evaluate_object_status(record={**eval_context,'target':'local','status':['object_missing','payload_missing']})
+    agent.evaluate_object_status(record={**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status(record={**eval_context,'target':'remote_mirror','status':['complete']})
 
     test_config = TestConfig({**conn_config,
             'decelium_path':decelium_path,
@@ -177,11 +178,11 @@ def test_setup(setup_type = 'ipfs') -> TestConfig:
             })
 
     print("---- 2: Doing Small Pull")
-    obj,new_cids = agent.append_object_from_remote(test_config)
+    obj,new_cids = agent.append_object_from_remote(record=test_config)
 
-    agent.evaluate_object_status({**eval_context,'target':'local','status':['complete']})
-    agent.evaluate_object_status({**eval_context,'target':'remote','status':['complete']})
-    agent.evaluate_object_status({**eval_context,'target':'remote_mirror','status':['complete']})
+    agent.evaluate_object_status(record={**eval_context,'target':'local','status':['complete']})
+    agent.evaluate_object_status(record={**eval_context,'target':'remote','status':['complete']})
+    agent.evaluate_object_status(record={**eval_context,'target':'remote_mirror','status':['complete']})
 
     return test_config
 
@@ -441,7 +442,7 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
         print("Testing: \n"+ json.dumps(corruption_config['corruptions'],indent=4))
         print("setup_type,"+setup_type)
         print("test_type,"+test_type)
-        agent.run_corruption_test(corruption_config)
+        agent.run_corruption_test(record=corruption_config)
 
 
 # setup_type - 'ipfs', 'file'

@@ -315,9 +315,7 @@ class Snapshot:
             # ---------
             # a) Make sure the remote is missing
             # TODO -- Check for SIMILARITY not just a valid server object. Should push CHANGES up as well.
-            print("BEFORE MIRROR CHECK")
             remote_result_mirror, remote_validation_messages_mirror = Snapshot.get_datasource(the_type,"remote_mirror").validate_object(decw,obj_id, download_path, connection_settings)
-            print("AFTER MIRROR CHECK")
             
             remote_result, remote_validation_messages = Snapshot.get_datasource(the_type,"remote").validate_object(decw,obj_id, download_path, connection_settings)
             #if remote_result == True and remote_result_mirror == False:
@@ -384,7 +382,8 @@ class Snapshot:
                 # We toss up a restore, that may fail, as some files require attrib-first restore, and others require payload first restore.
                 # Here I am testing doing attrib - payload - attrib (again) which should be able to resotre any general entity.
                 ignore_result = decw.net.restore_attrib({**query,'api_key':api_key}) # ** TODO Fix buried credential 
-
+                print("RESTORE RESULT")
+                print(ignore_result)
                 results[obj_id]= (False,messages.get_error_messages())
                 # ---------
                 # Upload cids

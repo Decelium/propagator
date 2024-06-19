@@ -15,7 +15,7 @@ class SnapshotAgent():
     a Functional agent. Meaning each action is an explanable function, that is technically independent, which can be verified fully by 
     inspecting any parameters and context passed.
 
-    IMPORTANT: Agents are for unit tests, tutorials, and doc generation. They are heavy and not intended for production systems, rather, one is supposed to
+    IMPORTANT: Agents are for unit tests, dev ops, tutorials, and doc generation. They are heavy and not intended for production systems, rather, one is supposed to
     solve a problem with an agent, then inspect each action to understand how to use the API to solve the same problem with a lower level script.
     '''
     create_wallet_action = CreateDecw()
