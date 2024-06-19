@@ -1,21 +1,38 @@
 import decelium_wallet.core as core
-from Snapshot import Snapshot
+try:
+    from Snapshot import Snapshot
+    from type.BaseData import BaseData
+except:
+    from .Snapshot import Snapshot
+    from .type.BaseData import BaseData
+    
 import os,json
-from type.BaseData import BaseData
 import time
 
 class BackupManager():
-    def setup(self,host='devdecelium.com',protocol='http'):
-        wallet_path= '../.wallet.dec'
-        wallet_password_path =  '../.wallet.dec.password'
-        node_url =  f'{protocol}://{host}:5000/data/query'
-        decw = core()
-        decw:core.core = core()
-        loaded = decw.load_wallet(decw.rd_path(wallet_path),decw.rd_path(wallet_password_path))
+    def setup(self,host='devdecelium.com',
+              protocol='http',
+              wallet_path= '../.wallet.dec',
+              wallet_password_path =  '../.wallet.dec.password', 
+              url =  ':5000/data/query',
+             decw_in=None):
+        node_url =  f'{protocol}://{host}:{url}'
+        if decw_in:
+            decw = decw_in
+            loaded=True
+        else:
+            decw = core()
+            loaded = decw.load_wallet(decw.rd_path(wallet_path),decw.rd_path(wallet_password_path))
 
-        self.user_context = {
-                'api_key':decw.dw.pubk()
-        }
+        try:
+            self.user_context = {
+                    'api_key':decw.dw.pubk()
+            }
+        except:
+            self.user_context = {
+                    'api_key':"UNDEFINED"
+            }
+            
         self.connection_settings = {'host': host,
                                 'port':5001,
                                 'protocol':'http'
@@ -25,7 +42,7 @@ class BackupManager():
                 'connection_settings':self.connection_settings
         }}
 
-        connected = decw.initial_connect(target_url=node_url, api_key=decw.dw.pubk())
+        connected = decw.initial_connect(target_url=node_url, api_key=self.user_context['api_key'])
         assert loaded == True
         assert connected == True
         self.decw = decw
@@ -73,7 +90,7 @@ class BackupManager():
         return summary
     
     def load_validation_report(self,file_type,backup_path,early_stop = False):
-        with open(os.path.join(backup_path,'validation_report_latest.json'),'r') as f:
+        with open(os.path.join(backup_path,file_type+'_validation_report_latest.json'),'r') as f:
             content = json.loads(f.read())
         return content
     
@@ -84,8 +101,6 @@ class BackupManager():
             if not self.decw.has_entity_prefix(item['self_id']):
                 continue
 
-            print("purge_corrupt")
-            print(item)
             assert item['local'] == False
             assert item['remote'] == False
             assert item['remote_mirror'] == False
@@ -134,7 +149,14 @@ class BackupManager():
         limit = chunk_size+1
         offset = 0
         show_errors = True 
-        res_new = Snapshot.validate_snapshot(self.decw, self.connection_settings, backup_path,limit, offset)
+        
+        res_new = Snapshot.validate_snapshot(decw=self.decw, 
+                                             connection_settings=self.connection_settings, 
+                                             download_path=backup_path,
+                                             limit=limit, 
+                                             offset=offset,
+                                             filter=filter)
+        #res_new = Snapshot.validate_snapshot(self.decw, self.connection_settings, backup_path,limit, offset,filter)
         if show_errors == False:
             for k in res_new:
                 del res_new[k]['local_error']
@@ -145,7 +167,7 @@ class BackupManager():
                 del res_new[k]['remote_mirror_message']
         
         if early_stop == True:
-            with open(os.path.join(backup_path,'validation_report_latest.json'),'w') as f:
+            with open(os.path.join(backup_path,file_type+'_validation_report_latest.json'),'w') as f:
                 f.write(json.dumps(res_new,indent=1))
             print("EARLY STOP")
             return True
@@ -169,7 +191,7 @@ class BackupManager():
                     del res_new[k]['remote_mirror_message']
             res.update(res_new)
         print("FULL DATA SET")
-        with open(os.path.join(backup_path,'validation_report_latest.json'),'w') as f:
+        with open(os.path.join(backup_path,file_type+'_validation_report_latest.json'),'w') as f:
             f.write(json.dumps(res,indent=1))
         return True
 
@@ -220,8 +242,7 @@ class BackupManager():
             res.update(res_add)
         return res   
 
-    def run(self,dir,host,protocol,job_id,file_types,early_stop=False):
-         
+    def run(self,dir,host,protocol,job_id,file_types,early_stop=False,use_type_dir=True,decw_in=None):
         print(job_id,file_types)
         func = None
         if job_id == 'validate':
@@ -240,18 +261,19 @@ class BackupManager():
             func = self.repair
         if job_id == 'pull':
             func = self.pull
-        self.setup(host,protocol)
+        self.setup(host=host,protocol=protocol,decw_in=decw_in)
         results = {}
+        
         for type in file_types:
             print(dir)
             print(type)
-            type_path = os.path.join(dir,type)
+            if use_type_dir == True:
+                type_path = os.path.join(dir,type)
+            else:
+                type_path = os.path.join(dir)
+                
             result = func(type,type_path,early_stop)
             results[type] = result
-            if result == True:
-                print("SUCCESS" + type)
-            else: 
-                print("FAILURE")
             if early_stop:
                 break
         return results

@@ -281,13 +281,9 @@ class Snapshot:
         decw = None
         file_datasoruce = Snapshot.get_object_datasource(decw,filter['self_id'],"local",download_path)
         return file_datasoruce.corrupt_payload(filter,download_path)
-    
-
-    @staticmethod
-    def push_to_remote(decw:core, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
-        if api_key == None:
-            api_key = decw.dw.pubk("admin")
-        messages = ObjectMessages("Snapshot.push_to_remote")
+        
+    def find_local_self_ids(decw,download_path,filter):
+        print("FINDING FOR FILTER ",filter)
         unfiltered_ids = os.listdir(download_path)
         object_ids = []
         for obj_id in unfiltered_ids:
@@ -297,8 +293,40 @@ class Snapshot:
                 if obj_id == filter['attrib']['self_id']:
                     object_ids.append(obj_id)
                     continue
-            else:
+            elif type(filter) == dict and 'attrib' in filter and 'file_type' in filter['attrib']:
+                pth = os.path.join(download_path,obj_id,'object.json')
+                if not os.path.exists(pth):
+                    continue
+                with open(pth,'r') as f:
+                    obj = json.loads(f.read())
+                if obj['file_type'] == filter['attrib']['file_type']:
+                    print("find_local_self_ids Appending a type match")
+                    object_ids.append(obj_id)
+                    continue
+            elif filter==None or len(filter) == 0:
                 object_ids.append(obj_id)
+            else:
+                return []
+        return object_ids    
+
+    @staticmethod
+    def push_to_remote(decw:core, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
+        if api_key == None:
+            api_key = decw.dw.pubk("admin")
+        messages = ObjectMessages("Snapshot.push_to_remote")
+        #unfiltered_ids = os.listdir(download_path)
+        #object_ids = []
+        #for obj_id in unfiltered_ids:
+        #    if not decw.has_entity_prefix(obj_id):
+        #        continue
+        #    if type(filter) == dict and 'attrib' in filter and 'self_id' in filter['attrib']:
+        #        if obj_id == filter['attrib']['self_id']:
+        #            object_ids.append(obj_id)
+        #            continue
+        #    else:
+        #        object_ids.append(obj_id)
+        object_ids = Snapshot.find_local_self_ids(decw,download_path,filter)
+        
         object_ids = object_ids[offset:offset+limit]
         results = {}
 
@@ -429,23 +457,26 @@ class Snapshot:
     
     @staticmethod
     # TODO / Verify
-    def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False,api_key="undefined",attrib=None):
-        object_ids = os.listdir(download_path)
+    def pull_from_remote(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False,api_key="undefined",attrib=None,filter=None):
+        #object_ids = os.listdir(download_path)
+        object_ids = Snapshot.find_local_self_ids(decw,download_path,filter)
         object_ids = object_ids[offset:offset+limit]
         found_objs = {}
         if len(object_ids) == 0:
             return found_objs
         for obj_id in object_ids:
-            filter = {'attrib':{'self_id':obj_id}}
-            object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter,overwrite,api_key,attrib)      
+            filter_item = {'attrib':{'self_id':obj_id}}
+            object_results = Snapshot.append_from_remote(decw, connection_settings, download_path,1, 0,filter_item,overwrite,api_key,attrib)      
             found_objs.update(object_results)       
         return found_objs
     
     @staticmethod
-    def validate_snapshot(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False):
+    def validate_snapshot(decw, connection_settings, download_path,limit=20, offset=0,overwrite=False,filter=None):
         if not os.path.exists(download_path):
             os.mkdir(download_path)
-        object_ids = os.listdir(download_path)
+        #object_ids = os.listdir(download_path)
+        object_ids = Snapshot.find_local_self_ids(decw,download_path,filter)
+        
         found_objs = []
         results = {}
         current_offset = 0

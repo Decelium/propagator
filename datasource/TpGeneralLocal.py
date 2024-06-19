@@ -44,7 +44,7 @@ class TpGeneralLocal(TpGeneral):
         results = {}
         for obj_id in object_ids:
             messages = ObjectMessages(f"{str(cls)}:in TpGeneralLocal.download_object(for {obj_id})")
-            print("TpGeneralLocal download_object/INSIDE DOWNLOAD")
+            print("TpGeneralLocal download_object/INSIDE DOWNLOAD "+download_path)
             try:
                 success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
