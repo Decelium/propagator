@@ -283,7 +283,6 @@ class Snapshot:
         return file_datasoruce.corrupt_payload(filter,download_path)
         
     def find_local_self_ids(decw,download_path,filter):
-        print("FINDING FOR FILTER ",filter)
         unfiltered_ids = os.listdir(download_path)
         object_ids = []
         for obj_id in unfiltered_ids:
@@ -300,7 +299,6 @@ class Snapshot:
                 with open(pth,'r') as f:
                     obj = json.loads(f.read())
                 if obj['file_type'] == filter['attrib']['file_type']:
-                    print("find_local_self_ids Appending a type match")
                     object_ids.append(obj_id)
                     continue
             elif filter==None or len(filter) == 0:
