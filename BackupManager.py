@@ -130,15 +130,15 @@ class BackupManager():
                 print(item)
                 assert item['remote'] == False or item['remote_mirror'] == False
                 assert item['remote'] == True or item['remote_mirror'] == True
-
-                req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk()},["admin"])
-                repair_resp =  self.decw.net.repair_entity(req)
+                ureq = {'self_id':item['self_id'],'api_key':"UNDEFINED"}
+                #req = self.decw.dw.sign_request({'self_id':item['self_id'],'api_key':self.decw.dw.pubk()},["admin"])
+                repair_resp =  self.decw.net.repair_entity(ureq)
                 if type(repair_resp) == dict and 'error' in repair_resp:
                     print("Retry Repair... Sometimes IPFS can be slow.")
                     time.sleep(3)
-                    repair_resp =  self.decw.net.repair_entity(req)
+                    repair_resp =  self.decw.net.repair_entity(ureq)
 
-                assert repair_resp == True, "Could not repair "+str(repair_resp)
+                assert repair_resp == True, "!!! Could not repair 2x "+str(repair_resp)
                 print("Repaired "+item['self_id'])
         print("Finished repair")    
     
@@ -217,7 +217,9 @@ class BackupManager():
         chunk_size = 20
         limit = chunk_size + 1
         offset = 0
-        res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
+        overwrite = False
+        api_key = "UNDEFINED"
+        res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter,overwrite,api_key)
         if early_stop == True:
             return res
         while len(res) >= chunk_size:
