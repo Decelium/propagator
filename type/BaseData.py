@@ -73,40 +73,7 @@ class BaseData(dict):
             if key in init_dict:
                 self._validate_and_convert(key, expected_type, init_dict)        
         super().__init__(init_dict)
-        '''
-        for key, expected_type in required_keys.items():
-            if key not in init_dict:
-                raise ValueError(f"Key '{key}' must be in the initialization dictionary")
-            value = init_dict[key]
-            if isinstance(expected_type, FunctionType):
-                value = expected_type(value)
-            elif issubclass(expected_type, BaseData) and isinstance(value, dict):
-                value = expected_type(value)
-            elif not isinstance(value, expected_type):
-                raise TypeError(f"Expected type {expected_type} for key '{key}', got {type(value)}")
-            new_val,message=  self.do_validation(key,value)
-            if new_val == None:
-                raise TypeError(f"do_validation did not pass for {expected_type} , {value}")
-            init_data[key] = new_val
-
-        for key, expected_type in optional_keys.items():
-            if key in init_dict:
-                value = init_dict[key]
-                if isinstance(expected_type, FunctionType):
-                    value = expected_type(value)
-                elif issubclass(expected_type, BaseData) and isinstance(value, dict):
-                    value = expected_type(value)
-                elif not isinstance(value, expected_type):
-                    raise TypeError(f"Expected type {expected_type} for key '{key}', got {type(value)}")
-                new_val,message=  self.do_validation(key,value)
-                if new_val == None:
-                    raise TypeError(f"do_validation did not pass for {expected_type} , {value}")                
-                init_data[key] = value
-        super().__init__(init_dict)
-
-        '''
         
-        super().__init__(init_dict)
     def __setitem__(self, key, value):
         # TODO, Generalize the validation check, and run it on set in a complete manner
         validated_value, message = self.do_validation(key, value)
@@ -209,3 +176,5 @@ class TestConfig(ConnectionConfig):
                     'eval_context':dict,
                     }
         return required,optional
+
+
