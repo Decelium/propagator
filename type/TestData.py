@@ -10,9 +10,10 @@ class TestCaseFunc(BaseData):
                     'function':str,
                     'result':bool,
                     'output':str,
-                    'error':str
+                    'error':str,
+                    'debug':str
                     }
         return required,{}
 
     def get_summary(self):
-        return {k:self[k] for k in ['class','function','result'] }
+        return {k:self[k] for k in ['class','function','result','debug'] }
