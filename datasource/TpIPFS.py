@@ -10,7 +10,7 @@ import ipfshttpclient
 from .TpGeneral import TpGeneral, TpFacade
 from .TpGeneralLocal import TpGeneralLocal
 from .TpGeneralDecelium import TpGeneralDecelium
-
+import json
 class TpIPFS(TpFacade):
     class Local(TpGeneralLocal):
         @classmethod
@@ -25,7 +25,26 @@ class TpIPFS(TpFacade):
             result = TpSource.download_ipfs_data(cls,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
             return result
         
+        @classmethod
+        def validate_object_attrib(cls,decw,object_id,download_path,connection_settings):
+            # Validate the local representation of an object
+            messages = ObjectMessages("TpIPFS.Local.validate_object(for {object_id})")
+            try:
+                file_path_test = download_path+'/'+object_id+'/object.json'
+                with open(file_path_test,'r') as f:
+                    obj_local = json.loads(f.read())
+                valido_hasho = cls.compare_file_hash(file_path_test)
+                if valido_hasho != True:
+                    messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+                    return False,messages
+            except Exception as e:
+                messages.add_assert(False==True, "Could not validate presense of file file:"+str(download_path+'/'+object_id+'/object.json err:'+tb.format_exc()))
+                return False,messages
 
+            
+            return len(messages.get_error_messages())== 0,messages   
+
+    
     class LocalMirror(TpGeneral):
         pass
 

@@ -232,6 +232,11 @@ class BackupManager():
         validation_report = self.backup_status(file_type,backup_path,early_stop)
         assert 'pullable' in  validation_report
         res = {}
+        try:
+            api_key = self.decw.dw.pubk()
+        except:
+            api_key = "UNDEFINED"
+            
         for item in validation_report['pullable'].values():
             if not self.decw.has_entity_prefix(item['self_id']):
                 continue
@@ -240,7 +245,7 @@ class BackupManager():
             chunk_size = 20
             filter = {'attrib':{'self_id':item['self_id']}}
             overwrite = True
-            res_add = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path,1, 0,filter,overwrite,api_key=self.decw.dw.pubk(),attrib=False)      
+            res_add = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path,1, 0,filter,overwrite,api_key=api_key,attrib=False)      
             res.update(res_add)
         return res   
 

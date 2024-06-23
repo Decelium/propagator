@@ -136,6 +136,11 @@ class Snapshot:
             result = False
             result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
             return result_json,messages      
+        if messages.add_assert(obj['self_id'] == obj_id," There is a mismatch between object ids ("+obj['self_id']+","+str(obj)+")") == False:
+            result = False
+            result_json = Snapshot.format_object_status_json(obj_id,outfix,result,messages.get_error_messages(),"")
+            return result_json,messages      
+        
             
         if messages.add_assert('file_type' in obj,"Object does not have file type: "+str(obj)) == False:
             result = False
@@ -310,7 +315,10 @@ class Snapshot:
     @staticmethod
     def push_to_remote(decw:core, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key = None,attrib_only=None):
         if api_key == None:
-            api_key = decw.dw.pubk("admin")
+            try:
+                api_key = decw.dw.pubk("admin")
+            except:
+                api_key = "UNDEFINED"
         messages = ObjectMessages("Snapshot.push_to_remote")
         #unfiltered_ids = os.listdir(download_path)
         #object_ids = []
@@ -382,6 +390,7 @@ class Snapshot:
             # ---------
             # b) Make sure the local is complete
             local_result, local_validation_messages = Snapshot.get_object_datasource(decw,obj_id,"local",download_path).validate_object(decw,obj_id, download_path, connection_settings)
+            print("Snapshot.The local result",local_result,obj_id)
             if local_result == False: # and remote_result == False:
                 results[obj_id] = (False,local_validation_messages.get_error_messages())
                 continue

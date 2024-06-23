@@ -438,8 +438,10 @@ class TpGeneralLocal(TpGeneral):
         obj_id = obj['self_id']
         messages = ObjectMessages("TpGeneralLocal(for IPFS).push_payload_to")
         obj_cids = []
-        for path,cid in obj['settings']['ipfs_cids'].items():
-            obj_cids.append(cid)
+        obj_cids.append(obj['settings']['ipfs_cid'])
+        if 'ipfs_cids' in obj['settings']:
+            for path,cid in obj['settings']['ipfs_cids'].items():
+                obj_cids.append(cid)
 
         all_cids =  ds_remote.ipfs_pin_list(decw, connection_settings,refresh=True)
         missing_cids = list(set(obj_cids) - set(all_cids))
