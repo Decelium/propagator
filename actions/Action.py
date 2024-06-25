@@ -32,12 +32,9 @@ class Action():
             self.__memory = kwargs['memory']
 
     def __call__(self, **kwargs):
-        print("Action.Calling 1 ")
         if self.__memory == None:
             self.__memory = {}
         kwargs['memory'] = self.__memory
-        print("Action.Calling")
-        print(kwargs)
         return self.crun(**kwargs)    
       
     def run(self,**kwargs):
