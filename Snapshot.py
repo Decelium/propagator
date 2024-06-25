@@ -288,6 +288,8 @@ class Snapshot:
         return file_datasoruce.corrupt_payload(filter,download_path)
         
     def find_local_self_ids(decw,download_path,filter):
+        assert type(filter) == dict
+        print("Snapshot.find_local_self_ids searching for "+str(filter))
         unfiltered_ids = os.listdir(download_path)
         object_ids = []
         for obj_id in unfiltered_ids:

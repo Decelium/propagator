@@ -179,7 +179,12 @@ class BackupManager():
             offset = offset + chunk_size
             print("Running "+ str(offset))
 
-            res_new = Snapshot.validate_snapshot(self.decw, self.connection_settings, backup_path,limit, offset)
+            res_new = Snapshot.validate_snapshot(decw=self.decw, 
+                                             connection_settings=self.connection_settings, 
+                                             download_path=backup_path,
+                                             limit=limit, 
+                                             offset=offset,
+                                             filter=filter)
 
             if show_errors == False:
                 for k in res_new:
@@ -229,6 +234,7 @@ class BackupManager():
         return res    
 
     def pull(self,file_type,backup_path,early_stop = False):
+        # TODO Fix this 
         validation_report = self.backup_status(file_type,backup_path,early_stop)
         assert 'pullable' in  validation_report
         res = {}
