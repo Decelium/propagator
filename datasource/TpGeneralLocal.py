@@ -173,18 +173,20 @@ class TpGeneralLocal(TpGeneral):
         cids = [] 
         print("TpGeneralLocal.upload_ipfs_data 1")      
         messages = ObjectMessages("TpGeneralLocal.upload_ipfs_data")
+        print("!!!TpGeneralLocal.upload_ipfs_data ",download_path)
         def do_upload_by_type(type_str):
             for item in os.listdir(download_path):
                 file_path = os.path.join(download_path, item)
+                if not file_path.endswith(type_str):
+                    continue
+                print("UPLOADING",file_path)
                 if file_path.endswith('.file'):
                     payload_type = 'local_path'
                 elif file_path.endswith('.dag'):
                     payload_type = 'ipfs_pin_list'
                 else:
                     continue
-                print("TpGeneralLocal.upload_ipfs_data 2")        
                 result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
-                print("TpGeneralLocal.upload_ipfs_data 3")        
                 try:
                     result[0]
                     messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
