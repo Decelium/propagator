@@ -41,7 +41,13 @@ def upload_directory_to_remote(self,record,memory=None):
     print(pins)
     singed_req = decw.dw.sr({**user_context, **{
             'path':record['decelium_path']}})
+    obj = decw.net.download_entity({**singed_req,'attrib':True})
+    print("Obj1",obj)
     del_try = decw.net.delete_entity(singed_req)
+    print("Del try",del_try)
+    del_try = decw.net.delete_entity(singed_req)
+    print("Del try",del_try)
+
     try:
         assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error']), "Got an invalid response for del_try "+ str(del_try)
     except Exception as e:
@@ -52,7 +58,10 @@ def upload_directory_to_remote(self,record,memory=None):
             'file_type':'ipfs',
             'payload_type':'ipfs_pin_list',
             'payload':pins}})
+    obj = decw.net.download_entity({**singed_req,'attrib':True})
+    print("Obj2",obj)
     obj_id = decw.net.create_entity(singed_req)
+    assert 'obj-' in obj_id," COuld not create object "+str(obj_id) 
     try:
         assert decw.has_entity_prefix(obj_id), "Dam, Could not even create an entity : "+str(obj_id)  
     except Exception as e:

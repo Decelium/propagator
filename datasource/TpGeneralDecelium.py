@@ -24,7 +24,8 @@ class TpGeneralDecelium(TpGeneral):
         print("A")
         length = len(current_docs) 
         print("B")
-        with ipfshttpclient.connect(ipfs_string) as client:
+
+        with ipfshttpclient.connect(ipfs_string,headers={'X-Api-Token':'your_secret_token'}) as client:
             for item in current_docs:
                 count = count + 1
                 dic = None

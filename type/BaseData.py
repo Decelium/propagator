@@ -49,7 +49,7 @@ class BaseData(dict):
     
     def __init__(self, in_dict,trim=False):
         if isinstance(in_dict,type(self)):
-            super().__init__(init_dict)      
+            super().__init__(in_dict)      
             return
         required_keys, optional_keys = self.get_keys()
         
