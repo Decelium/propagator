@@ -333,6 +333,8 @@ class Snapshot:
         #            continue
         #    else:
         #        object_ids.append(obj_id)
+        if filter == None:
+            filter = {}
         object_ids = Snapshot.find_local_self_ids(decw,download_path,filter)
         
         object_ids = object_ids[offset:offset+limit]

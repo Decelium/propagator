@@ -145,7 +145,7 @@ class RunCorruptionTest(Action):
                 assert type(repair_status)==dict and 'error' in repair_status, "Expected Failed Repair:\n" + str(repair_status)
 
             for eval in record['final_evals']:
-                evaluate_object_status({**setup_config.eval_context(),**eval})
+                evaluate_object_status(record={**setup_config.eval_context(),**eval})
         #else:
         #    print("SKIPPING REPAIR")
         props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload','local_attrib','local_payload']
@@ -180,18 +180,18 @@ class RunCorruptionTest(Action):
                     method_to_repair = "append"
                     break
             if method_to_repair == "pull":
-                pull_object_from_remote({**setup_config,'overwrite': False,'expected_result':True,})
+                pull_object_from_remote(record={**setup_config,'overwrite': False,'expected_result':True,})
             else:
-                append_object_from_remote({**setup_config,'overwrite': False,'expected_result':True,})
+                append_object_from_remote(record={**setup_config,'overwrite': False,'expected_result':True,})
         elif record['push_target'] == 'remote':
             push_from_snapshot_to_remote = PushFromSnapshotToRemote()
-            push_from_snapshot_to_remote({**setup_config,'overwrite': False,'expected_result':True,})
+            push_from_snapshot_to_remote(record={**setup_config,'overwrite': False,'expected_result':True,})
         else:
             assert True==False, "Forcing a failure as we are not corrupting remote or local"
 
-        evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})    
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})       
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'local','status':['complete']})  
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote','status':['complete']})    
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})       
         return True
    
     def test(self,record):

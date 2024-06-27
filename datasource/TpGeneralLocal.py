@@ -248,7 +248,7 @@ class TpGeneralLocal(TpGeneral):
                     raise e
             return new_cids
         except Exception as e:
-            print(f"Error downloading {cid}: {e}")
+            print(f"Error downloading : {e}")
             print(tb.format_exc())
             return new_cids    
         

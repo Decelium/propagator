@@ -25,8 +25,9 @@ class CreateDecw(Action):
             data = f.read()
         with open(record['wallet_password_path'],'r') as f:
             password = f.read()
+            password = password.strip()
         loaded = decw.load_wallet(data,password)
-        assert loaded == True
+        assert loaded == True, "Could not load wallet " + str(loaded)
         connected = decw.initial_connect(target_url=record['fabric_url'],
                                         api_key=decw.dw.pubk())
         return decw,connected
