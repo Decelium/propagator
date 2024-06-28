@@ -270,7 +270,7 @@ class TpGeneralLocal(TpGeneral):
         '''
         dag_json = json.loads(dag_text)
         assert "Links" in dag_json, "Dont have a links field " + str(dag_json)
-        cid_list = dag_json["links"]
+        cid_list = dag_json["Links"]
         children = []
         for child in cid_list: 
             assert "Name" in child, "No Name " + str(dag_json)
@@ -298,10 +298,10 @@ class TpGeneralLocal(TpGeneral):
                 if not file_path.endswith(".dag"):
                     continue
                 dag_text = ""
-                cid = item.replace(".dag")
+                cid = item.replace(".dag","")
                 with open(file_path,'r') as f:
                     dag_text = f.read()
-                dag_list = cls.load_dag(dag_text)
+                dag_list = cls.load_dag(cid,dag_text)
                 for child_cid in dag_list:
                     tree.add_dependency(cid, child_cid)
             return tree.get_upload_sequence()
@@ -327,12 +327,12 @@ class TpGeneralLocal(TpGeneral):
                     uploaded_cids.append(result[0]['cid'])
                 except:
                     messages.add_assert(False,"A. could not parse upload_ipfs_data() result: "+str(result) ) 
-        
+            return uploaded_cids
         cid_order = build_upload_sequence()
         for cid in cid_order: #Make sure we have all the files
             assert os.path.join(download_path, cid+".file") or os.path.join(download_path, cid+".hash")
         uploaded_ids = do_upload_by_type('.file')
-        
+        print(uploaded_ids)
         for cid in cid_order:
             if cid in uploaded_ids:
                 continue

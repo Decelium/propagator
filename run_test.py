@@ -384,7 +384,6 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 
     
     target_type = setup_type
-
     assert test_type in ['remote_repair','remote_no_repair','local_no_repair']
     # CONFIG 1 : REMOTE REPAIR
     # -----
@@ -464,9 +463,9 @@ remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
 
 file_types = ['ipfs']
-test_types = ['remote_repair']
-remote_types = ['delete_payload']
-remote_mirror_types = ['remove_attrib']
+test_types = ['remote_no_repair']
+remote_types = ['delete_entity']
+remote_mirror_types = ['delete_entity']
 
 for test_type in test_types:
     for file_type in file_types:
