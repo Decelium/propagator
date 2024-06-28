@@ -303,8 +303,11 @@ class Snapshot:
                 pth = os.path.join(download_path,obj_id,'object.json')
                 if not os.path.exists(pth):
                     continue
-                with open(pth,'r') as f:
-                    obj = json.loads(f.read())
+                try:
+                    with open(pth,'r') as f:
+                        obj = json.loads(f.read())
+                except:
+                    continue
                 if obj['file_type'] == filter['attrib']['file_type']:
                     object_ids.append(obj_id)
                     continue
