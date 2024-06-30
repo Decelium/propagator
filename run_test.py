@@ -59,7 +59,6 @@ def object_setup(agent:SnapshotAgent,
         if setup_type == 'directory':
             delete_request = { 'path':'/example_dir',
             }
-            # You must place the public_key into the servers TXT records
             create_request = {
                 'path':'/',
                 'name':'example_dir',
@@ -69,7 +68,6 @@ def object_setup(agent:SnapshotAgent,
         elif setup_type == 'host':
             delete_request = { 'path':'/example_domain.dns',
             }
-            # You must place the public_key into the servers TXT records
             create_request = {
                 'path':'/',
                 'name':'example_domain.dns',
@@ -99,24 +97,35 @@ def object_setup(agent:SnapshotAgent,
             }       
         else:
             raise Exception("Unsuported file type")
-        decelium_path = '/example_html_file_test.html'
+        #decelium_path = '/example_html_file_test.html'
+        decelium_path = delete_request['path']
+
         # download_try = decw.net.download_entity(decw.dw.sr({**user_context, **delete_request,'attrib':True}))
         # print("download_try\n",str(download_try))
 
         list_try = decw.net.list(decw.dw.sr({**user_context, **delete_request}))
+        print("\n\n\nNew Test")
         print("list_try\n",str(list_try))
         for sub_file in list_try:
             del_inner = decw.net.delete_entity({**user_context, 'self_id':sub_file['self_id']})
             assert del_inner == True , "Could not clean up an inner file "+ str(del_inner)
         singed_req = decw.dw.sr({**user_context, **delete_request})
-        del_try = decw.net.delete_entity(singed_req)
-        try:
-            assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error']), "Got an invalid response for del_try "+ str(del_try)
-        except Exception as e:
-            print("Failing Delete Object Id" + str(del_try))
-            raise e
+        for i in range(1,10):
+            #if True == True:
+            del_try = decw.net.delete_entity(singed_req)
+            #print("TRIED DELETE in object_setup", del_try)
+            #obj = decw.net.download_entity({'path':create_request['path'],'name':create_request['name'],'attrib':True})
+            #print("Found Obj \n",obj)
+            try:
+                assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error']), "Got an invalid response for del_try "+ str(del_try)
+            except Exception as e:
+                print("Failing Delete Object Id" + str(del_try))
+                raise e
         singed_req = decw.dw.sr({**user_context, **create_request})
         print(singed_req)
+        obj = decw.net.download_entity({'path':singed_req['path'],'name':singed_req['name'],'attrib':True})
+        print(obj)
+        assert 'error' in obj, "Could not remove entity apparently. Entity: "+ str(obj)
         obj_id = decw.net.create_entity(singed_req)
         assert decw.has_entity_prefix(obj_id), "Could not create the object "+str(obj_id) + "delete res "+ str(del_try)
         return obj_id, decelium_path
@@ -457,16 +466,33 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 
 
 test_types = ['remote_repair','remote_no_repair','local_no_repair']
-file_types = ['ipfs','json','file','host','directory','user']
+#file_types = ['ipfs','json','file','host','directory','user']
+file_types = ['directory','user']
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
 
-file_types = ['ipfs']
-test_types = ['remote_no_repair']
-remote_types = ['delete_entity']
-remote_mirror_types = ['delete_entity']
+'''
+Testing: 
+[
+    {
+        "corruption": "rename_attrib_filename",
+        "mode": "remote"
+    },
+    {
+        "corruption": "delete_payload",
+        "mode": "remote_mirror"
+    }
+]
+setup_type,directory
+test_type,remote_repair
+'''
 
+#file_types = ['directory']
+#test_types = ['remote_repair']
+#remote_types = ['rename_attrib_filename']
+#remote_mirror_types = ['delete_payload']
+# rename_attrib_filename
 for test_type in test_types:
     for file_type in file_types:
         test_corruptions_repair(file_type,test_type,remote_types,remote_mirror_types)

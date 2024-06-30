@@ -13,8 +13,8 @@ class PullObjectFromRemote(Action):
         obj_id = record['obj_id']
         overwrite = record['overwrite']
         expected_result = record['expected_result']
-
-        results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=overwrite)
+        filter = {}
+        results = Snapshot.pull_from_remote(decw, connection_settings, backup_path,limit=10, offset=0,overwrite=overwrite,filter=filter)
         
         assert obj_id in results, "Did not get goo results from pull operation: "+ str(results)
         assert results[obj_id]['local'] == expected_result
