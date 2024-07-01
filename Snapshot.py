@@ -42,6 +42,7 @@ class Snapshot:
         'file': TpFile,
         'json': TpFile,
         'host': TpAttrib,
+        'dict': TpAttrib,
         'user': TpFile,
         'node': TpAttrib,
         'directory':TpAttrib
@@ -180,6 +181,8 @@ class Snapshot:
 
     @staticmethod
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key="undefined",attrib=None):
+
+        # TODO 
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
             file_type = 'ipfs'
@@ -195,6 +198,7 @@ class Snapshot:
         if len(needed_objs) <= 0:
             return {}
         for obj in needed_objs:
+            
             # print("obj",obj)
             print(f"syncing {obj['self_id']}")
             obj_id = obj['self_id']
@@ -204,7 +208,15 @@ class Snapshot:
                 validation_target = 'local'
             try:
                 from_remote_datasource = Snapshot.get_datasource(obj['file_type'],"remote")
-                object_results = Snapshot.get_datasource(obj['file_type'],"local").download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite,attrib)
+                local_ds = Snapshot.get_datasource(obj['file_type'],"local")
+                ###
+                # result = {}
+                # result['local'] = True
+                # sid = filter['attrib']['self_id']
+                # return {sid:result}
+                ###
+                object_results = local_ds.download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite,attrib)
+                # ERROR HERE
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                     
@@ -223,6 +235,7 @@ class Snapshot:
             #if overwrite == False:
             #    print("Validating "+ obj_id)
             #    results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
+        
         return results
 
     @staticmethod
