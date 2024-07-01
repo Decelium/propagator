@@ -76,7 +76,12 @@ class TpGeneralDecelium(TpGeneral):
                 
     @classmethod
     def download_payload_data(cls,decw,obj):
-        result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
+        try:
+            # TODO - temp workaround to be removed when wallet is upgraded to decelium_wallet from paxdk
+            result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']},remote=True)
+        except:
+            result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
+            
         if type(result) == dict and 'error' in result:
             return result,None
         # Cretae bytes
