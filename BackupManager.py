@@ -14,8 +14,9 @@ class BackupManager():
               protocol='http',
               wallet_path= '../.wallet.dec',
               wallet_password_path =  '../.wallet.dec.password', 
-              url =  ':5000/data/query',
+              url =  '5000/data/query',
              decw_in=None):
+        print("BackupManager target url",protocol+"--",host+"--",url+"--" )
         node_url =  f'{protocol}://{host}:{url}'
         if decw_in:
             decw = decw_in
@@ -41,7 +42,7 @@ class BackupManager():
                 'file_type':'ipfs', 
                 'connection_settings':self.connection_settings
         }}
-
+        
         connected = decw.initial_connect(target_url=node_url, api_key=self.user_context['api_key'])
         assert loaded == True
         assert connected == True
@@ -258,6 +259,16 @@ class BackupManager():
     def run(self,dir,host,protocol,job_id,file_types,early_stop=False,use_type_dir=True,decw_in=None):
         print(job_id,file_types)
         func = None
+        assert job_id in [
+            "validate",
+            "backup",
+            "append",
+            "status",
+            "purge_corrupt",
+            "push",
+            "repair",
+            "pull"]
+
         if job_id == 'validate':
             func = self.create_validation_report
         if job_id == 'backup':
@@ -287,6 +298,6 @@ class BackupManager():
                 
             result = func(type,type_path,early_stop)
             results[type] = result
-            if early_stop:
-                break
+            #if early_stop:
+            #    break
         return results

@@ -468,6 +468,7 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 test_types = ['remote_repair','remote_no_repair','local_no_repair']
 #file_types = ['ipfs','json','file','host','directory','user']
 file_types = ['directory','user']
+# []'delete_payload','corrupt_payload','remove_attrib','rename_attrib_filename','corrupt_attrib','delete_entity']
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
