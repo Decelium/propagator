@@ -268,9 +268,6 @@ def new_repair_corruption_config(corruption_1,
                                 push_target,
                                 target_type
                                  ):
-        # setup_config,                  # The server configuration
-        # obj,                           # Object
-        # target_type                    # The target type
         
         # The corruption Test -----------------------
         assert type(corruption_1) == str # The first corruption to apply to c_target_1

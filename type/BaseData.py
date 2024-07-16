@@ -258,8 +258,9 @@ class AgentCommand(BaseData):
         propagator_commands = ["validate","backup","append","status","purge_corrupt","push","repair","pull"]
         
         self.legal_commands = [
-                         'gitpull','gitpush', # GIT
-                         'test','redeploy','undeploy', # SERVER OPS
+                         'gitpull','gitpush', # GIT (For Servers)
+                         'test','redeploy','undeploy', # SERVER OPS (For servers)
+                         'deploy_app', # APP OPS (For apps)
                          ]
         for pcommand in propagator_commands:
             self.legal_commands.append('p'+pcommand)
