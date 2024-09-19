@@ -175,7 +175,8 @@ class TestConfig(ConnectionConfig):
 class DeploymentConfig(BaseData):
     def get_keys(self):
         required = {'server_address_config':ServerAddressConfig,
-                    'branch':str
+                    'branch':str,
+                    'container_mode':str
                     }
         optional = {}
         return required,optional
@@ -200,7 +201,7 @@ class ServerAddressConfig(BaseData):
     def get_host(self):
         return self['host']
     def get_port(self):
-        return self['port']
+        return self['node_port']
     
     def get_protocol(self):
         return self['node_protocol']

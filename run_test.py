@@ -460,36 +460,17 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 # setup_type =  'directory' # Requires some refatoring
 # setup_type =  'user' # *Should* work
 
-
-
-test_types = ['remote_repair','remote_no_repair','local_no_repair']
-#file_types = ['ipfs','json','file','host','directory','user']
-file_types = ['directory','user']
+test_types = ['remote_repair'] # ,'remote_no_repair','local_no_repair']
+file_types = ['ipfs']#,'json','file','host','directory','user']
+# file_types = ['directory','user']
 # []'delete_payload','corrupt_payload','remove_attrib','rename_attrib_filename','corrupt_attrib','delete_entity']
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
-
-'''
-Testing: 
-[
-    {
-        "corruption": "rename_attrib_filename",
-        "mode": "remote"
-    },
-    {
-        "corruption": "delete_payload",
-        "mode": "remote_mirror"
-    }
-]
-setup_type,directory
-test_type,remote_repair
-'''
-
-#file_types = ['directory']
-#test_types = ['remote_repair']
-#remote_types = ['rename_attrib_filename']
-#remote_mirror_types = ['delete_payload']
+file_types = ['directory']
+test_types = ['remote_repair']
+remote_types = ['rename_attrib_filename']
+remote_mirror_types = ['delete_payload']
 # rename_attrib_filename
 for test_type in test_types:
     for file_type in file_types:
