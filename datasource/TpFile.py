@@ -9,20 +9,20 @@ import traceback as tb
 import hashlib
 import shutil
 import random
-from .TpGeneral import TpFacade
-from .TpGeneralDecelium import TpGeneralDecelium
-from .TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
-from .TpGeneralLocal import TpGeneralLocal
+from .DsGeneral import TpFacade
+from .DsGeneralDecelium import DsGeneralDecelium
+from .DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
+from .DsGeneralLocal import DsGeneralLocal
 
 class TpFile(TpFacade):
 
-    class Decelium(TpGeneralDecelium):
+    class Decelium(DsGeneralDecelium):
         @classmethod 
         def reupload_payload(cls,decw,obj):
             assert 'self_id' in obj
             assert 'payload' in obj
             
-            messages = ObjectMessages("TpFileDecelium.reupload_payload(for {"+obj['self_id']+"})")
+            messages = ObjectMessages("DsFileDecelium.reupload_payload(for {"+obj['self_id']+"})")
             print("TpFile.reupload_payload.reupload_entity_payload CALL"+str(obj))
             res = decw.net.reupload_entity_payload({'self_id':obj['self_id'],'payload':obj['payload']})
             print("TpFile.reupload_payload.reupload_entity_payload result")
@@ -75,7 +75,7 @@ class TpFile(TpFacade):
 
             return len(messages.get_error_messages()) == 0, messages  
 
-    class DeceliumMirror(TpGeneralDeceliumMirror):
+    class DeceliumMirror(DsGeneralDeceliumMirror):
         @classmethod
         def validate_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
             entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
@@ -87,7 +87,7 @@ class TpFile(TpFacade):
 
         @classmethod
         def validate_object_attrib(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-            messages = ObjectMessages("TpIPFSDeceliumMirror.validate_object_entity_mirror(for {"+object_id+"})")
+            messages = ObjectMessages("TpFileDeceliumMirror.validate_object_entity_mirror(for {"+object_id+"})")
             obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
             if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to be invalid, as reported by DB validate_object_entity_mirror:"+str(obj_valid)) == False:
                 return False, messages
@@ -101,7 +101,7 @@ class TpFile(TpFacade):
                 return False, messages
             return len(messages.get_error_messages()) == 0, messages    
 
-    class Local(TpGeneralLocal): 
+    class Local(DsGeneralLocal): 
         @classmethod
         def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
             messages = ObjectMessages("TpFileLocal(for File).push_payload_to_remote")

@@ -7,12 +7,12 @@ except:
 import traceback as tb
 import ipfshttpclient
 
-from .TpGeneral import TpGeneral, TpFacade
-from .TpGeneralLocal import TpGeneralLocal
-from .TpGeneralDecelium import TpGeneralDecelium
+from .DsGeneral import DsGeneral, TpFacade
+from .DsGeneralLocal import DsGeneralLocal
+from .DsGeneralDecelium import DsGeneralDecelium
 import json
 class TpIPFS(TpFacade):
-    class Local(TpGeneralLocal):
+    class Local(DsGeneralLocal):
         @classmethod
         def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
             merge_messages = ObjectMessages("TpIPFS.Local.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
@@ -45,13 +45,13 @@ class TpIPFS(TpFacade):
             return len(messages.get_error_messages())== 0,messages   
 
     
-    class LocalMirror(TpGeneral):
+    class LocalMirror(DsGeneral):
         pass
 
-    class Decelium(TpGeneralDecelium):
+    class Decelium(DsGeneralDecelium):
         pass
 
-    class DeceliumMirror(TpGeneralDecelium):
+    class DeceliumMirror(DsGeneralDecelium):
         @classmethod
         def load_entity(cls,query,decw):
             assert 'api_key' in query

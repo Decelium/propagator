@@ -1,30 +1,41 @@
 import os
 import json
 import shutil
+from datasource.DsGeneral import TpFacade
+from datasource.DsGeneralLocal import DsGeneralLocal
+from datasource.DsGeneralDecelium import DsGeneralDecelium
+from datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
+from datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
+from datasource.TpAttrib import TpAttrib
+from datasource.TpIPFS import TpIPFS
+from datasource.TpFile import TpFile
+from Messages import ObjectMessages
+from type.BaseData import BaseData,auto_c
+from datasource.DsGeneral import DsGeneral
 try:
-    from datasource.TpGeneral import TpFacade
-    from datasource.TpGeneralLocal import TpGeneralLocal
-    from datasource.TpGeneralDecelium import TpGeneralDecelium
-    from datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
-    from datasource.TpGeneralLocalMirror import TpGeneralLocalMirror
+    from datasource.DsGeneral import TpFacade
+    from datasource.DsGeneralLocal import DsGeneralLocal
+    from datasource.DsGeneralDecelium import DsGeneralDecelium
+    from datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
+    from datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
     from datasource.TpAttrib import TpAttrib
     from datasource.TpIPFS import TpIPFS
     from datasource.TpFile import TpFile
     from Messages import ObjectMessages
     from type.BaseData import BaseData,auto_c
-    from datasource.TpGeneral import TpGeneral
+    from datasource.DsGeneral import DsGeneral
 except:
-    from .datasource.TpGeneral import TpFacade
-    from .datasource.TpGeneralLocal import TpGeneralLocal
-    from .datasource.TpGeneralDecelium import TpGeneralDecelium
-    from .datasource.TpGeneralDeceliumMirror import TpGeneralDeceliumMirror
-    from .datasource.TpGeneralLocalMirror import TpGeneralLocalMirror
+    from .datasource.DsGeneral import TpFacade
+    from .datasource.DsGeneralLocal import DsGeneralLocal
+    from .datasource.DsGeneralDecelium import DsGeneralDecelium
+    from .datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
+    from .datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
     from .datasource.TpAttrib import TpAttrib
     from .datasource.TpIPFS import TpIPFS
     from .datasource.TpFile import TpFile
     from .type.BaseData import BaseData,auto_c
     from .Messages import ObjectMessages
-    from .datasource.TpGeneral import TpGeneral
+    from .datasource.DsGeneral import DsGeneral
 
 import traceback as tb
 import decelium_wallet.core as core
@@ -42,7 +53,6 @@ class Snapshot:
         'file': TpFile,
         'json': TpFile,
         'host': TpAttrib,
-        'dict': TpAttrib,
         'user': TpFile,
         'node': TpAttrib,
         'directory':TpAttrib
@@ -59,11 +69,18 @@ class Snapshot:
                       'remote_mirror_attrib':'remote_mirror',
                       'remote_mirror_payload':'remote_mirror'}
     @staticmethod
-    def get_datasource(type_name:str, datasource_name:str) -> TpGeneral:
+    def get_datasource(type_name:str, datasource_name:str) -> DsGeneral:
         assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
         assert datasource_name in Snapshot.s_datasource, 'could not find a property with name '+ str(datasource_name)
         TheType:TpFacade = Snapshot.s_type_map[type_name]
         return TheType.get_datasource_refac(datasource_name)
+    
+    #@staticmethod
+    #def get_datasource(type_name:str, datasource_name:str) -> DsGeneral:
+    #    assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
+    #    assert datasource_name in Snapshot.s_datasource, 'could not find a property with name '+ str(datasource_name)
+    #    TheType:TpFacade = Snapshot.s_type_map[type_name]
+    #    return TheType.get_datasource_refac(datasource_name)
     
     @staticmethod
     def resolve_type(decw,obj_id,datasource_name,download_path,cached = True):
@@ -73,19 +90,19 @@ class Snapshot:
 
     
     @staticmethod
-    def get_object_datasource(decw,obj_id:str,datasource_name:str,download_path:str) -> TpGeneral:
+    def get_object_datasource(decw,obj_id:str,datasource_name:str,download_path:str) -> DsGeneral:
         cached = True
         type_name = Snapshot.resolve_type(decw,obj_id,datasource_name,download_path,cached )
         assert type_name != None
         return Snapshot.get_datasource(type_name,datasource_name)
     
     @staticmethod
-    def get_general_datasource(datasource_name:str) -> TpGeneral:
+    def get_general_datasource(datasource_name:str) -> DsGeneral:
         obj_map = {
-            'local':TpGeneralLocal,
-            'local_mirror':TpGeneralLocalMirror,
-            'remote':TpGeneralDecelium,
-            'remote_mirror':TpGeneralDeceliumMirror
+            'local':DsGeneralLocal,
+            'local_mirror':DsGeneralLocalMirror,
+            'remote':DsGeneralDecelium,
+            'remote_mirror':DsGeneralDeceliumMirror
         }
         assert datasource_name in list(obj_map.keys())
         return obj_map[datasource_name]
@@ -108,11 +125,11 @@ class Snapshot:
             return Snapshot.__resolution_cache[obj_id]
             
         if 'local' in datasource:
-            obj = TpGeneralLocal.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },download_path)
+            obj = DsGeneralLocal.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },download_path)
         elif 'remote_mirror' in datasource:
-            obj = TpGeneralDeceliumMirror.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
+            obj = DsGeneralDeceliumMirror.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
         elif 'remote' in datasource:
-            obj = TpGeneralDecelium.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
+            obj = DsGeneralDecelium.load_entity({'api_key':"UNDEFINED", 'self_id':obj_id, 'attrib':True },decw)
         else:
             obj= {"error":"Could not identify type in Snapshot.load_file_by_id() "}
         if "self_id" in obj:
@@ -156,7 +173,7 @@ class Snapshot:
         datasource_location = Snapshot.s_datasourceproperty_to_datasource[datasourceproperty]
         #TpDataType:TpFacade = Snapshot.s_type_map[selected_type]
         #TpDatasource:TpGeneral  = TpDataType.get_datasource(datasource_location)
-        TpDatasource:TpGeneral = Snapshot.get_datasource(selected_type,datasource_location)
+        DsDatasource:DsGeneral = Snapshot.get_datasource(selected_type,datasource_location)
         validation_set = {}
 
         #assert f"{datatype}.{selected_type}" in type_map, "Could not find the selected datatype: " + f"{datatype}.{selected_type}"
@@ -164,9 +181,9 @@ class Snapshot:
 
             
         validation_set = {**validation_set,**{
-            datasource_location:{'func':TpDatasource.validate_object},
-            f'{datasource_location}_attrib':{'func':TpDatasource.validate_object_attrib},
-            f'{datasource_location}_payload':{'func':TpDatasource.validate_object_payload},
+            datasource_location:{'func':DsDatasource.validate_object},
+            f'{datasource_location}_attrib':{'func':DsDatasource.validate_object_attrib},
+            f'{datasource_location}_payload':{'func':DsDatasource.validate_object_payload},
         }}
 
         func = validation_set[datasourceproperty]['func']
@@ -181,8 +198,6 @@ class Snapshot:
 
     @staticmethod
     def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key="undefined",attrib=None):
-
-        # TODO 
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
             file_type = 'ipfs'
@@ -198,7 +213,6 @@ class Snapshot:
         if len(needed_objs) <= 0:
             return {}
         for obj in needed_objs:
-            
             # print("obj",obj)
             print(f"syncing {obj['self_id']}")
             obj_id = obj['self_id']
@@ -208,15 +222,7 @@ class Snapshot:
                 validation_target = 'local'
             try:
                 from_remote_datasource = Snapshot.get_datasource(obj['file_type'],"remote")
-                local_ds = Snapshot.get_datasource(obj['file_type'],"local")
-                ###
-                # result = {}
-                # result['local'] = True
-                # sid = filter['attrib']['self_id']
-                # return {sid:result}
-                ###
-                object_results = local_ds.download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite,attrib)
-                # ERROR HERE
+                object_results = Snapshot.get_datasource(obj['file_type'],"local").download_object(from_remote_datasource,decw,[obj_id], download_path, connection_settings,overwrite,attrib)
                 messages_print:ObjectMessages = object_results[obj_id][1]
                 result = object_results[obj_id][0]
                     
@@ -235,7 +241,6 @@ class Snapshot:
             #if overwrite == False:
             #    print("Validating "+ obj_id)
             #    results[obj_id],_ = Snapshot.object_validation_status(decw,obj_id,download_path,connection_settings,'local')
-        
         return results
 
     @staticmethod

@@ -9,7 +9,7 @@ import traceback as tb
 import hashlib
 import shutil
 import random
-from .TpGeneral import TpGeneral
+from .DsGeneral import DsGeneral
 import datetime
 
 class Node:
@@ -99,15 +99,15 @@ class jsondateencode_local:
                     pass
         return dct
 
-class TpGeneralLocal(TpGeneral):
+class DsGeneralLocal(DsGeneral):
     @classmethod
     def download_object(cls,TpSource,decw,object_ids,download_path,connection_settings, overwrite=False,attrib=None):
         if type(object_ids) == str:
             object_ids = [object_ids]
         results = {}
         for obj_id in object_ids:
-            messages = ObjectMessages(f"{str(cls)}:in TpGeneralLocal.download_object(for {obj_id})")
-            print("TpGeneralLocal download_object/INSIDE DOWNLOAD "+download_path)
+            messages = ObjectMessages(f"{str(cls)}:in DsGeneralLocal.download_object(for {obj_id})")
+            print("DsGeneralLocal download_object/INSIDE DOWNLOAD "+download_path)
             try:
                 success,merged_object,merge_messages = cls.merge_attrib_from_remote(TpSource,decw,obj_id,download_path, overwrite)
                 messages.append(merge_messages)
@@ -129,7 +129,7 @@ class TpGeneralLocal(TpGeneral):
                         results[obj_id] = (True,messages)
                 else:
                     results[obj_id] = (False,messages)
-                print(" TpGeneralLocal download_object/FINISHED  DOWNLOAD")
+                print(" DsGeneralLocal download_object/FINISHED  DOWNLOAD")
                 
             except:
                 exc = tb.format_exc()
@@ -442,7 +442,7 @@ class TpGeneralLocal(TpGeneral):
     @classmethod
     def validate_object_attrib(cls,decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
-        messages = ObjectMessages("TpGeneralLocal.validate_object(for {object_id})")
+        messages = ObjectMessages("DsGeneralLocal.validate_object(for {object_id})")
         try:
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
@@ -460,7 +460,7 @@ class TpGeneralLocal(TpGeneral):
     @classmethod
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
         # Load the entity, and make sure payload is present that matches
-        messages = ObjectMessages("TpGeneralLocal.validate_object(for {object_id})")
+        messages = ObjectMessages("DsGeneralLocal.validate_object(for {object_id})")
         try:
             file_path_test = download_path+'/'+object_id+'/object.json'
             with open(file_path_test,'r') as f:
@@ -535,7 +535,7 @@ class TpGeneralLocal(TpGeneral):
         '''
             Validates the object, and generates a query to reupload the exact object
         '''
-        messages = ObjectMessages("TpGeneralLocal.upload_object_query(for {"+obj_id+"})")
+        messages = ObjectMessages("DsGeneralLocal.upload_object_query(for {"+obj_id+"})")
         if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
             return False,messages
         if attrib_only == True:
@@ -593,7 +593,7 @@ class TpGeneralLocal(TpGeneral):
     def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
         # TODO Assert ds_remote is of IPFS Type
         obj_id = obj['self_id']
-        messages = ObjectMessages("TpGeneralLocal(for IPFS).push_payload_to")
+        messages = ObjectMessages("DsGeneralLocal(for IPFS).push_payload_to")
         obj_cids = []
         obj_cids.append(obj['settings']['ipfs_cid'])
         if 'ipfs_cids' in obj['settings']:

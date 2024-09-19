@@ -6,8 +6,8 @@ except:
     from ..Messages import ObjectMessages
 import traceback as tb
 import ipfshttpclient
-from .TpGeneralDecelium import TpGeneralDecelium
-class TpGeneralDeceliumMirror(TpGeneralDecelium):
+from .DsGeneralDecelium import DsGeneralDecelium
+class DsGeneralDeceliumMirror(DsGeneralDecelium):
     @classmethod
     def load_entity(cls,query,decw):
         assert 'api_key' in query

@@ -1,4 +1,4 @@
-class TpGeneral():
+class DsGeneral():
     # TODO - add types in return values func()->
     @classmethod
     def validate_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
@@ -15,16 +15,16 @@ class TpGeneral():
 class TpFacade:
     datasource_map = None
     @classmethod
-    def get_datasource_refac(cls,type_id:str) -> TpGeneral:
+    def get_datasource_refac(cls,type_id:str) -> DsGeneral:
         if (cls.datasource_map == None):
             # TODO -- come up with a sensible and consistent mapping strategy
             # !!! Maps a datasource id with its corrisponding utility class !!!!
             #
             #
-            local:TpGeneral = cls.Local         
-            local_mirror:TpGeneral = cls.LocalMirror   # Note: LocalMirror seems unimplemented      
-            remote:TpGeneral = cls.Decelium         
-            remote_mirror:TpGeneral = cls.DeceliumMirror         
+            local:DsGeneral = cls.Local         
+            local_mirror:DsGeneral = cls.LocalMirror   # Note: LocalMirror seems unimplemented      
+            remote:DsGeneral = cls.Decelium         
+            remote_mirror:DsGeneral = cls.DeceliumMirror         
 
             cls.datasource_map = {
                             'local':local,
@@ -42,11 +42,11 @@ class TpFacade:
                             }    
         assert type_id in list(cls.datasource_map.keys()), "could not find "+ type_id + " in datasource_map"
         return cls.datasource_map[type_id]
-    class Local(TpGeneral):
+    class Local(DsGeneral):
         pass
-    class LocalMirror(TpGeneral):
+    class LocalMirror(DsGeneral):
         pass
-    class Decelium(TpGeneral):
+    class Decelium(DsGeneral):
         pass
-    class DeceliumMirror(TpGeneral):
+    class DeceliumMirror(DsGeneral):
         pass

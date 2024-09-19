@@ -6,7 +6,7 @@ except:
     from ..Messages import ObjectMessages
 import traceback as tb
 import ipfshttpclient
-from .TpGeneral import TpGeneral
+from .DsGeneral import DsGeneral
 import json
 import datetime
 
@@ -34,7 +34,7 @@ class jsondateencode_local:
                     pass
         return dct
 
-class TpGeneralDecelium(TpGeneral):
+class DsGeneralDecelium(DsGeneral):
     @classmethod
     def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False,failure_limit=5):
         c = connection_settings
@@ -62,7 +62,7 @@ class TpGeneralDecelium(TpGeneral):
                     all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
                 
                 print(f"{count}/{length} - Backing up "+dic['cid'] )
-                new_pins = TpDestination.backup_ipfs_entity(TpGeneralDecelium,dic,all_pins,download_path,client,overwrite)
+                new_pins = TpDestination.backup_ipfs_entity(DsGeneralDecelium,dic,all_pins,download_path,client,overwrite)
                 if len(new_pins) == 0:
                     failures = failures + 1
                     if failures > failure_limit and failure_limit >0:
@@ -132,7 +132,7 @@ class TpGeneralDecelium(TpGeneral):
     
     @classmethod
     def validate_object_attrib(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        messages = ObjectMessages("TpGeneralDecelium.validate_object_entity(for {"+object_id+"})")
+        messages = ObjectMessages("DsGeneralDecelium.validate_object_entity(for {"+object_id+"})")
         obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
         if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_object_entity:"+str(obj_valid)) == False:
             return False, messages
@@ -141,7 +141,7 @@ class TpGeneralDecelium(TpGeneral):
    
     @classmethod
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        messages = ObjectMessages("TpGeneralDecelium.validate_object_payload(for {"+object_id+"})")
+        messages = ObjectMessages("DsGeneralDecelium.validate_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
 
