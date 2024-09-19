@@ -14,8 +14,9 @@ class BackupManager():
               protocol='http',
               wallet_path= '../.wallet.dec',
               wallet_password_path =  '../.wallet.dec.password', 
-              url =  ':5000/data/query',
+              url =  '5000/data/query',
              decw_in=None):
+        print("BackupManager target url",protocol+"--",host+"--",url+"--" )
         node_url =  f'{protocol}://{host}:{url}'
         if decw_in:
             decw = decw_in
@@ -41,16 +42,16 @@ class BackupManager():
                 'file_type':'ipfs', 
                 'connection_settings':self.connection_settings
         }}
-
+        
         connected = decw.initial_connect(target_url=node_url, api_key=self.user_context['api_key'])
         assert loaded == True
         assert connected == True
         self.decw = decw
         return True
     
-    def backup_status(self,file_type,backup_path,early_stop = False):
+    def backup_status(self,file_type,backup_path,early_stop = False,self_id = ""):
         import pprint
-        validation_report = self.load_validation_report(file_type,backup_path,early_stop)
+        validation_report = self.load_validation_report(file_type,backup_path,early_stop,self_id)
         #pprint.pprint(validation_report)
         complete = {}
         pushable = {}
@@ -89,13 +90,13 @@ class BackupManager():
                 }
         return summary
     
-    def load_validation_report(self,file_type,backup_path,early_stop = False):
-        with open(os.path.join(backup_path,file_type+'_validation_report_latest.json'),'r') as f:
+    def load_validation_report(self,file_type,backup_path,early_stop = False,self_id=""):
+        with open(os.path.join(backup_path,file_type+f'_validation_report_latest{self_id}.json'),'r') as f:
             content = json.loads(f.read())
         return content
     
-    def purge_corrupt(self,file_type,backup_path,early_stop = False):
-        validation_report = self.backup_status(file_type,backup_path,early_stop)
+    def purge_corrupt(self,file_type,backup_path,early_stop = False,self_id=""):
+        validation_report = self.backup_status(file_type,backup_path,early_stop,self_id)
         assert 'corrupt' in  validation_report
         for item in validation_report['corrupt'].values():
             if not self.decw.has_entity_prefix(item['self_id']):
@@ -117,8 +118,8 @@ class BackupManager():
             print("Purged "+item['self_id'])
         print("Finished purge")
 
-    def repair(self,file_type,backup_path,early_stop = False):
-        validation_report = self.backup_status(file_type,backup_path,early_stop)
+    def repair(self,file_type,backup_path,early_stop = False,self_id=""):
+        validation_report = self.backup_status(file_type,backup_path,early_stop,self_id)
         assert 'repairable' in  validation_report
         #assert 'pushable' in  validation_report
         for k in ['repairable']:
@@ -142,9 +143,12 @@ class BackupManager():
                 print("Repaired "+item['self_id'])
         print("Finished repair")    
     
-    def create_validation_report(self,file_type,backup_path,early_stop = False):
+    def create_validation_report(self,file_type,backup_path,early_stop = False,self_id=""):
         import pprint
-        filter = {'attrib':{'file_type':file_type}}
+        if len(self_id) > 0: 
+            filter = {'attrib':{'self_id':self_id}}
+        else:
+            filter = {'attrib':{'file_type':file_type}}
         chunk_size = 20
         limit = chunk_size+1
         offset = 0
@@ -167,7 +171,7 @@ class BackupManager():
                 del res_new[k]['remote_mirror_message']
         
         if early_stop == True:
-            with open(os.path.join(backup_path,file_type+'_validation_report_latest.json'),'w') as f:
+            with open(os.path.join(backup_path,file_type+f'_validation_report_latest{self_id}.json'),'w') as f:
                 f.write(json.dumps(res_new,indent=1))
             print("EARLY STOP")
             return True
@@ -201,9 +205,12 @@ class BackupManager():
         return True
 
     
-    def backup_all_type(self,file_type,backup_path,early_stop = False):
+    def backup_all_type(self,file_type,backup_path,early_stop = False,self_id=""):
         import pprint
-        filter = {'attrib':{'file_type':file_type}}
+        if len(self_id) > 0: 
+            filter = {'attrib':{'self_id':self_id}}
+        else:
+            filter = {'attrib':{'file_type':file_type}}
         chunk_size = 20
         limit = chunk_size + 1
         offset = 0
@@ -216,9 +223,12 @@ class BackupManager():
             res = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
         return res
     
-    def push(self,file_type,backup_path,early_stop = False):
+    def push(self,file_type,backup_path,early_stop = False,self_id=""):
         import pprint
-        filter = {'attrib':{'file_type':file_type}}
+        if len(self_id) > 0: 
+            filter = {'attrib':{'self_id':self_id}}
+        else:
+            filter = {'attrib':{'file_type':file_type}}
         chunk_size = 20
         limit = chunk_size + 1
         offset = 0
@@ -233,9 +243,9 @@ class BackupManager():
             res = Snapshot.push_to_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
         return res    
 
-    def pull(self,file_type,backup_path,early_stop = False):
+    def pull(self,file_type,backup_path,early_stop = False,self_id=""):
         # TODO Fix this 
-        validation_report = self.backup_status(file_type,backup_path,early_stop)
+        validation_report = self.backup_status(file_type,backup_path,early_stop,self_id)
         assert 'pullable' in  validation_report
         res = {}
         try:
@@ -249,15 +259,24 @@ class BackupManager():
             print("PULLING")
             filter = {'attrib':{'self_id':item['self_id']}}
             chunk_size = 20
-            filter = {'attrib':{'self_id':item['self_id']}}
             overwrite = True
             res_add = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path,1, 0,filter,overwrite,api_key=api_key,attrib=False)      
             res.update(res_add)
         return res   
 
-    def run(self,dir,host,protocol,job_id,file_types,early_stop=False,use_type_dir=True,decw_in=None):
+    def run(self,dir,host,protocol,job_id,file_types,early_stop=False,use_type_dir=True,decw_in=None,self_id=""):
         print(job_id,file_types)
         func = None
+        assert job_id in [
+            "validate",
+            "backup",
+            "append",
+            "status",
+            "purge_corrupt",
+            "push",
+            "repair",
+            "pull"]
+
         if job_id == 'validate':
             func = self.create_validation_report
         if job_id == 'backup':
@@ -285,8 +304,8 @@ class BackupManager():
             else:
                 type_path = os.path.join(dir)
                 
-            result = func(type,type_path,early_stop)
+            result = func(type,type_path,early_stop,self_id)
             results[type] = result
-            if early_stop:
-                break
+            #if early_stop:
+            #    break
         return results

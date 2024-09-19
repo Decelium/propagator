@@ -18,19 +18,27 @@ class TpFacade:
     def get_datasource_refac(cls,type_id:str) -> TpGeneral:
         if (cls.datasource_map == None):
             # TODO -- come up with a sensible and consistent mapping strategy
+            # !!! Maps a datasource id with its corrisponding utility class !!!!
+            #
+            #
+            local:TpGeneral = cls.Local         
+            local_mirror:TpGeneral = cls.LocalMirror   # Note: LocalMirror seems unimplemented      
+            remote:TpGeneral = cls.Decelium         
+            remote_mirror:TpGeneral = cls.DeceliumMirror         
+
             cls.datasource_map = {
-                            'local':cls.Local,
-                            'local_attrib':cls.Local, #??? -- Seems innaccurate
-                            'local_payload':cls.Local, #??? -- Seems innaccurate
-                            'local_mirror':cls.LocalMirror,
-                            'local_mirror_attrib':cls.LocalMirror, #??? -- Seems innaccurate
-                            'local_mirror_payload':cls.LocalMirror, #??? -- Seems innaccurate
-                            'remote':cls.Decelium,
-                            'remote_attrib':cls.Decelium, #??? -- Seems innaccurate
-                            'remote_payload':cls.Decelium, #??? -- Seems innaccurate
-                            'remote_mirror':cls.DeceliumMirror, 
-                            'remote_mirror_attrib':cls.DeceliumMirror, #??? -- Seems innaccurate
-                            'remote_mirror_payload':cls.DeceliumMirror #??? -- Seems innaccurate
+                            'local':local,
+                            'local_attrib':local, 
+                            'local_payload':local, 
+                            'local_mirror':local_mirror,
+                            'local_mirror_attrib':local_mirror, 
+                            'local_mirror_payload':local_mirror, 
+                            'remote':remote,
+                            'remote_attrib':remote,
+                            'remote_payload':remote, 
+                            'remote_mirror':remote_mirror, 
+                            'remote_mirror_attrib':remote_mirror,
+                            'remote_mirror_payload':remote_mirror
                             }    
         assert type_id in list(cls.datasource_map.keys()), "could not find "+ type_id + " in datasource_map"
         return cls.datasource_map[type_id]
