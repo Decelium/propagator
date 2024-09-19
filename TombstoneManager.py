@@ -2,12 +2,43 @@ import hashlib
 import json
 import os
 import base64
+import datetime
+class jsondateencode_local:
+    def loads(dic):
+        return json.loads(dic,object_hook=jsondateencode_local.datetime_parser)
+    def dumps(dic):
+        return json.dumps(dic,default=jsondateencode_local.datedefault)
+
+    def datedefault(o):
+        if isinstance(o, tuple):
+            l = ['__ref']
+            l = l + o
+            return l
+        if isinstance(o, (datetime.date, datetime.datetime,)):
+            return o.isoformat()
+
+    def datetime_parser(dct):
+        DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
+        for k, v in dct.items():
+            if isinstance(v, str) and "T" in v:
+                try:
+                    dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
+                except:
+                    pass
+        return dct
 
 class TombstoneArchive:
-
+    @staticmethod
+    def exists(repo,self_id):
+        file_name = os.path.join(repo,self_id+".tombstone.json")
+        if not os.path.exists(file_name):
+            return False
+        return True
     @staticmethod
     def initalize(repo,self_id,initial_commit):
         file_name = os.path.join(repo,self_id+".tombstone.json")
+        if not os.path.exists(repo):
+            os.makedirs(repo)
         if not os.path.exists(file_name):
             with open(file_name, "w") as file:
                 json.dump([initial_commit], file, indent=4)
@@ -48,6 +79,9 @@ class TombstoneManager:
 
     def __init__(self,repo, hash_algo='sha256'):
         self.repo = repo
+        if not os.path.exists(repo):
+            os.makedirs(repo)
+        
         self.hash_function = getattr(hashlib, hash_algo, hashlib.sha256)
 
     def purge_commits(self, self_id):
@@ -57,6 +91,10 @@ class TombstoneManager:
         data = self.encode_data(raw_data) # A reversable encoding
         hash_obj = self.hash_function()
         hash_obj.update(data.encode('utf-8'))
+        #print("_generate_hash")
+        #print(raw_data)
+        #print(hash_obj.hexdigest())
+        #print("")
         return hash_obj.hexdigest()
     def commit_len(self, self_id,):
         return TombstoneArchive.length(self.repo,self_id)
@@ -78,7 +116,7 @@ class TombstoneManager:
             "hash": previous_entry["hash"],
             "data": data,
         }
-        this_hash = self._generate_hash(json.dumps(commit_data))
+        this_hash = self._generate_hash(jsondateencode_local.dumps(commit_data))
         return this_hash
 
     def decode_data(self, encoded_data):
@@ -121,9 +159,9 @@ class TombstoneManager:
         elif isinstance(raw_data, int):
             data_bytes = ("01:int:" + str(raw_data)).encode()
         elif isinstance(raw_data, dict):
-            data_bytes = ("01:dict:" + json.dumps(raw_data)).encode()
+            data_bytes = ("01:dict:" + jsondateencode_local.dumps(raw_data)).encode()
         elif isinstance(raw_data, list):
-            data_bytes = ("01:list:" + json.dumps(raw_data)).encode()
+            data_bytes = ("01:list:" + jsondateencode_local.dumps(raw_data)).encode()
         else:
             raise ValueError("Unsupported data type")
         
@@ -135,11 +173,18 @@ class TombstoneManager:
         return final_encoding
         
     def verify(self, self_id, data):
+        if not TombstoneArchive.exists(self.repo,self_id):
+            #print("Tombstone DOING FIRST COMMIT")
+            #return None # Cant validate as there is no tombstone
+            self.commit(self_id, data)       
+        
         latest_index = self.commit_len(self_id) - 1
         previous_index = latest_index-1
         
         last_hash = self.get_commit(self_id,latest_index)['hash']
-                
+        #print("hash compare")
+        #print(self.generate_hash(self_id,data,previous_index))
+        #print(last_hash)
         if self.generate_hash(self_id,data,previous_index) ==  last_hash:
             return True
         return False
@@ -158,8 +203,10 @@ class TombstoneManager:
             is_duplicate = True
         if is_duplicate:
             return last_hash
+        new_hash = self.generate_hash(self_id,data,latest_index)
+        print("new hash,",new_hash)
         commit_data = {
-            "hash": self.generate_hash(self_id,data,latest_index),
+            "hash": new_hash,
         }
         TombstoneArchive.append(self.repo,self_id,commit_data)
         return commit_data['hash']
@@ -229,7 +276,7 @@ class TestsTombstone():
                                'payload':source_data,
                               },remote=remote,show_errors=True)
         # Ensure tomstone ex
-        assert 'obj-' in fil
+        assert 'xbj-' in fil
         self_id = fil
 
         

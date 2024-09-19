@@ -6,34 +6,67 @@ except:
     from ..Messages import ObjectMessages
 import traceback as tb
 import ipfshttpclient
+from .TpGeneral import TpGeneral
+import json
 
-class TpIPFSDecelium():
+class TpGeneralDecelium(TpGeneral):
     @classmethod
-    def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False):
+    def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False,failure_limit=5):
         c = connection_settings
         ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
-
+        print(ipfs_string)
         current_docs = cids
         next_batch = []
 
         all_pins = cls.ipfs_pin_list(decw, connection_settings)
-        with ipfshttpclient.connect(ipfs_string) as client:
-            while len(current_docs) > 0:
-                for item in current_docs:
-                    dic = None
-                    if type(item) == dict:
-                        dic = item.copy()
-                    if type(item) == str:
-                        dic = {'cid':item,'self_id':None}
-                    if not dic['cid'] in all_pins:
-                        all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
-                        
-                    new_pins = TpDestination.backup_ipfs_entity(TpIPFSDecelium,dic,all_pins,download_path,client,overwrite)
-                    if len(new_pins) > 0:
-                        next_batch = next_batch + new_pins
-                current_docs = next_batch
-                next_batch = []
+        failures = 0
+        count = 0
+        print("A")
+        length = len(current_docs) 
+        print("B")
 
+        with ipfshttpclient.connect(ipfs_string,headers={'X-Api-Token':'your_secret_token'}) as client:
+            for item in current_docs:
+                count = count + 1
+                dic = None
+                if type(item) == dict:
+                    dic = item.copy()
+                if type(item) == str:
+                    dic = {'cid':item,'self_id':None}
+                if not dic['cid'] in all_pins:
+                    all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
+                
+                print(f"{count}/{length} - Backing up "+dic['cid'] )
+                new_pins = TpDestination.backup_ipfs_entity(TpGeneralDecelium,dic,all_pins,download_path,client,overwrite)
+                if len(new_pins) == 0:
+                    failures = failures + 1
+                    if failures > failure_limit and failure_limit >0:
+                        print("Hit Failure Limit")
+                        return {'error':"too many failures"}
+                if len(new_pins) > 0:
+                    next_batch = next_batch + new_pins
+            current_docs = next_batch
+            next_batch = []
+        return True
+                
+    @classmethod
+    def download_payload_data(cls,decw,obj):
+        result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
+        if type(result) == dict and 'error' in result:
+            return result,None
+        # Cretae bytes
+        if type(result) == str:
+            dat = bytes(result.encode("utf-8"))
+        elif type(result) in [dict,list]:
+            dat = bytes(json.dumps(result).encode("utf-8"))
+        elif type(result) == bytes:
+            dat = bytes
+        else:
+            raise Exception("Could not parse type "+str(type(result)))
+        return True,dat
+        
+
+        
     @classmethod
     def get_cid_read_stream(cls,client,root_cid):
         return client.cat(root_cid, stream=True)    
@@ -58,57 +91,32 @@ class TpIPFSDecelium():
         return item_details
 
     @classmethod
-    def validate_remote_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        entity_success,entity_messages = cls.validate_remote_object_attrib(decw,object_id,download_path,connection_settings)
-        payload_success,payload_messages = cls.validate_remote_object_payload(decw,object_id,download_path,connection_settings)
+    def validate_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+        payload_success,payload_messages = cls.validate_object_payload(decw,object_id,download_path,connection_settings)
         entity_messages:ObjectMessages = entity_messages
         all_messages:ObjectMessages = payload_messages
         all_messages.append(entity_messages)
         return entity_success and payload_success,all_messages
     
-    @classmethod
-    def validate_remote_object_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        entity_success,entity_messages = cls.validate_remote_object_attrib_mirror(decw,object_id,download_path,connection_settings)
-        payload_success,payload_messages = cls.validate_remote_object_payload_mirror(decw,object_id,download_path,connection_settings)
-        entity_messages:ObjectMessages = entity_messages
-        all_messages:ObjectMessages = payload_messages
-        all_messages.append(entity_messages)
-        return entity_success and payload_success,all_messages
     
     @classmethod
-    def validate_remote_object_attrib(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_entity(for {"+object_id+"})")
+    def validate_object_attrib(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        messages = ObjectMessages("TpGeneralDecelium.validate_object_entity(for {"+object_id+"})")
         obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
-        if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
+        if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_object_entity:"+str(obj_valid)) == False:
             return False, messages
         return len(messages.get_error_messages()) == 0, messages      
 
+   
     @classmethod
-    def validate_remote_object_attrib_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_entity_mirror(for {"+object_id+"})")
-        obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
-        if messages.add_assert(obj_valid == True, f"validate_entity_hash({object_id}) seems to be invalid, as reported by DB validate_remote_object_entity_mirror:"+str(obj_valid)) == False:
-            return False, messages
-        return len(messages.get_error_messages()) == 0, messages      
-
-    @classmethod
-    def validate_remote_object_payload_mirror(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_entity_payload(for {"+object_id+"})")
-        obj_valid = decw.net.validate_payload( {'api_key':'UNDEFINED', 'self_id':object_id,'mirror':True})
-        if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_remote_object_payload_mirror:"+str(obj_valid)) == False:
-            return False, messages
-        return len(messages.get_error_messages()) == 0, messages      
-
-
-    @classmethod
-    def validate_remote_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
-        messages = ObjectMessages("TpIPFSDecelium.validate_remote_object_payload(for {"+object_id+"})")
+    def validate_object_payload(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
+        messages = ObjectMessages("TpGeneralDecelium.validate_object_payload(for {"+object_id+"})")
         if obj_remote == None:
             obj_remote = decw.net.download_entity( {'api_key':'UNDEFINED', 'self_id':object_id,'attrib':True})
-        print("LOW LEVEL TpIPFSDecelium.validate_remote_object_payload")
 
         obj_valid = decw.net.validate_entity_hash( {'api_key':'UNDEFINED', 'self_id':object_id})
-        if messages.add_assert(obj_valid == True, f"B. validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_remote_object_entity:"+str(obj_valid)) == False:
+        if messages.add_assert(obj_valid == True, f"B. validate_entity_hash({object_id}) seems to have an invalid hash, as reported by DB validate_object_entity:"+str(obj_valid)) == False:
             return False, messages
 
         
@@ -192,6 +200,23 @@ class TpIPFSDecelium():
         for doc in docs:
             obj_ids.append(doc['self_id'])
         return obj_ids
+
+    @classmethod
+    def find_batch_objects(cls,decw,offset,limit,filter=None):
+        if filter ==None:
+            filter ={'attrib':{'file_type':'ipfs'}}
+        #print("Searching Filter = "+str(filter))
+        filter['limit'] = limit
+        filter['offset'] = offset
+        docs = decw.net.list(filter)
+        if type(docs) == dict and 'error' in docs:
+            return filter
+        #print(docs)
+        obj_ids = []
+        for doc in docs:
+            obj_ids.append(doc)
+        return obj_ids
+
     
     @classmethod
     def find_batch_cids(cls,decw,offset,limit,filter=None):

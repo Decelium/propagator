@@ -1,6 +1,11 @@
 
 
 class ObjectMessages():
+    assert_mode = False    
+    @staticmethod
+    def set_assert_mode(mode:bool):
+        ObjectMessages.assert_mode = mode
+
     allowed_tags = ["upload_fail"
                "download_fail"
                "incomplete_metadata"
@@ -30,6 +35,8 @@ class ObjectMessages():
             msg['error'] = error_message
             msg['tags'] = tags
             self.errors.append(msg)
+            if ObjectMessages.assert_mode == True:
+                raise Exception("Failed to pass ObjectMessage assert \n"+str(msg))
             return False
         return True
     

@@ -1,7 +1,7 @@
 
 try:
     #from ..Snapshot import Snapshot
-    from ..datasource.TpIPFSDecelium import TpIPFSDecelium
+    from ..datasource.TpIPFS import TpIPFS
     #from ..datasource.TpIPFSLocal import TpIPFSLocal
     #from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
@@ -9,7 +9,7 @@ try:
     from .Action import Action
 except:
     #from Snapshot import Snapshot
-    from datasource.TpIPFSDecelium import TpIPFSDecelium
+    from datasource.TpIPFS import TpIPFS
     #from datasource.TpIPFSLocal import TpIPFSLocal
     #from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c
@@ -29,11 +29,11 @@ class DeleteObjectFromRemote(Action):
         user_context = record['user_context']
         connection_settings = record['connection_settings']
         path = record['path']
-        obj = TpIPFSDecelium.load_entity({'path':path,'api_key':decw.dw.pubk(),"attrib":True},decw)
+        obj = TpIPFS.get_datasource("remote").load_entity({'path':path,'api_key':decw.dw.pubk(),"attrib":True},decw)
         old_cids = [obj['settings']['ipfs_cid']] 
         for old_cid in obj['settings']['ipfs_cids'].values():
             old_cids.append(old_cid)
-        assert TpIPFSDecelium.ipfs_has_cids(decw,old_cids, connection_settings) == True
+        assert TpIPFS.get_datasource("remote").ipfs_has_cids(decw,old_cids, connection_settings) == True
         memory['old_cids'] = old_cids
         return True
 
@@ -52,6 +52,5 @@ class DeleteObjectFromRemote(Action):
         user_context = record['user_context']
         connection_settings = record['connection_settings']
 
-        # B TODO - Check IPFS to validate the files are gone
-        assert TpIPFSDecelium.ipfs_has_cids(decw, memory['old_cids'], connection_settings,refresh=True) == False
+        assert TpIPFS.get_datasource("remote").ipfs_has_cids(decw, memory['old_cids'], connection_settings,refresh=True) == False
         return True

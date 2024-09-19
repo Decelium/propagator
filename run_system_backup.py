@@ -1,46 +1,31 @@
 import decelium_wallet.core as core
 from Snapshot import Snapshot
-import os
+import os,json
+from type.BaseData import BaseData
+import time
+import pprint, argparse
+from BackupManager import BackupManager
 
-class SystemBackup():
+def main(dir,host,protocol,mode, types,self_id):
+    sb = BackupManager()
+    early_stop = False
+    file_types = types.split(',')
+    results = sb.run(dir=dir,host=host,
+                     protocol=protocol,
+                     job_id=mode,
+                     file_types= file_types, 
+                     early_stop=early_stop,
+                     self_id=self_id)
+    pprint.pprint(results)
 
-    def setup(self):
-        wallet_path= '../.wallet.dec',
-        wallet_password_path =  '../.wallet.dec.password'
-        node_url =  'https://dev.devdecelium.com/data/query',
-        self.user_context = {
-                'api_key':decw.dw.pubk()
-        }
-        self.connection_settings = {'host': "devdecelium.com",
-                                'port':5001,
-                                'protocol':"http"
-        }
-        self.ipfs_req_context = {**self.user_context, **{
-                'file_type':'ipfs', 
-                'connection_settings':self.connection_settings
-        }}
-        self.decelium_path = 'temp/test_folder.ipfs'
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run SystemBackup with specified mode and files.')
+    parser.add_argument('--self_id', default="", type=str, help='Object Id')
+    parser.add_argument('--mode', type=str, help='The mode to run the SystemBackup in')
+    parser.add_argument('--types', type=str, help='Comma-separated list of file types')
+    parser.add_argument('--host', type=str, help='The host URL of the remote node',default='devdecelium.com')
+    parser.add_argument('--protocol', type=str, help='The protocol to use',default='http')
+    parser.add_argument('--dir', type=str, help='The local dir to use',default='../devdecelium.com_systembackup')
 
-        decw:core.core = core()
-        loaded = decw.load_wallet(decw.rd_path(wallet_path),decw.rd_path(wallet_password_path))
-        connected = decw.initial_connect(target_url=node_url, api_key=decw.dw.pubk())
-        assert loaded == True
-        assert connected == True
-        self.decw = decw
-        return True
-
-    def update_snapshot(self,backup_path='../devdecelium_backup/'):
-        if not os.
-        filter = {'attrib':{'file_type':'ipfs'}}
-        limit = 20
-        offset = 0
-        res = Snapshot.append_from_remote(self.decw, self.connection_settings, self.backup_path, limit, offset,filter)
-        print(len(res))
-        while len(res) == 20:
-            offset = offset + 20
-            print(f"RUNNING {offset} {limit}")
-            res = Snapshot.append_from_remote(self.decw, self.connection_settings, self.backup_path, limit, offset,filter)
-            break
-
-sb = SystemBackup()
-sb.run()
+    args = parser.parse_args()
+    main(args.dir,args.host,args.protocol,args.mode, args.types,args.self_id)

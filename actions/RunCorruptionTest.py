@@ -1,5 +1,5 @@
 try:
-    #from ..Snapshot import Snapshot
+    from ..Snapshot import Snapshot
     #from ..datasource.TpIPFSDecelium import TpIPFSDecelium
     #from ..datasource.TpIPFSLocal import TpIPFSLocal
     #from ..Messages import ObjectMessages
@@ -9,10 +9,12 @@ try:
     from .Action import Action
 
 except:
+    from Snapshot import Snapshot
     from type.CorruptionData import CorruptionTestData
     from type.BaseData import TestConfig
     from .CorruptObject import CorruptObject
     from .PullObjectFromRemote import PullObjectFromRemote
+    from .AppendObjectFromRemote import AppendObjectFromRemote
     from .EvaluateObjectStatus import evaluate_object_status #Exported as a premade function
     from .ChangeRemoteObjectName import ChangeRemoteObjectName
     from .PushFromSnapshotToRemote import PushFromSnapshotToRemote
@@ -40,7 +42,8 @@ class RunCorruptionTest(Action):
         backup_instruction["corruption"] = corruption['corruption']
         backup_instruction["mode"] = corruption['mode']
         # backup_instruction.update(corruption)
-        corrupt_object_backup(backup_instruction)
+        print(backup_instruction)
+        corrupt_object_backup(record=backup_instruction)
 
     def run_corruption_test(self,setup_config:TestConfig,
                             obj:dict,
@@ -76,53 +79,65 @@ class RunCorruptionTest(Action):
         assert 'final_evals' in record
         assert 'push_target' in record
         setup_config:TestConfig = record['setup_config']
-        evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})        
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'local','status':['complete']})  
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote','status':['complete']})        
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})  
         return True
     
+    def get_validation_summary(self,decw,setup_config):
+        validation_data = decw.net.validate_entity({'self_id':setup_config.obj_id()})
+        local_validation_attrib = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_attrib')
+        local_validation_payload = Snapshot.object_validation_status(decw,setup_config.obj_id(),setup_config.backup_path(),setup_config.connection_settings(),'local_payload')
+        validation_data['local_attrib'] = [local_validation_attrib[0]]
+        validation_data['local_payload'] = [local_validation_payload[0]]
+        return validation_data
+
     def postvalid(self,record,response,memory=None):
 
         # Step 1: In post, we want to first make sure the corruption indeed caused the kind of corruption we are looking for
         setup_config:TestConfig = record['setup_config']
         invalid_props = record['invalid_props']
         for eval in record['corruption_evals']:
-            print("Evaluating Corruption:")
+            print("Evaluating pre repar corruption")
             print(eval)
-            evaluate_object_status({**setup_config.eval_context(),**eval})
+            evaluate_object_status(record={**setup_config.eval_context(),**eval})
         rec = record.copy()
         del rec['setup_config']
-        print(json.dumps(rec,indent=2))
-        print("CORRUPTION SHOULD BE APPLIED")
         # TODO -- make sure after payload is removed, that the data is absolutely not online.
         #return True
-        validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        #validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
         if 'error' in validation_data:
             print(validation_data)
-        print("PRE-REPAIR VALIDATUION SUMMARY:")
+        print("\nPRE-REPAIR VALIDATUION SUMMARY:")
         for k in validation_data.keys():
             try:
                 print (f"{k} is {validation_data[k][0][k]}")
             except:
-                pass #print (f"{k} is broken")
-        
+                pass
+                #print (f"{k} is broken:"+str(validation_data[k]))
+        print("\n")
+        print("\n")
         if record['do_repair'] == True:
             print("EXECUTING REPAIR")
             repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})
             print(repair_status)
             # return True
             '''  '''
-            validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+            # validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+            validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
             if 'error' in validation_data:
                 print(validation_data)
-            print("TEMP VALIDATUION SUMMARY:")
+            print("\nPOST-REPAIR VALIDATUION SUMMARY:")
             for k in validation_data.keys():
                 try:
                     print (f"{k} is {validation_data[k][0][k]}")
                 except:
-                    pass #print (f"{k} is broken")
+                    pass
+                    # print (f"{k} is broken"+str(validation_data[k]))
             # return True
-
+            print("\n")
+            print("\n")
             '''  '''
             if record['post_repair_status']  == True:
                 assert record['post_repair_status'] == repair_status, "Expected Successful Repair:\n" + str(repair_status)
@@ -130,39 +145,53 @@ class RunCorruptionTest(Action):
                 assert type(repair_status)==dict and 'error' in repair_status, "Expected Failed Repair:\n" + str(repair_status)
 
             for eval in record['final_evals']:
-                evaluate_object_status({**setup_config.eval_context(),**eval})
+                evaluate_object_status(record={**setup_config.eval_context(),**eval})
         #else:
         #    print("SKIPPING REPAIR")
-        props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload']
-        validation_data = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
+        props = ['remote_attrib','remote_payload','remote_mirror_attrib','remote_mirror_payload','local_attrib','local_payload']
+        validation_data = self.get_validation_summary(setup_config.decw(),setup_config)
         if 'error' in validation_data:
             print(validation_data)
-        print("VALIDATUION SUMMARY:")
-        for k in validation_data.keys():
-            try:
-                print (f"{k} is {validation_data[k][0][k]}")
-            except:
-                pass #print (f"{k} is broken")
-
         for prop in props:
             if prop not in invalid_props:
-                assert validation_data[prop][0][prop] == True,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+                if 'payload' in prop:
+                    checklist = [True,None]
+                else:
+                    checklist = [True]
+                assert validation_data[prop][0][prop] in checklist,"Could not find that "+prop+" was valid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+
             else:
-                assert validation_data[prop][0][prop] == False,"Could not find that "+prop+" was INvalid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
+                if 'payload' in prop:
+                    checklist = [False,None]
+                else:
+                    checklist = [False]
+                assert validation_data[prop][0][prop] in checklist,"Could not find that "+prop+" was INvalid from validation_data: \n"+json.dumps(validation_data[prop][0],indent=1)
 
         # Step 2: After we evaluate, we want to restore the object to its original state
+
         if record['push_target'] == 'local':
+            repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})
+            assert repair_status == True, "Should have been able to repair: "+ str(repair_status)
             pull_object_from_remote = PullObjectFromRemote()
-            pull_object_from_remote({**setup_config,'overwrite': False,'expected_result':True,})
+            append_object_from_remote = AppendObjectFromRemote()
+            method_to_repair = "pull"
+            for corruption in record['corruptions']:
+                if corruption['corruption'] == 'delete_entity' and corruption['mode'] == 'local':
+                    method_to_repair = "append"
+                    break
+            if method_to_repair == "pull":
+                pull_object_from_remote(record={**setup_config,'overwrite': False,'expected_result':True,})
+            else:
+                append_object_from_remote(record={**setup_config,'overwrite': False,'expected_result':True,})
         elif record['push_target'] == 'remote':
             push_from_snapshot_to_remote = PushFromSnapshotToRemote()
-            push_from_snapshot_to_remote({**setup_config,'overwrite': False,'expected_result':True,})
+            push_from_snapshot_to_remote(record={**setup_config,'overwrite': False,'expected_result':True,})
         else:
             assert True==False, "Forcing a failure as we are not corrupting remote or local"
 
-        evaluate_object_status({**setup_config.eval_context(),'target':'local','status':['complete']})  
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote','status':['complete']})        
-        evaluate_object_status({**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})       
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'local','status':['complete']})  
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote','status':['complete']})    
+        evaluate_object_status(record={**setup_config.eval_context(),'target':'remote_mirror','status':['complete']})       
         return True
    
     def test(self,record):

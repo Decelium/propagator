@@ -14,16 +14,20 @@ except:
     #from type.BaseData import BaseData,auto_c
     #from datasource.CorruptionData import CorruptionTestData
     from .Action import Action
+
 from decelium_wallet import core as core
+
 class CreateDecw(Action):
-    def run(self,record,memory):
+    def run(self,record,memory=None):
+        
         decw = core()
         with open(record['wallet_path'],'r') as f:
             data = f.read()
         with open(record['wallet_password_path'],'r') as f:
             password = f.read()
+            password = password.strip()
         loaded = decw.load_wallet(data,password)
-        assert loaded == True
+        assert loaded == True, "Could not load wallet " + str(loaded)
         connected = decw.initial_connect(target_url=record['fabric_url'],
                                         api_key=decw.dw.pubk())
         return decw,connected
