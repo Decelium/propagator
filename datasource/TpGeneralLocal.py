@@ -117,6 +117,9 @@ class TpGeneralLocal(TpGeneral):
                     # TODO should verify the success of the merge operation
                     if attrib != True:
                         result = cls.merge_payload_from_remote(TpSource,decw,merged_object,download_path,connection_settings, overwrite)
+                        ################# -----X ################ -----X ################ -----X ################ -----X
+                        #results[obj_id] = (True,messages) ################ -----X ################ -----X ################ -----X ################ -----X
+                        #continue
                         if type(result) == dict:
                             if messages.add_assert( "error" not in result,"Could not retrieve IPFS pins from merge_payload_from_remote: "+result['error'] ) == False:
                                 results[obj_id] = (False,messages)
@@ -163,9 +166,10 @@ class TpGeneralLocal(TpGeneral):
     
     @classmethod        
     def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
-
-        remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
+        merge_messages = ObjectMessages("Migrator.__merge_attrib_from_remote(for obj_id)"+str(obj_id) )
         local_obj = cls.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
+        remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
+        
         file_path = os.path.join(download_path,obj_id,'object.json')
         # Is the local accurate?
         local_is_valid = cls.compare_file_hash(file_path)
@@ -176,7 +180,6 @@ class TpGeneralLocal(TpGeneral):
         priority = 'local' if overwrite == False else 'remote'        
         assert 'error'  in remote_obj or 'self_id' in remote_obj
         assert 'error'  in local_obj or 'self_id' in local_obj
-        merge_messages = ObjectMessages("Migrator.__merge_attrib_from_remote(for obj_id)"+str(obj_id) )
         if priority == 'local':
             if  'error' in local_obj and 'error' in remote_obj:
                 merged_object =  None

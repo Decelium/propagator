@@ -8,6 +8,31 @@ import traceback as tb
 import ipfshttpclient
 from .TpGeneral import TpGeneral
 import json
+import datetime
+
+class jsondateencode_local:
+    def loads(dic):
+        return json.loads(dic,object_hook=jsondateencode_local.datetime_parser)
+    def dumps(dic):
+        return json.dumps(dic,default=jsondateencode_local.datedefault)
+
+    def datedefault(o):
+        if isinstance(o, tuple):
+            l = ['__ref']
+            l = l + o
+            return l
+        if isinstance(o, (datetime.date, datetime.datetime,)):
+            return o.isoformat()
+
+    def datetime_parser(dct):
+        DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
+        for k, v in dct.items():
+            if isinstance(v, str) and "T" in v:
+                try:
+                    dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
+                except:
+                    pass
+        return dct
 
 class TpGeneralDecelium(TpGeneral):
     @classmethod
@@ -51,14 +76,19 @@ class TpGeneralDecelium(TpGeneral):
                 
     @classmethod
     def download_payload_data(cls,decw,obj):
-        result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
+        try:
+            # TODO - temp workaround to be removed when wallet is upgraded to decelium_wallet from paxdk
+            result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']},remote=True)
+        except:
+            result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
+            
         if type(result) == dict and 'error' in result:
             return result,None
         # Cretae bytes
         if type(result) == str:
             dat = bytes(result.encode("utf-8"))
         elif type(result) in [dict,list]:
-            dat = bytes(json.dumps(result).encode("utf-8"))
+            dat = bytes(jsondateencode_local.dumps(result).encode("utf-8"))
         elif type(result) == bytes:
             dat = bytes
         else:
