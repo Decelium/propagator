@@ -13,6 +13,7 @@ from .DsGeneral import TpFacade
 from .DsGeneralDecelium import DsGeneralDecelium
 from .DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
 from .DsGeneralLocal import DsGeneralLocal
+from .DsLocalFilesystem import DsLocalFilesystem
 
 class TpFile(TpFacade):
 
@@ -152,4 +153,6 @@ class TpFile(TpFacade):
                 messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
                 
             return len(messages.get_error_messages())== 0,messages   
-    #class LocalMirror():
+        
+        class LocalFilesystem(DsLocalFilesystem):
+            pass

@@ -8,22 +8,6 @@ from Snapshot import Snapshot
 import pandas
 import shutil
 import pprint
-# System Backup and restore
-# [ ] Can restore all object types
-# [ ] Can restore backed up object
-# [ ] ---- When objects are uploaded, a hash gets stored on the server
-# [ ] ---- if hash exists, restore_entity will function correctly
-# [ ] ---- Some types
-
-# ---------------
-# [ ] - Refactor Snapshot Unit test for completeness and clarity
-# [ ] - Push data source code into data sources
-# [ ] - Create Snapshot Summary builders
-# [ ] - Unit test Snapshot summaries
-# [ ] - Change Migrator into some kind of Decorator
-# [ ] - Datasources use the Migrator to move data
-# Old notes
-# -------
 
 
 # pprint.pprint(df.iloc[5].to_dict())

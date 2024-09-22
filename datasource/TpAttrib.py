@@ -79,3 +79,6 @@ class TpAttrib(TpFacade):
                 messages.add_assert(False, "Failed perliminary object validation validate_object_payload for TpFile.Local.validate_object_payload:")
                 return False,messages
             return None,messages
+        
+    class LocalFilesystem(Local):
+        pass

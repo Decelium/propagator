@@ -15,6 +15,8 @@ from datetime import datetime,timedelta,time
 def object_setup(agent:SnapshotAgent,
                  conn_config:ConnectionConfig,
                  setup_type:str):
+    
+    
     print("object_setup.setup_type",setup_type)
     assert setup_type in list(Snapshot.s_type_map.keys())
     user_context = conn_config.user_context()
@@ -27,6 +29,13 @@ def object_setup(agent:SnapshotAgent,
                 'file_type':'ipfs', 
                 'connection_settings':connection_settings
         }}
+        print("DELETED")
+        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/corrupted_name'}))   
+        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/temp/corrupted_name'}))   
+        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/corrupted_name'}))   
+        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/temp/corrupted_name'}))   
+        print("DELETED2")
+
         print("---- 2: Doing Small Upload")
         obj_id = agent.upload_directory_to_remote(record={
             'local_path': local_test_folder,
@@ -57,8 +66,9 @@ def object_setup(agent:SnapshotAgent,
 
     if setup_type in ['file','json','host','directory']:
         if setup_type == 'directory':
-            delete_request = { 'path':'/example_dir',
-            }
+            delete_requests = [{ 'path':'/example_dir'},{ 'path':'/corrupt_name'
+            }]
+
             create_request = {
                 'path':'/',
                 'name':'example_dir',
@@ -66,8 +76,9 @@ def object_setup(agent:SnapshotAgent,
             }
         
         elif setup_type == 'host':
-            delete_request = { 'path':'/example_domain.dns',
-            }
+            delete_requests = [{ 'path':'/example_domain.dns'},{ 'path':'/corrupt_name'
+            }]
+
             create_request = {
                 'path':'/',
                 'name':'example_domain.dns',
@@ -78,8 +89,9 @@ def object_setup(agent:SnapshotAgent,
             }
 
         elif setup_type == 'file':
-            delete_request = { 'path':'/example_html_file_test.html',
-            }
+            delete_requests = [{ 'path':'/example_html_file_test.html'},{ 'path':'/corrupt_name'
+            }]
+
             create_request = {
                 'path':'/',
                 'name':'example_html_file_test.html',
@@ -87,8 +99,8 @@ def object_setup(agent:SnapshotAgent,
                 'payload':'''<h1>This is a file</h1>''',
             }
         elif setup_type == 'json':
-            delete_request = { 'path':'/temp_dict.json',
-            }
+            delete_requests = [{ 'path':'/temp_dict.json'},{ 'path':'/corrupt_name'
+            }]
             create_request = {
                 'path':'/',
                 'name':'temp_dict.json',
@@ -98,29 +110,40 @@ def object_setup(agent:SnapshotAgent,
         else:
             raise Exception("Unsuported file type")
         #decelium_path = '/example_html_file_test.html'
-        decelium_path = delete_request['path']
+        decelium_path = delete_request[0]['path']
 
         # download_try = decw.net.download_entity(decw.dw.sr({**user_context, **delete_request,'attrib':True}))
         # print("download_try\n",str(download_try))
+        ##
+        # Purge
 
-        list_try = decw.net.list(decw.dw.sr({**user_context, **delete_request}))
-        print("\n\n\nNew Test")
-        print("list_try\n",str(list_try))
-        for sub_file in list_try:
-            del_inner = decw.net.delete_entity({**user_context, 'self_id':sub_file['self_id']})
-            assert del_inner == True , "Could not clean up an inner file "+ str(del_inner)
-        singed_req = decw.dw.sr({**user_context, **delete_request})
-        for i in range(1,10):
-            #if True == True:
-            del_try = decw.net.delete_entity(singed_req)
-            #print("TRIED DELETE in object_setup", del_try)
-            #obj = decw.net.download_entity({'path':create_request['path'],'name':create_request['name'],'attrib':True})
-            #print("Found Obj \n",obj)
-            try:
-                assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error']), "Got an invalid response for del_try "+ str(del_try)
-            except Exception as e:
-                print("Failing Delete Object Id" + str(del_try))
-                raise e
+        for delete_request in delete_requests:
+            list_try = decw.net.list(decw.dw.sr({**user_context, **delete_request}))
+            print("\n\n\nNew Test----------")
+            print("\n\n\nNew Test----------")
+            print("list_try\n",str(list_try))
+            for sub_file in list_try:
+                del_inner = decw.net.delete_entity({**user_context, 'self_id':sub_file['self_id']})
+                assert del_inner == True , "Could not clean up an inner file "+ str(del_inner)
+            singed_req = decw.dw.sr({**user_context, **delete_request})
+
+
+
+            for i in range(1,3):
+                #if True == True:
+                del_try = decw.net.delete_entity(singed_req)
+                #print("TRIED DELETE in object_setup", del_try)
+                #obj = decw.net.download_entity({'path':create_request['path'],'name':create_request['name'],'attrib':True})
+                #print("Found Obj \n",obj)
+                try:
+                    assert del_try == True  or ('error' in del_try and 'could not find' in del_try['error']), "Got an invalid response for del_try "+ str(del_try)
+                except Exception as e:
+                    print("Failing Delete Object Id" + str(del_try))
+                    raise e
+        #raise Exception ("A GOOD RUN")
+        # obj-1ecd6ba5-09e8-4f44-86f0-2c510349adc3
+        ##
+        # CREATE
         singed_req = decw.dw.sr({**user_context, **create_request})
         print(singed_req)
         obj = decw.net.download_entity({'path':singed_req['path'],'name':singed_req['name'],'attrib':True})
@@ -155,6 +178,7 @@ def test_setup(setup_type = 'ipfs') -> TestConfig:
     }
     local_test_folder = './test/testdata/test_folder'
     backup_path='../devdecelium_backup/'    
+    backup_path='../devdecelium_backup_test/'    
     # --- Remove old snapshot #
     try:
         shutil.rmtree(backup_path)
@@ -460,14 +484,14 @@ def test_corruptions_repair(setup_type,test_type,remote_types,remote_mirror_type
 # setup_type =  'directory' # Requires some refatoring
 # setup_type =  'user' # *Should* work
 
-test_types = ['remote_repair'] # ,'remote_no_repair','local_no_repair']
-file_types = ['ipfs']#,'json','file','host','directory','user']
 # file_types = ['directory','user']
 # []'delete_payload','corrupt_payload','remove_attrib','rename_attrib_filename','corrupt_attrib','delete_entity']
 remote_types = CorruptionTestData.Instruction.corruption_types
 remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 
-file_types = ['directory']
+
+# MANUAL CONFIG
+file_types = ['ipfs']
 test_types = ['remote_repair']
 remote_types = ['rename_attrib_filename']
 remote_mirror_types = ['delete_payload']

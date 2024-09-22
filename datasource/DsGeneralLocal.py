@@ -11,7 +11,7 @@ import shutil
 import random
 from .DsGeneral import DsGeneral
 import datetime
-
+from .UtilFile import UtilFile
 class Node:
     def __init__(self, cid):
         self.cid = cid
@@ -146,20 +146,11 @@ class DsGeneralLocal(DsGeneral):
 
     @classmethod
     def merge_payload_from_remote(cls,TpRemote,decw,obj,download_path,connection_settings, overwrite):
-        obj_id = obj['self_id']
         merge_messages = ObjectMessages("TpFile.Local.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
         result,the_bytes = TpRemote.download_payload_data(decw,obj)
         assert result == True, "result is not true: "+str(result)
         assert the_bytes != None, "Could not download payload data"
-        if not os.path.exists(download_path+'/'+obj_id):
-            os.makedirs(download_path+'/'+obj_id)
-        file_path = os.path.join(download_path,obj_id,"payload.file")
-        with open(file_path, 'wb') as f:
-            f.write(the_bytes)
-
-        current_hash = cls.generate_file_hash(file_path)
-        with open(file_path + ".hash", 'wb') as f:
-                f.write(current_hash)
+        UtilFile.write_payload_from_bytes(obj,download_path,the_bytes, overwrite)
         
         return result    
 
@@ -167,15 +158,17 @@ class DsGeneralLocal(DsGeneral):
     @classmethod        
     def merge_attrib_from_remote(cls,TpSource,decw,obj_id,download_path, overwrite):
         merge_messages = ObjectMessages("Migrator.__merge_attrib_from_remote(for obj_id)"+str(obj_id) )
+        #### TODO refac file ops out
         local_obj = cls.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
         
-        file_path = os.path.join(download_path,obj_id,'object.json')
-        # Is the local accurate?
-        local_is_valid = cls.compare_file_hash(file_path)
+        #### TODO refac file ops out
+        #file_path = os.path.join(download_path,obj_id,'object.json')
+        ## Is the local accurate?
+        #local_is_valid = cls.compare_file_hash(file_path)
+        local_is_valid = UtilFile.check_hash(obj_id,download_path)
         if local_is_valid != True:
             local_obj = {'error':'__merge_attrib_from_remote() found that the object is invalid using compare_file_hash() '}
-
 
         priority = 'local' if overwrite == False else 'remote'        
         assert 'error'  in remote_obj or 'self_id' in remote_obj
@@ -220,20 +213,17 @@ class DsGeneralLocal(DsGeneral):
             return False,merged_object,merge_messages
 
         if do_write == True and merged_object:
-            dir_path = os.path.join(download_path, obj_id)
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path)
-            file_path = os.path.join(dir_path, 'object.json')
-            with open(file_path,'w') as f:
-                f.write(jsondateencode_local.dumps(merged_object)) 
-
-            cls.overwrite_file_hash(file_path)
+            UtilFile.write_object(merged_object,download_path)
             return True,merged_object,merge_messages
         
         if do_write == False and merged_object:
             return True,merged_object,merge_messages
         raise Exception("Should never reach the end of this function.")
+    
 
+
+
+        
     '''
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
@@ -361,7 +351,7 @@ class DsGeneralLocal(DsGeneral):
             os.makedirs(download_path)
         file_path = os.path.join(download_path, root_cid)
         if os.path.exists(file_path + ".file") and os.path.exists(file_path + ".file.hash"):
-            if cls.compare_file_hash(file_path + ".file") == True:
+            if UtilFile.compare_file_hash(file_path + ".file") == True:
                 # print("backup_ipfs_entity cached ")
                 return [root_cid]
 
@@ -382,7 +372,7 @@ class DsGeneralLocal(DsGeneral):
                     for chunk in TpSource.get_cid_read_stream(client,root_cid):
                         f.write(chunk)
 
-                current_hash = cls.generate_file_hash(file_path+ ".file")
+                current_hash = UtilFile.generate_file_hash(file_path+ ".file")
                 with open(file_path + ".file.hash", 'wb') as f:
                         f.write(current_hash)
                 print("backup_ipfs_entity.SHOULD HAVE WRITTEN "+file_path)
@@ -397,7 +387,7 @@ class DsGeneralLocal(DsGeneral):
                     # print(json.dumps(dict(dir_json)))
                     with open(file_path+".dag", 'w') as f:
                         f.write(jsondateencode_local.dumps(dir_json))
-                    cls.overwrite_file_hash(file_path+ ".dag")
+                    UtilFile.overwrite_file_hash(file_path+ ".dag")
                 else:
                     print("backup_ipfs_entity.failed")
                     raise e
@@ -407,25 +397,14 @@ class DsGeneralLocal(DsGeneral):
             print(tb.format_exc())
             return new_cids    
         
-    @classmethod
-    def compare_file_hash(cls,file_path, hash_func='sha2-256'):
-        if not os.path.exists(file_path):
-            return None
-        current_hash = cls.generate_file_hash(file_path)
-        if not os.path.exists(file_path+".hash"):
-            return None
-        with open(file_path + ".hash", 'rb') as f:
-                stored_hash = f.read()
-        if stored_hash == current_hash:
-            return True
-        return False
-    
+
+    # TODO - Move Me
     @classmethod
     def has_backedup_cid(cls,download_path,cid):
         file_path = os.path.join(download_path, cid)        
         for relevant_file in  [file_path+".file",file_path+".dag"]:
             if os.path.exists(relevant_file):
-                if cls.compare_file_hash(relevant_file) == True:
+                if UtilFile.compare_file_hash(relevant_file) == True:
                     return True
         return False
      
@@ -442,14 +421,11 @@ class DsGeneralLocal(DsGeneral):
     @classmethod
     def validate_object_attrib(cls,decw,object_id,download_path,connection_settings):
         # Validate the local representation of an object
-        messages = ObjectMessages("DsGeneralLocal.validate_object(for {object_id})")
+        messages = ObjectMessages("DsGeneralLocal.validate_object_attrib(for {object_id})")
         try:
-            file_path_test = download_path+'/'+object_id+'/object.json'
-            with open(file_path_test,'r') as f:
-                obj_local = json.loads(f.read())
-            valido_hasho = cls.compare_file_hash(file_path_test)
+            valido_hasho = UtilFile.validate_object_file(download_path,object_id)
             if valido_hasho != True:
-                messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+                messages.add_assert(False, "Encountered A bad hash object.json :"+download_path + object_id)
                 return False,messages
         except:
             messages.add_assert(False==True, "Could not validate presense of file file:"+str(download_path+'/'+object_id+'/object.json'))
@@ -459,27 +435,24 @@ class DsGeneralLocal(DsGeneral):
     
     @classmethod
     def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
+        #raise Exception("I WAS TESTED")
         # Load the entity, and make sure payload is present that matches
-        messages = ObjectMessages("DsGeneralLocal.validate_object(for {object_id})")
+        messages = ObjectMessages("DsGeneralLocal.validate_object_payload(for {object_id})")
         try:
-            file_path_test = download_path+'/'+object_id+'/object.json'
-            with open(file_path_test,'r') as f:
-                obj_local = jsondateencode_local.loads(f.read())
-            valido_hasho = cls.compare_file_hash(file_path_test)
+            valido_hasho = UtilFile.validate_object_file(download_path,object_id)
             if valido_hasho != True:
-                messages.add_assert(False, "B. Encountered A bad hash object.json :"+file_path_test)
+                messages.add_assert(False, "B. Encountered A bad hash object.json :"++download_path + object_id)
                 return False, messages
         except:
             messages.add_assert(False==True, "B. Could not validate presense of entity file")
             return False,messages
+            # Bruh. What t.f. was I talking about. I am afraid to delete this (below): TODO decode this mystery
             #Cha We should make a best effort to validate in the case the object def is missing.
             #return cls.validate_object_payload_only(decw,object_id,download_path,connection_settings)
-
-
         
         cids_pinned = []
         cids_downloaded = []
-
+        obj_local = UtilFile.load_object_file(download_path,object_id)
         for k in ['self_id','parent_id','dir_name','settings']:
             messages.add_assert(k in obj_local and obj_local[k] != None, "missing {k} for {object_id}")
         if messages.add_assert('ipfs_cid' in obj_local['settings'], "missing settings.ipfs_cid for {object_id}"):
@@ -490,34 +463,21 @@ class DsGeneralLocal(DsGeneral):
             for key in obj_local['settings']['ipfs_cids'].keys():
                 if messages.add_assert(key in obj_local['settings']['ipfs_cids'], "missing {key} from settings.ipfs_cids for {object_id}"):
                     cids_pinned.append (obj_local['settings']['ipfs_cids'][key] )
-        invalid_list = []
-        for item in os.listdir(download_path+'/'+object_id):
-            # Construct the full path of the item-
-            file_path = os.path.join(download_path+'/'+object_id, item)
-            
-            if item.endswith('.file') or item.endswith('.dag'):
-                try:
-                    valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
-                    if valido_hasho != True:
-                        invalid_list.append(item.split('.')[0])
-                        messages.add_assert(False, "Encountered A bad hash for cid:"+file_path)
+        cids_downloaded, invalid_list   = UtilFile.validate_payload_files(download_path,object_id)
+        
+        for item in invalid_list:
+            print("DsGeneralLocal - Printing invalid item")
+            print(invalid_list)
+            print(item)
+            messages.add_assert(False, item['message'])
 
-                except:
-                    messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
-            
-            if item.endswith('.file') or item.endswith('.dag'):
-                cids_downloaded.append(item.split('.')[0])
         missing = []
         for pin in cids_pinned:
             if messages.add_assert(pin in cids_downloaded, "At least one pin ("+pin+") for "+object_id+" is missing") == False:
                 break
         return len(messages.get_error_messages())== 0,messages   
     
-    @classmethod
-    def overwrite_file_hash(cls,file_path):
-        current_hash = cls.generate_file_hash(file_path)
-        with open(file_path + ".hash", 'wb') as f:
-                f.write(current_hash)      
+    
 
     @classmethod
     def load_entity(cls,filter,download_path):
@@ -578,17 +538,8 @@ class DsGeneralLocal(DsGeneral):
         }
         return query,messages
     
-    @classmethod
-    def generate_file_hash(cls,file_path):
-        hasher = hashlib.sha256()
-        
-        with open(file_path, 'rb') as f:
-            chunk = f.read(4096)  
-            while chunk:
-                hasher.update(chunk)
-                chunk = f.read(4096)
-        
-        return hasher.hexdigest().encode('utf-8')
+
+    
     @classmethod
     def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
         # TODO Assert ds_remote is of IPFS Type
@@ -609,8 +560,6 @@ class DsGeneralLocal(DsGeneral):
                                 "Could not find the file in IPFS post re-upload. Please check "+download_path+'/'+obj_id +" manually",)==False:
                 return False,messages
         return len(messages.get_error_messages()) == 0, messages
-        
-
     
     # TODO remove all hard path requirements from this file
     @staticmethod
@@ -627,34 +576,6 @@ class DsGeneralLocal(DsGeneral):
             import traceback as tb
             return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
 
-    @staticmethod
-    def remove_attrib(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'],"object.json")
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            if os.path.exists(file_path):
-                return {'error':'could not remove item'}
-            return True
-        except:
-            import traceback as tb
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
-
-    def remove_payload(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        object_id = filter['self_id']
-        obj_backup_path = os.path.join(download_path,object_id)
-        if not os.path.exists(obj_backup_path):
-            True
-        for item in os.listdir(obj_backup_path):
-            # Construct the full path of the item-
-            file_path = os.path.join(obj_backup_path, item)
-            if item.endswith('.file') or item.endswith('.dag'):
-                os.remove(file_path)
-                if os.path.exists(file_path):
-                    return {'error':'could not remove item '+file_path}
-        return True
 
     @staticmethod
     def corrupt_attrib(filter:dict,download_path:str):
@@ -695,3 +616,11 @@ class DsGeneralLocal(DsGeneral):
                     corrupt_file.write(random_bytes)
                 files_affected.append(file_path)
         return True,files_affected
+    
+    @classmethod
+    def remove_attrib(cls,filter:dict,download_path:str):
+        return UtilFile.remove_attrib(filter,download_path)
+
+    @classmethod
+    def remove_payload(cls,filter:dict,download_path:str):
+        return UtilFile.remove_payload(filter,download_path)

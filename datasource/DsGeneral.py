@@ -21,8 +21,15 @@ class TpFacade:
             # !!! Maps a datasource id with its corrisponding utility class !!!!
             #
             #
-            local:DsGeneral = cls.Local         
-            local_mirror:DsGeneral = cls.LocalMirror   # Note: LocalMirror seems unimplemented      
+            local_mode = 'local_filesystem'
+            if local_mode == 'local_filesystem':
+                print("get_datasource_refac. using LocalFilesystem")
+                local:DsGeneral = cls.LocalFilesystem         
+                local_mirror:DsGeneral = cls.LocalFilesystemMirror   # Note: LocalMirror seems unimplemented      
+            else:
+                print("get_datasource_refac. using LocalBackup")
+                local:DsGeneral = cls.Local         
+                local_mirror:DsGeneral = cls.LocalMirror   # Note: LocalMirror seems unimplemented      
             remote:DsGeneral = cls.Decelium         
             remote_mirror:DsGeneral = cls.DeceliumMirror         
 
@@ -45,6 +52,10 @@ class TpFacade:
     class Local(DsGeneral):
         pass
     class LocalMirror(DsGeneral):
+        pass
+    class LocalFilesystem(DsGeneral):
+        pass
+    class LocalFilesystemMirror(DsGeneral):
         pass
     class Decelium(DsGeneral):
         pass

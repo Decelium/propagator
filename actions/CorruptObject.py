@@ -124,7 +124,7 @@ class CorruptObject(Action):
         decw = record['decw']
         connection_settings = record['connection_settings']
         success = decw.net.corrupt_entity(decw.dw.sr({'self_id':self_id,'api_key':decw.dw.pubk(),"corruption":"rename_attrib_filename"},["admin"]))
-        assert success == True
+        assert success == True, "Could not corrupt entity: "+str(success)
     
     @staticmethod
     def corrupt_remote_delete_entity(record,memory):
