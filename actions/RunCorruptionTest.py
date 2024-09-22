@@ -59,13 +59,7 @@ class RunCorruptionTest(Action):
                                     corruption)    
     def run(self,record,memory):
         setup_config:TestConfig = record['setup_config']
-        # validation_data_pre = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
-        # print("validation_data_attib 0")
-        # print(validation_data_pre["remote_attrib"])           
         self.run_corruption_test(record['setup_config'],record['obj'],record['corruptions'],record['do_repair'])
-        # validation_data_pre = setup_config.decw().net.validate_entity({'self_id':setup_config.obj_id()})
-        # print("validation_data_attib 0.5")
-        # print(validation_data_pre["remote_attrib"])            
         return 
 
     def prevalid(self,record,memory):
@@ -118,6 +112,7 @@ class RunCorruptionTest(Action):
                 #print (f"{k} is broken:"+str(validation_data[k]))
         print("\n")
         print("\n")
+        print("SHOULD WE EXECUTE REPAIR???")
         if record['do_repair'] == True:
             print("EXECUTING REPAIR")
             repair_status = setup_config.decw().net.repair_entity({'self_id':setup_config.obj_id()})

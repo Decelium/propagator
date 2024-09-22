@@ -11,93 +11,8 @@ import shutil
 import random
 from .DsGeneral import DsGeneral
 import datetime
-from .UtilFile import UtilFile
-class Node:
-    def __init__(self, cid):
-        self.cid = cid
-        self.dependencies = []
-        
-    def add_dependency(self, node):
-        self.dependencies.append(node)
+from .UtilFile import UtilFile, jsondateencode_local
 
-class CidTree:
-    def __init__(self):
-        self.nodes = {}
-
-    def add_node(self, cid):
-        if cid not in self.nodes:
-            self.nodes[cid] = Node(cid)
-        return self.nodes[cid]
-
-    def add_dependency(self, cid, dependency_cid):
-        node = self.add_node(cid)
-        dependency_node = self.add_node(dependency_cid)
-        node.add_dependency(dependency_node)
-
-    def dfs_upload(self, node, visited, upload_sequence):
-        if node.cid in visited:
-            return
-        visited.add(node.cid)
-        for dependency in node.dependencies:
-            self.dfs_upload(dependency, visited, upload_sequence)
-        upload_sequence.append(node.cid)
-        
-    def get_upload_sequence_by_root(self, root_cid):
-        visited = set()
-        upload_sequence = []
-        root_node = self.nodes.get(root_cid)
-        if root_node:
-            self.dfs_upload(root_node, visited, upload_sequence)
-        return upload_sequence
-
-    def get_upload_sequence(self):
-        # Identify all nodes that are roots (i.e., no incoming dependencies)
-        all_cids = set(self.nodes.keys())
-        dependent_cids = set()
-        for node in self.nodes.values():
-            for dependency in node.dependencies:
-                dependent_cids.add(dependency.cid)
-        root_cids = all_cids - dependent_cids
-
-        # Create a simulated root node
-        simulated_root = Node("UNDEFINED")
-        for root_cid in root_cids:
-            simulated_root.add_dependency(self.nodes[root_cid])
-
-        # Perform DFS from the simulated root
-        visited = set()
-        upload_sequence = []
-        self.dfs_upload(simulated_root, visited, upload_sequence)
-
-        # Remove the simulated root from the upload sequence
-        upload_sequence.remove("UNDEFINED")
-        return upload_sequence
-
-
-
-class jsondateencode_local:
-    def loads(dic):
-        return json.loads(dic,object_hook=jsondateencode_local.datetime_parser)
-    def dumps(dic):
-        return json.dumps(dic,default=jsondateencode_local.datedefault)
-
-    def datedefault(o):
-        if isinstance(o, tuple):
-            l = ['__ref']
-            l = l + o
-            return l
-        if isinstance(o, (datetime.date, datetime.datetime,)):
-            return o.isoformat()
-
-    def datetime_parser(dct):
-        DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
-        for k, v in dct.items():
-            if isinstance(v, str) and "T" in v:
-                try:
-                    dct[k] = datetime.datetime.strptime(v, DATE_FORMAT)
-                except:
-                    pass
-        return dct
 
 class DsGeneralLocal(DsGeneral):
     @classmethod
@@ -221,39 +136,6 @@ class DsGeneralLocal(DsGeneral):
         raise Exception("Should never reach the end of this function.")
     
 
-
-
-        
-    '''
-    @classmethod
-    def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
-        cids = [] 
-        print("TpGeneralLocal.upload_ipfs_data 1")      
-        messages = ObjectMessages("TpGeneralLocal.upload_ipfs_data")
-        print("!!!TpGeneralLocal.upload_ipfs_data ",download_path)
-        def do_upload_by_type(type_str):
-            for item in os.listdir(download_path):
-                file_path = os.path.join(download_path, item)
-                if not file_path.endswith(type_str):
-                    continue
-                print("UPLOADING",file_path)
-                if file_path.endswith('.file'):
-                    payload_type = 'local_path'
-                elif file_path.endswith('.dag'):
-                    payload_type = 'ipfs_pin_list'
-                else:
-                    continue
-                result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
-                try:
-                    result[0]
-                    messages.add_assert(result[0]['cid'] in file_path,"Could not locate file for "+result[0]['cid'] ) 
-                    cids.append(result[0]['cid'])
-                except:
-                    messages.add_assert(False,"could not parse upload_ipfs_data() result: "+str(result) ) 
-        do_upload_by_type('.file')
-        do_upload_by_type('.dag')
-        return cids,messages
-    '''
     @classmethod
     def load_dag(cls,cid,dag_text):
         ''' Parsers
@@ -272,66 +154,26 @@ class DsGeneralLocal(DsGeneral):
             children.append(child["Hash"])
         return children
         
+        
+
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
+        #raise Exception("I AM RUNNIN")
         cids = [] 
-        print("TpGeneralLocal.upload_ipfs_data 1")      
         messages = ObjectMessages("TpGeneralLocal.upload_ipfs_data")
-        print("!!!TpGeneralLocal.upload_ipfs_data ",download_path)
-        def build_upload_sequence():
-            '''
-            class CidTree:
-                def add_node(self, cid):
-                def add_dependency(self, cid, dependency_cid):
-                def get_upload_sequence(self, root_cid):
-            
-            '''
-            tree = CidTree()
-            for item in os.listdir(download_path):
-                file_path = os.path.join(download_path, item)
-                if not file_path.endswith(".dag"):
-                    continue
-                dag_text = ""
-                cid = item.replace(".dag","")
-                with open(file_path,'r') as f:
-                    dag_text = f.read()
-                dag_list = cls.load_dag(cid,dag_text)
-                for child_cid in dag_list:
-                    tree.add_dependency(cid, child_cid)
-            return tree.get_upload_sequence()
-                
-        def do_upload_by_type(type_str):
-            uploaded_cids = []
-            for item in os.listdir(download_path):
-                file_path = os.path.join(download_path, item)
-                if not file_path.endswith(type_str):
-                    continue
-                print("UPLOADING",file_path)
-                if file_path.endswith('.file'):
-                    payload_type = 'local_path'
-                elif file_path.endswith('.dag'):
-                    payload_type = 'ipfs_pin_list'
-                else:
-                    continue
-                result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
-                try:
-                    result[0]
-                    messages.add_assert(result[0]['cid'] in file_path,"A. Could not locate file for "+result[0]['cid'] ) 
-                    cids.append(result[0]['cid'])
-                    uploaded_cids.append(result[0]['cid'])
-                except:
-                    messages.add_assert(False,"A. could not parse upload_ipfs_data() result: "+str(result) ) 
-            return uploaded_cids
-        cid_order = build_upload_sequence()
-        for cid in cid_order: #Make sure we have all the files
-            assert os.path.join(download_path, cid+".file") or os.path.join(download_path, cid+".hash")
-        uploaded_ids = do_upload_by_type('.file')
-        print(uploaded_ids)
+        
+        # Sequence and do IPFS upload
+        cid_order = UtilFile.build_upload_sequence(download_path)
+        uploaded_ids = UtilFile.do_upload_by_type(TpDestination,decw,'.file',download_path,messages,connection_settings)
+        cids = cids + uploaded_ids
+        
+        #
+        # Register the upload with 
         for cid in cid_order:
             if cid in uploaded_ids:
                 continue
-            file_path = os.path.join(download_path, cid+".dag")
-            assert os.path.exists(file_path), "Internal impossible situation. DAG missing "+file_path
+            UtilFile.assert_dag_exists(download_path,cid)
+            file_path = UtilFile.get_dag_path(download_path,cid)
             result = TpDestination.upload_path_to_ipfs(decw,connection_settings,'ipfs_pin_list',file_path)
             try:
                 result[0]

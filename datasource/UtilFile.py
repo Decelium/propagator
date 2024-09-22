@@ -3,6 +3,70 @@ import os
 import json
 import datetime
 
+
+class Node:
+    def __init__(self, cid):
+        self.cid = cid
+        self.dependencies = []
+        
+    def add_dependency(self, node):
+        self.dependencies.append(node)
+
+class CidTree:
+    def __init__(self):
+        self.nodes = {}
+
+    def add_node(self, cid):
+        if cid not in self.nodes:
+            self.nodes[cid] = Node(cid)
+        return self.nodes[cid]
+
+    def add_dependency(self, cid, dependency_cid):
+        node = self.add_node(cid)
+        dependency_node = self.add_node(dependency_cid)
+        node.add_dependency(dependency_node)
+
+    def dfs_upload(self, node, visited, upload_sequence):
+        if node.cid in visited:
+            return
+        visited.add(node.cid)
+        for dependency in node.dependencies:
+            self.dfs_upload(dependency, visited, upload_sequence)
+        upload_sequence.append(node.cid)
+        
+    def get_upload_sequence_by_root(self, root_cid):
+        visited = set()
+        upload_sequence = []
+        root_node = self.nodes.get(root_cid)
+        if root_node:
+            self.dfs_upload(root_node, visited, upload_sequence)
+        return upload_sequence
+
+    def get_upload_sequence(self):
+        # Identify all nodes that are roots (i.e., no incoming dependencies)
+        all_cids = set(self.nodes.keys())
+        dependent_cids = set()
+        for node in self.nodes.values():
+            for dependency in node.dependencies:
+                dependent_cids.add(dependency.cid)
+        root_cids = all_cids - dependent_cids
+
+        # Create a simulated root node
+        simulated_root = Node("UNDEFINED")
+        for root_cid in root_cids:
+            simulated_root.add_dependency(self.nodes[root_cid])
+
+        # Perform DFS from the simulated root
+        visited = set()
+        upload_sequence = []
+        self.dfs_upload(simulated_root, visited, upload_sequence)
+
+        # Remove the simulated root from the upload sequence
+        upload_sequence.remove("UNDEFINED")
+        return upload_sequence
+
+
+
 class jsondateencode_local:
     def loads(dic):
         return json.loads(dic,object_hook=jsondateencode_local.datetime_parser)
@@ -81,9 +145,6 @@ class UtilFile:
             
             if item.endswith('.file') or item.endswith('.dag'):
                 cids_downloaded.append(item.split('.')[0])
-            print("UtilFile - FINAL INVALID LIST: Returning")
-            print(cids_downloaded)
-            print(invalid_list)
         return cids_downloaded, invalid_list
 
     @classmethod
@@ -154,3 +215,73 @@ class UtilFile:
         if stored_hash == current_hash:
             return True
         return False
+    
+    @classmethod
+    def load_dag(cls,cid,dag_text):
+        ''' Parsers
+        {"Links": [{"Name": ".DS_Store", "Hash": "QmVKugVyynbLDmwgxHm9Z6JZMjqtyVNH6MqgxTxhTXX2US", "Size": 6159},
+                    {"Name": "img_test.png", "Hash": "QmYZsomCw9J9Fb8hLgiB7iA3W1iTYnLi7hbJXq3Bggz2rL", "Size": 460641}, 
+                    {"Name": "test.txt", "Hash": "QmQkBHa6uAcVm8bwfoufcmAiG25vfNYdo3Lvrt9Q7QWmZR", "Size": 25}, 
+                    {"Name": "test_sub", "Hash": "QmbGSb2Gerf3WQUeS78yvEcYcSkTvurQghktXT3y9Fao6S", "Size": 77}]}  
+        '''
+        dag_json = json.loads(dag_text)
+        assert "Links" in dag_json, "Dont have a links field " + str(dag_json)
+        cid_list = dag_json["Links"]
+        children = []
+        for child in cid_list: 
+            assert "Name" in child, "No Name " + str(dag_json)
+            assert "Hash" in child, "No Hash " + str(dag_json)
+            children.append(child["Hash"])
+        return children
+
+    @classmethod
+    def build_upload_sequence(cls,download_path):
+        tree = CidTree()
+        for item in os.listdir(download_path):
+            file_path = os.path.join(download_path, item)
+            if not file_path.endswith(".dag"):
+                continue
+            dag_text = ""
+            cid = item.replace(".dag","")
+            with open(file_path,'r') as f:
+                dag_text = f.read()
+            dag_list = cls.load_dag(cid,dag_text)
+            for child_cid in dag_list:
+                tree.add_dependency(cid, child_cid)
+        for cid in tree.get_upload_sequence(): 
+            assert os.path.join(download_path, cid+".file") or os.path.join(download_path, cid+".hash")
+        
+        return tree.get_upload_sequence()
+    
+    @classmethod
+    def do_upload_by_type(cls,TpDestination,decw,type_str,download_path,messages,connection_settings):
+        uploaded_cids = []
+        for item in os.listdir(download_path):
+            file_path = os.path.join(download_path, item)
+            if not file_path.endswith(type_str):
+                continue
+            print("UPLOADING",file_path)
+            if file_path.endswith('.file'):
+                payload_type = 'local_path'
+            elif file_path.endswith('.dag'):
+                payload_type = 'ipfs_pin_list'
+            else:
+                continue
+            result = TpDestination.upload_path_to_ipfs(decw,connection_settings,payload_type,file_path)
+            try:
+                result[0]
+                messages.add_assert(result[0]['cid'] in file_path,"A. Could not locate file for "+result[0]['cid'] ) 
+                uploaded_cids.append(result[0]['cid'])
+            except:
+                messages.add_assert(False,"A. could not parse upload_ipfs_data() result: "+str(result) ) 
+        return uploaded_cids
+
+
+    @classmethod
+    def assert_dag_exists(cls,download_path,cid):
+        file_path = os.path.join(download_path, cid+".dag") ####
+        assert os.path.exists(file_path), "Internal impossible situation. DAG missing "+file_path ###
+
+    @classmethod
+    def get_dag_path(cls,download_path,cid):
+        return os.path.join(download_path, cid+".dag") 

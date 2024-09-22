@@ -23,18 +23,17 @@ def object_setup(agent:SnapshotAgent,
     connection_settings = conn_config.connection_settings()
     local_test_folder = conn_config.local_test_folder()
     decw = conn_config.decw()
+    result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/corrupted_name'}))   
+    result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/temp/corrupted_name'}))   
+    result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/corrupted_name'}))   
+    result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/temp/corrupted_name'}))   
+
     if setup_type == 'ipfs':
         decelium_path = 'temp/test_folder.ipfs'
         ipfs_req_context = {**user_context, **{
                 'file_type':'ipfs', 
                 'connection_settings':connection_settings
         }}
-        print("DELETED")
-        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/corrupted_name'}))   
-        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/temp/corrupted_name'}))   
-        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/corrupted_name'}))   
-        result = decw.net.delete_entity(decw.dw.sr({'api_key':decw.dw.pubk("admin"),'path':'/temp/corrupted_name'}))   
-        print("DELETED2")
 
         print("---- 2: Doing Small Upload")
         obj_id = agent.upload_directory_to_remote(record={
@@ -493,7 +492,8 @@ remote_mirror_types = CorruptionTestData.Instruction.corruption_types
 # MANUAL CONFIG
 file_types = ['ipfs']
 test_types = ['remote_repair']
-remote_types = ['rename_attrib_filename']
+#remote_types = ['rename_attrib_filename']
+remote_types = ['delete_payload']
 remote_mirror_types = ['delete_payload']
 # rename_attrib_filename
 for test_type in test_types:
