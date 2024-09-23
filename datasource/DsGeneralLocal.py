@@ -1,16 +1,11 @@
-import decelium_wallet.core as core
+#import decelium_wallet.core as core
 import os
-import json
 try:
     from Messages import ObjectMessages
 except:
     from ..Messages import ObjectMessages
 import traceback as tb
-import hashlib
-import shutil
-import random
 from .DsGeneral import DsGeneral
-import datetime
 from .UtilFile import UtilFile, jsondateencode_local
 
 
@@ -56,8 +51,6 @@ class DsGeneralLocal(DsGeneral):
                 messages.add_assert(False,"Exception encountered for "+obj_id+": "+exc ) 
                 results[obj_id] = (False,messages)
         return results
-    
-
 
     @classmethod
     def merge_payload_from_remote(cls,TpRemote,decw,obj,download_path,connection_settings, overwrite):
@@ -136,25 +129,6 @@ class DsGeneralLocal(DsGeneral):
         raise Exception("Should never reach the end of this function.")
     
 
-    @classmethod
-    def load_dag(cls,cid,dag_text):
-        ''' Parsers
-        {"Links": [{"Name": ".DS_Store", "Hash": "QmVKugVyynbLDmwgxHm9Z6JZMjqtyVNH6MqgxTxhTXX2US", "Size": 6159},
-                    {"Name": "img_test.png", "Hash": "QmYZsomCw9J9Fb8hLgiB7iA3W1iTYnLi7hbJXq3Bggz2rL", "Size": 460641}, 
-                    {"Name": "test.txt", "Hash": "QmQkBHa6uAcVm8bwfoufcmAiG25vfNYdo3Lvrt9Q7QWmZR", "Size": 25}, 
-                    {"Name": "test_sub", "Hash": "QmbGSb2Gerf3WQUeS78yvEcYcSkTvurQghktXT3y9Fao6S", "Size": 77}]}  
-        '''
-        dag_json = json.loads(dag_text)
-        assert "Links" in dag_json, "Dont have a links field " + str(dag_json)
-        cid_list = dag_json["Links"]
-        children = []
-        for child in cid_list: 
-            assert "Name" in child, "No Name " + str(dag_json)
-            assert "Hash" in child, "No Hash " + str(dag_json)
-            children.append(child["Hash"])
-        return children
-        
-        
 
     @classmethod
     def upload_ipfs_data(cls,TpDestination,decw,download_path,connection_settings):
@@ -308,9 +282,6 @@ class DsGeneralLocal(DsGeneral):
         cids_downloaded, invalid_list   = UtilFile.validate_payload_files(download_path,object_id)
         
         for item in invalid_list:
-            print("DsGeneralLocal - Printing invalid item")
-            print(invalid_list)
-            print(item)
             messages.add_assert(False, item['message'])
 
         missing = []
@@ -319,18 +290,9 @@ class DsGeneralLocal(DsGeneral):
                 break
         return len(messages.get_error_messages())== 0,messages   
     
-    
-
     @classmethod
     def load_entity(cls,filter,download_path):
-        assert 'self_id' in filter
-        assert 'attrib' in filter and filter['attrib'] == True
-        try:
-            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
-                obj_attrib = jsondateencode_local.loads(f.read())
-            return obj_attrib
-        except:
-            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+        return UtilFile.load_entity(filter,download_path)
 
     @classmethod
     def upload_object_query(cls,obj_id,download_path,connection_settings,attrib_only = None):
@@ -351,36 +313,10 @@ class DsGeneralLocal(DsGeneral):
             return False,messages
         obj = cls.load_entity({'self_id':obj_id,'attrib':True},download_path)
         
-        '''
-        obj = cls.load_entity({'self_id':obj_id,'attrib':True},download_path)
-        if messages.add_assert('settings' in obj, "no settings in "+obj_id) == False:
-            return False,messages
-        if messages.add_assert('ipfs_cid' in obj['settings'], "ipfs_cid is missing from local object. It is invalid. "+obj_id) == False:
-            return False,messages
-        if messages.add_assert('ipfs_cids' in obj['settings'], "ipfs_cids is missing from local object. It is invalid. "+obj_id) == False:
-            return False,messages
-        
-        #obj_cids = [obj['settings']['ipfs_cid']]
-        obj_cids = []
-        for path,cid in obj['settings']['ipfs_cids'].items():
-            cid_record = { 'cid':cid,
-                           'name':path }
-            cid_record['name'] = cid_record['name'].replace(obj_id+'/',"")
-            if len(path) > 0:
-                cid_record['root'] = True
-            obj_cids.append(cid_record)
-            #print(cid_record)
-            if attrib_only != True:
-                file_exists = os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.file') or os.path.isfile(download_path+'/'+obj_id+'/'+cid+'.dag')      
-                if messages.add_assert(file_exists == True, "Could not fild the local file for "+obj_id+":"+cid) == False:
-                    return False,messages
-        '''
         query = {
             'attrib':obj
         }
         return query,messages
-    
-
     
     @classmethod
     def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
@@ -406,58 +342,19 @@ class DsGeneralLocal(DsGeneral):
     # TODO remove all hard path requirements from this file
     @staticmethod
     def remove_entity(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'])
-        try:
-            if os.path.exists(file_path):
-                shutil.rmtree(file_path)
-            if os.path.exists(file_path):
-                return {'error':'could not remove item'}
-            return True
-        except:
-            import traceback as tb
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
-
+        return UtilFile.remove_entity(filter,download_path)
 
     @staticmethod
     def corrupt_attrib(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        self_id = filter['self_id']
-        file_path = os.path.join(download_path, self_id, 'object.json')
-        random_bytes_size = 1024
-        random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-        with open(file_path, 'wb') as corrupt_file:
-            corrupt_file.write(random_bytes)
-        return True
-
+        return UtilFile.corrupt_attrib(filter,download_path)
+    
     @staticmethod
     def corrupt_attrib_filename(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        self_id = filter['self_id']
-        file_path = os.path.join(download_path, self_id, 'object.json')
-
-        with open(file_path, 'r') as f:
-            correct_json = jsondateencode_local.loads(f.read())
-        correct_json['dir_name'] = "corrupt_name"
-        with open(file_path, 'w') as f:
-            f.write(json.dumps(correct_json))
-        return True
-        
+        return UtilFile.corrupt_attrib_filename(filter,download_path)
+    
     @staticmethod
     def corrupt_payload(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        self_id = filter['self_id']
-        object_path = os.path.join(download_path, self_id)
-        files_affected = []
-        for filename in os.listdir(object_path):
-            if  filename.endswith('.file'): # filename.endswith('.dag') or
-                file_path = os.path.join(object_path, filename)
-                random_bytes_size = 1024
-                random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
-                with open(file_path, 'wb') as corrupt_file:
-                    corrupt_file.write(random_bytes)
-                files_affected.append(file_path)
-        return True,files_affected
+        return UtilFile.corrupt_payload(filter,download_path)
     
     @classmethod
     def remove_attrib(cls,filter:dict,download_path:str):
