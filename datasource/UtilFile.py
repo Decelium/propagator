@@ -216,7 +216,17 @@ class UtilFile:
         if stored_hash == current_hash:
             return True
         return False
-    
+    @classmethod
+    def init_dir(cls,download_path):
+        if not os.path.exists(download_path):
+            os.makedirs(download_path)        
+
+    @classmethod
+    def compare_object_hash(cls,download_path,obj_id, hash_func='sha2-256'):
+        cls.init_dir()      
+        file_path = os.path.join(download_path, obj_id+ '.file')
+        return cls.compare_file_hash(file_path,hash_func)
+
     @classmethod
     def load_dag(cls,cid,dag_text):
         ''' Parsers
@@ -328,6 +338,14 @@ class UtilFile:
                     corrupt_file.write(random_bytes)
                 files_affected.append(file_path)
         return True,files_affected
+
+    @classmethod
+    def dump_object_log(cls,filename,download_path,obj_id,data):
+        if not os.path.exists(download_path+'/'+obj_id):
+            os.makedirs(download_path+'/'+obj_id)
+        with open(download_path+'/'+obj_id+'/'+filename,'w') as f:
+            f.write(data)
+        return True
 
     @staticmethod
     def remove_entity(filter:dict,download_path:str):

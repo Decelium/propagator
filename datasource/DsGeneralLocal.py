@@ -42,13 +42,18 @@ class DsGeneralLocal(DsGeneral):
                 print(" DsGeneralLocal download_object/FINISHED  DOWNLOAD")
                 
             except:
+
                 exc = tb.format_exc()
-                if not os.path.exists(download_path+'/'+obj_id):
-                    os.makedirs(download_path+'/'+obj_id)
+                filename = 'object_error.txt'
+                written = UtilFile.dump_object_log(filename,download_path,obj_id,exc)
+                #if not os.path.exists(download_path+'/'+obj_id):
+                #    os.makedirs(download_path+'/'+obj_id)
                
-                with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
-                    f.write(exc)
-                messages.add_assert(False,"Exception encountered for "+obj_id+": "+exc ) 
+                #with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
+                #    f.write(exc)
+                messages.add_assert(False,"Exception encountered for "+obj_id+": "+exc )
+                messages.add_assert(written == True,"Could dump_object_log() for "+obj_id )
+
                 results[obj_id] = (False,messages)
         return results
 
@@ -70,8 +75,6 @@ class DsGeneralLocal(DsGeneral):
         local_obj = cls.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},download_path)
         remote_obj = TpSource.load_entity({'api_key':'UNDEFINED', 'self_id':obj_id,'attrib':True},decw)
         
-        #### TODO refac file ops out
-        #file_path = os.path.join(download_path,obj_id,'object.json')
         ## Is the local accurate?
         #local_is_valid = cls.compare_file_hash(file_path)
         local_is_valid = UtilFile.check_hash(obj_id,download_path)
@@ -163,13 +166,21 @@ class DsGeneralLocal(DsGeneral):
         new_cids = []
         assert 'cid' in item
         root_cid = item['cid']
+        #raise Exception("I am the root CID "+root_cid)
+        # BACKUP:
         if not os.path.exists(download_path):
             os.makedirs(download_path)
         file_path = os.path.join(download_path, root_cid)
         if os.path.exists(file_path + ".file") and os.path.exists(file_path + ".file.hash"):
-            if UtilFile.compare_file_hash(file_path + ".file") == True:
-                # print("backup_ipfs_entity cached ")
-                return [root_cid]
+            # print("backup_ipfs_entity cached ")
+            return [root_cid]
+        
+        
+        #UtilFile.init_dir(download_path)
+        #if UtilFile.compare_file_hash(download_path+root_cid + ".file") == True:
+        #    # print("backup_ipfs_entity cached ")
+        #    return [root_cid]
+        print("Do new comparison")
 
         # Check if root the file already exists to avoid double writing
         if overwrite == False and cls.has_backedup_cid(download_path, root_cid) == True:
