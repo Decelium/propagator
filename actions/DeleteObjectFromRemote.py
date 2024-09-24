@@ -1,7 +1,6 @@
 
 try:
     #from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFS
     #from ..datasource.TpIPFSLocal import TpIPFSLocal
     #from ..Messages import ObjectMessages
     #from ..type.BaseData import BaseData,auto_c
@@ -9,7 +8,6 @@ try:
     from .Action import Action
 except:
     #from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFS
     #from datasource.TpIPFSLocal import TpIPFSLocal
     #from Messages import ObjectMessages
     #from type.BaseData import BaseData,auto_c

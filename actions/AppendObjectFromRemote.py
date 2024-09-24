@@ -2,11 +2,9 @@
 import traceback as tb
 try:
     from ..Snapshot import Snapshot
-    from ..datasource.TpIPFS import TpIPFS
     from .Action import Action
 except:
     from Snapshot import Snapshot
-    from datasource.TpIPFS import TpIPFS
     from .Action import Action
 
 class AppendObjectFromRemote(Action):    

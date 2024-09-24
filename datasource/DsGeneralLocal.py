@@ -1,5 +1,6 @@
 #import decelium_wallet.core as core
 import os
+import json
 try:
     from Messages import ObjectMessages
 except:
@@ -345,3 +346,109 @@ class DsGeneralLocal(DsGeneral):
     @classmethod
     def remove_payload(cls,filter:dict,download_path:str):
         return UtilFile.remove_payload(filter,download_path)
+    
+
+class DsAttribLocal(DsGeneralLocal):  #DONE
+    @classmethod
+    def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
+        messages = ObjectMessages("DsFileLocal(for IPFS).push_payload_to_remote")
+
+        return None, messages        
+    @classmethod
+    def validate_object(cls,decw,object_id,download_path,connection_settings):
+        entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+        return entity_success,entity_messages        
+
+    
+    @classmethod
+    def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
+        # Validate the Object
+        result, messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+        if result == False:
+            messages.add_assert(False, "Failed perliminary object validation validate_object_payload for TpFile.Local.validate_object_payload:")
+            return False,messages
+        return None,messages
+    
+class DsFileLocal(DsGeneralLocal): 
+    @classmethod
+    def push_payload_to(cls,ds_remote,decw,obj,download_path,connection_settings):
+        messages = ObjectMessages("TpFileLocal(for File).push_payload_to_remote")
+        # For this kind of file, no additional payload handshaking is required. Create handles payload managment via attrib
+        try:
+            file_path = os.path.join(download_path,obj['self_id'], "payload.file")
+            if not os.path.exists(file_path):
+                messages.add_assert(False==True, "a. Could not find local payload file")
+                return False,messages
+            
+            valido_hasheesh = cls.compare_file_hash(file_path, hash_func='sha2-256')
+            if valido_hasheesh != True:
+                messages.add_assert(False, "Encountered A bad hash for payload.file:"+file_path)
+            with open(file_path,'r') as f:
+                payload = f.read()
+            print("Tp.File Local -- reuploading payload "+ str(payload))
+            success, messages = ds_remote.reupload_payload(decw,{'self_id':obj['self_id'],'payload':payload})
+            assert type(success) == bool
+            assert type(messages) == ObjectMessages
+            return success, messages
+            
+        except:
+            messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
+
+        
+        return True, messages        
+    
+    @classmethod
+    def validate_object_payload(cls,decw,object_id,download_path,connection_settings):
+        # Validate the Object
+        result, messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
+        if result == False:
+            messages.add_assert(False, "Failed perliminary object validation validate_object_payload for TpFile.Local.validate_object_payload:")
+            return False,messages
+
+        # Validate the Payload
+        messages = ObjectMessages("TpFile.Local.validate_object(for {object_id})")
+        try:
+            file_path = os.path.join(download_path,object_id, "payload.file")
+            if not os.path.exists(file_path):
+                messages.add_assert(False==True, "b. Could not find local payload file")
+                return False,messages
+            
+            valido_hasheesh = cls.compare_file_hash(file_path, hash_func='sha2-256')
+            if valido_hasheesh != True:
+                messages.add_assert(False, "Encountered A bad hash for payload.file:"+file_path)
+        except:
+            messages.add_assert(False, "Encountered an exception with the internal hash validation:"+tb.format_exc())
+            
+        return len(messages.get_error_messages())== 0,messages   
+    
+
+class DsIPFSLocal(DsGeneralLocal):
+    @classmethod
+    def merge_payload_from_remote(cls,TpSource,decw,obj,download_path,connection_settings, overwrite):
+        merge_messages = ObjectMessages("TpIPFS.Local.__merge_payload_from_remote(for obj_id)"+str(obj['self_id']) )
+        new_cids = [obj['settings']['ipfs_cid']]
+        if 'ipfs_cids' in obj['settings']:
+            for cid in obj['settings']['ipfs_cids'].values():
+                new_cids.append(cid)
+        print("TpIPFS merge_payload_from_remote Downloading IPFS data for "+obj['self_id'])
+        result = TpSource.download_ipfs_data(cls,decw,new_cids, download_path+'/'+obj['self_id'], connection_settings,overwrite)
+        return result
+    
+    @classmethod
+    def validate_object_attrib(cls,decw,object_id,download_path,connection_settings):
+        # Validate the local representation of an object
+        messages = ObjectMessages("TpIPFS.Local.validate_object(for {object_id})")
+        try:
+            file_path_test = download_path+'/'+object_id+'/object.json'
+            with open(file_path_test,'r') as f:
+                obj_local = json.loads(f.read())
+            valido_hasho = UtilFile.compare_file_hash(file_path_test)
+            if valido_hasho != True:
+                messages.add_assert(False, "Encountered A bad hash object.json :"+file_path_test)
+                return False,messages
+        except Exception as e:
+            messages.add_assert(False==True, "Could not validate presense of file file:"+str(download_path+'/'+object_id+'/object.json err:'+tb.format_exc()))
+            return False,messages
+        return len(messages.get_error_messages())== 0,messages   
+#class DsFileLocalFilesystem(DsLocalFilesystem):
+#    pass

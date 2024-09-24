@@ -1,26 +1,52 @@
 import os
 import json
 import shutil
-from datasource.DsGeneral import TpFacade
-from datasource.DsGeneralLocal import DsGeneralLocal
-from datasource.DsGeneralDecelium import DsGeneralDecelium
-from datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
-from datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
-from datasource.TpAttrib import TpAttrib
-from datasource.TpIPFS import TpIPFS
-from datasource.TpFile import TpFile
+#from datasource.DsGeneral import TpFacade
+#from datasource.DsGeneralLocal import DsGeneralLocal
+#from datasource.DsGeneralDecelium import DsGeneralDecelium
+#from datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
+#from datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
+#from datasource.TpAttrib import TpAttrib
+#from datasource.TpIPFS import TpIPFS
+#from datasource.TpFile import TpFile
 from Messages import ObjectMessages
 from type.BaseData import BaseData,auto_c
 from datasource.DsGeneral import DsGeneral
+
+'''
+        data_map['local'] = {
+            'attrib':DsAttribLocal,
+            'ipfs':DsIPFSLocal,
+            'file':DsFileLocal,
+        }
+        data_map['remote'] = {
+            'attrib':DsAttribDecelium,
+            'ipfs':DsIPFSDecelium,
+            'file':DsFileDecelium,
+        }
+        mirror_map['local'] = {
+            'attrib':DsAttribLocalMirror,
+            'ipfs':DsIPFSLocalMirror,
+            'file':DsFileLocalMirror,
+        }
+        mirror_map['remote'] = {
+            'attrib':DsAttribDeceliumMirror,
+            'ipfs':DsIPFSDeceliumMirror,
+            'file':DsFileDeceliumMirror,
+        }        
+
+
+'''
+
 try:
     from datasource.DsGeneral import TpFacade
-    from datasource.DsGeneralLocal import DsGeneralLocal
-    from datasource.DsGeneralDecelium import DsGeneralDecelium
-    from datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
+    from datasource.DsGeneralLocal import DsGeneralLocal,DsAttribLocal,DsIPFSLocal,DsFileLocal
+    from datasource.DsGeneralDecelium import DsGeneralDecelium,DsAttribDecelium,DsFileDecelium
+    from datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror,DsAttribDeceliumMirror,DsIPFSDeceliumMirror,DsFileDeceliumMirror
     from datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
-    from datasource.TpAttrib import TpAttrib
-    from datasource.TpIPFS import TpIPFS
-    from datasource.TpFile import TpFile
+    #from datasource.TpAttrib import TpAttrib
+    #from datasource.TpIPFS import TpIPFS
+    #from datasource.TpFile import TpFile
     from Messages import ObjectMessages
     from type.BaseData import BaseData,auto_c
     from datasource.DsGeneral import DsGeneral
@@ -30,15 +56,17 @@ except:
     from .datasource.DsGeneralDecelium import DsGeneralDecelium
     from .datasource.DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
     from .datasource.DsGeneralLocalMirror import DsGeneralLocalMirror
-    from .datasource.TpAttrib import TpAttrib
-    from .datasource.TpIPFS import TpIPFS
-    from .datasource.TpFile import TpFile
+    #from .datasource.TpAttrib import TpAttrib
+    #from .datasource.TpIPFS import TpIPFS
+    #from .datasource.TpFile import TpFile
     from .type.BaseData import BaseData,auto_c
     from .Messages import ObjectMessages
     from .datasource.DsGeneral import DsGeneral
 
 import traceback as tb
 import decelium_wallet.core as core
+
+
 
 
 class EntityRequestData(BaseData):
@@ -48,15 +76,7 @@ class EntityRequestData(BaseData):
         return required, optional    
     
 class Snapshot:  
-    s_type_map = {
-        'ipfs': TpIPFS,
-        'file': TpFile,
-        'json': TpFile,
-        'host': TpAttrib,
-        'user': TpFile,
-        'node': TpAttrib,
-        'directory':TpAttrib
-    }
+
     s_property = ['attrib','payload','']
     s_datasource = ['local','local_mirror','remote','remote_mirror']
     s_datasourceproperty_to_datasource = {'local':'local',
@@ -69,12 +89,48 @@ class Snapshot:
                       'remote_mirror_attrib':'remote_mirror',
                       'remote_mirror_payload':'remote_mirror'}
     @staticmethod
-    def get_datasource(type_name:str, datasource_name:str) -> DsGeneral:
-        assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
+    def get_datasource(type_name:str,datasource_name:str) ->DsGeneral:
+        print("type",type_name)
+        print("datasource_name",datasource_name)
+        assert type_name   in ['attrib','ipfs','file'] 
+        assert datasource_name in ['local','remote','local_mirror','remote_mirror']
+
+        data_map = {}
+        if not '_mirror' in datasource_name:
+
+            data_map['local'] = {
+                'attrib':DsAttribLocal,
+                'ipfs':DsIPFSLocal,
+                'file':DsFileLocal,
+            }
+            data_map['remote'] = {
+                'attrib':DsAttribDecelium,
+                'ipfs':DsGeneralDecelium,
+                'file':DsFileDecelium,
+            }
+        elif '_mirror' in datasource_name:
+            datasource_name = datasource_name.replace('_mirror' ,'')
+            data_map['local'] = {
+                'attrib':DsGeneralLocalMirror, #unimplemented
+                'ipfs':DsGeneralLocalMirror, #unimplemented
+                'file':DsGeneralLocalMirror, #unimplemented
+            }
+            data_map['remote'] = {
+                'attrib':DsAttribDeceliumMirror,
+                'ipfs':DsIPFSDeceliumMirror,
+                'file':DsFileDeceliumMirror,
+            }        
+        return data_map[datasource_name][type_name]
+    '''
+    @staticmethod
+    def get_datasource_OLD(type_name:str, datasource_name:str) -> DsGeneral:
+        #assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
         assert datasource_name in Snapshot.s_datasource, 'could not find a property with name '+ str(datasource_name)
-        TheType:TpFacade = Snapshot.s_type_map[type_name]
+        #TheType:TpFacade = Snapshot.s_type_map[type_name]
+        print("datasource_name",datasource_name)
+        print("type_name",type_name)
         return TheType.get_datasource_refac(datasource_name)
-    
+    '''
     #@staticmethod
     #def get_datasource(type_name:str, datasource_name:str) -> DsGeneral:
     #    assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
@@ -166,7 +222,7 @@ class Snapshot:
             return result_json,messages      
 
         selected_type = obj['file_type']
-        assert selected_type in list(Snapshot.s_type_map.keys()), "Selected type not supported"
+        #assert selected_type in list(Snapshot.s_type_map.keys()), "Selected type not supported"
         assert datasourceproperty in list(Snapshot.s_datasourceproperty_to_datasource.keys()), "datasource_property is not supported: "+datasourceproperty
 
         # Map something like 'remote_attrib' into 'remote'

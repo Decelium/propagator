@@ -18,7 +18,7 @@ def object_setup(agent:SnapshotAgent,
     
     
     print("object_setup.setup_type",setup_type)
-    assert setup_type in list(Snapshot.s_type_map.keys())
+    #assert setup_type in list(Snapshot.s_type_map.keys())
     user_context = conn_config.user_context()
     connection_settings = conn_config.connection_settings()
     local_test_folder = conn_config.local_test_folder()

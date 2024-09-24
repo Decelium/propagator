@@ -15,7 +15,7 @@ from .DsGeneralDeceliumMirror import DsGeneralDeceliumMirror
 from .DsGeneralLocal import DsGeneralLocal
 
 class TpAttrib(TpFacade):
-    class Decelium(DsGeneralDecelium):
+    class Decelium(DsGeneralDecelium): #DONE
         @classmethod 
         def reupload_payload(cls,decw,obj):
             messages = ObjectMessages("TpAttrib.Decelium.reupload_payload_stub")
@@ -40,7 +40,7 @@ class TpAttrib(TpFacade):
             messages = ObjectMessages("TpAttrib.Decelium.validate_object_payload(for {"+object_id+"})")
             return None, messages  
 
-    class DeceliumMirror(DsGeneralDeceliumMirror):
+    class DeceliumMirror(DsGeneralDeceliumMirror): #DONE
         @classmethod
         def validate_object(cls,decw,object_id,download_path,connection_settings,obj_remote = None):
             entity_success,entity_messages = cls.validate_object_attrib(decw,object_id,download_path,connection_settings)
