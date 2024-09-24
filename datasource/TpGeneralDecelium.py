@@ -239,6 +239,7 @@ class TpGeneralDecelium(TpGeneral):
         filter['limit'] = limit
         filter['offset'] = offset
         docs = decw.net.list(filter)
+        
         if type(docs) == dict and 'error' in docs:
             return filter
         #print(docs)

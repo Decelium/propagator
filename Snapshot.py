@@ -192,13 +192,12 @@ class Snapshot:
             local_object_ids = os.listdir(download_path)
         
         found_objs = Snapshot.get_general_datasource("remote").find_batch_objects(decw,offset,limit,filter)
-
         needed_objs = found_objs
         results = {}
         if len(needed_objs) <= 0:
             return {}
-        for obj in needed_objs:
             
+        for obj in needed_objs:
             # print("obj",obj)
             print(f"syncing {obj['self_id']}")
             obj_id = obj['self_id']
@@ -207,6 +206,24 @@ class Snapshot:
             else:
                 validation_target = 'local'
             try:
+                obj_err = obj.copy()
+                # TODO remove obj_err['self_data']
+                if 'self_data' in obj_err:
+                    del obj_err['self_data']
+                try:
+                    assert 'file_type' in obj,"Found invalid object for filter "+ str(filter)
+                except:
+                    with open('/app/temp.kill.me2','w') as f:
+                        f.write(str(found_objs))
+                    #with open('/app/temp.kill.me3','w') as f:
+                    #    filter2 = filer.copy()
+                    #    filter2['limit'] = limit
+                    #    filter2['offset'] = offset                        
+                    #    docs = decw.net.list(filter2)
+                    #    f.write(str(docs))
+         
+                       
+                    
                 from_remote_datasource = Snapshot.get_datasource(obj['file_type'],"remote")
                 local_ds = Snapshot.get_datasource(obj['file_type'],"local")
                 ###
@@ -230,7 +247,7 @@ class Snapshot:
                     results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',result,messages.get_error_messages(),"")
 
             except:
-
+                #the_error = "The Error:\n" + tb.format_exc() + "\nThe Object:\n"+str(obj) # obj-e46fff82-e1a5-4a0b-b4e2-32dece7f3270
                 results[obj_id] = Snapshot.format_object_status_json(obj_id,'local',False,[],tb.format_exc())
             #if overwrite == False:
             #    print("Validating "+ obj_id)
