@@ -93,6 +93,10 @@ class jsondateencode_local:
         return dct
 
 class UtilFile:
+
+    ##
+    ## PAYLOAD METHODS
+    ##
     @classmethod
     def remove_payload(cls,filter:dict,download_path:str):
         assert 'self_id' in filter
@@ -109,25 +113,6 @@ class UtilFile:
                     return {'error':'could not remove item '+file_path}
         return True    
 
-    @classmethod
-    def check_hash(cls,obj_id,download_path):
-        file_path = os.path.join(download_path,obj_id,'object.json')
-        local_is_valid = cls.compare_file_hash(file_path)
-        return local_is_valid
-    
-    @classmethod
-    def overwrite_file_hash(cls,file_path):
-        current_hash = cls.generate_file_hash(file_path)
-        with open(file_path + ".hash", 'wb') as f:
-                f.write(current_hash)  
-
-    @classmethod
-    def load_object_file(cls,download_path,object_id):
-        file_path_test = download_path+'/'+object_id+'/object.json'
-        with open(file_path_test,'r') as f:
-            obj_local = json.loads(f.read())
-        return obj_local
-    
     @classmethod
     def validate_payload_files(cls,download_path,object_id):
         invalid_list = []
@@ -149,23 +134,6 @@ class UtilFile:
         return cids_downloaded, invalid_list
 
     @classmethod
-    def validate_object_file(cls,download_path,object_id):
-        file_path_test = download_path+'/'+object_id+'/object.json'
-        valido_hasho = cls.compare_file_hash(file_path_test)    
-        return  valido_hasho   
-    
-    @classmethod
-    def write_object(cls,obj,download_path):
-        obj_id = obj['self_id']
-        dir_path = os.path.join(download_path, obj_id)
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        file_path = os.path.join(dir_path, 'object.json')
-        with open(file_path,'w') as f:
-            f.write(jsondateencode_local.dumps(obj)) 
-        cls.overwrite_file_hash(file_path)
-    
-    @classmethod
     def write_payload_from_bytes(cls,obj,download_path,the_bytes, overwrite):
         obj_id = obj['self_id']
         ## TODO -- Add result and error if result fails
@@ -180,42 +148,12 @@ class UtilFile:
                 f.write(current_hash)
 
     @classmethod
-    def remove_attrib(cls,filter:dict,download_path:str):
-        assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'],"object.json")
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            if os.path.exists(file_path):
-                return {'error':'could not remove item'}
-            return True
-        except:
-            import traceback as tb
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
-        
-    @classmethod
-    def generate_file_hash(cls,file_path):
-        # TODO Rename to generate_hash
-        hasher = hashlib.sha256()
-        
-        with open(file_path, 'rb') as f:
-            chunk = f.read(4096)  
-            while chunk:
-                hasher.update(chunk)
-                chunk = f.read(4096)
-        return hasher.hexdigest().encode('utf-8')    
-
-    @classmethod
     def write_dagfile(cls,download_path,object_name,data):
         file_path = os.path.join(download_path,object_name)
         with open(file_path+".dag", 'w') as f:
             f.write(jsondateencode_local.dumps(data))
         UtilFile.overwrite_file_hash(file_path+ ".dag")
-        
-    @classmethod
-    def has_object(cls,download_path,obj_id):
-        return os.path.isfile(download_path+'/'+obj_id+'/object.json')
-    
+
     # TODO - Move Me
     @classmethod
     def has_backedup_cid(cls,download_path,cid):
@@ -225,30 +163,6 @@ class UtilFile:
                 if UtilFile.compare_file_hash(relevant_file) == True:
                     return True
         return False
-
-    @classmethod
-    def generwrite_file_hash(cls,download_path,object_name):
-        file_path = os.path.join(download_path,object_name)
-        current_hash = cls.generate_file_hash(file_path+ ".file")
-        with open(file_path + ".file.hash", 'wb') as f:
-                f.write(current_hash)
-
-    @classmethod
-    def compare_file_hash(cls,file_path, hash_func='sha2-256'):
-        if not os.path.exists(file_path):
-            return None
-        current_hash = cls.generate_file_hash(file_path)
-        if not os.path.exists(file_path+".hash"):
-            return None
-        with open(file_path + ".hash", 'rb') as f:
-                stored_hash = f.read()
-        if stored_hash == current_hash:
-            return True
-        return False
-    @classmethod
-    def init_dir(cls,download_path):
-        if not os.path.exists(download_path):
-            os.makedirs(download_path)        
 
     @classmethod
     def get_file_stream(cls,download_path,base_file_name):
@@ -263,11 +177,6 @@ class UtilFile:
             # print("backup_ipfs_entity cached ")
             return True
         return False
-    @classmethod
-    def compare_object_hash(cls,download_path,obj_id, hash_func='sha2-256'):
-        cls.init_dir()      
-        file_path = os.path.join(download_path, obj_id+ '.file')
-        return cls.compare_file_hash(file_path,hash_func)
 
     @classmethod
     def load_dag(cls,cid,dag_text):
@@ -305,6 +214,144 @@ class UtilFile:
             assert os.path.join(download_path, cid+".file") or os.path.join(download_path, cid+".hash")
         
         return tree.get_upload_sequence()
+
+    @classmethod
+    def get_dag_path(cls,download_path,cid):
+        return os.path.join(download_path, cid+".dag") 
+    ##
+    ## OBJECT METHODS
+    ## 
+    @classmethod
+    def load_object_file(cls,download_path,object_id):
+        file_path_test = download_path+'/'+object_id+'/object.json'
+        with open(file_path_test,'r') as f:
+            obj_local = json.loads(f.read())
+        return obj_local
+    
+    @classmethod
+    def validate_object_file(cls,download_path,object_id):
+        file_path_test = download_path+'/'+object_id+'/object.json'
+        valido_hasho = cls.compare_file_hash(file_path_test)    
+        return  valido_hasho   
+    
+    @classmethod
+    def write_object(cls,obj,download_path):
+        obj_id = obj['self_id']
+        dir_path = os.path.join(download_path, obj_id)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        file_path = os.path.join(dir_path, 'object.json')
+        with open(file_path,'w') as f:
+            f.write(jsondateencode_local.dumps(obj)) 
+        cls.overwrite_file_hash(file_path)
+    
+    @classmethod
+    def remove_attrib(cls,filter:dict,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'],"object.json")
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item'}
+            return True
+        except:
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
+
+    @classmethod
+    def has_object(cls,download_path,obj_id):
+        return os.path.isfile(download_path+'/'+obj_id+'/object.json')
+
+
+    @staticmethod
+    def remove_entity(filter:dict,download_path:str):
+        assert 'self_id' in filter
+        file_path = os.path.join(download_path,filter['self_id'])
+        try:
+            if os.path.exists(file_path):
+                shutil.rmtree(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item'}
+            return True
+        except:
+            import traceback as tb
+            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
+        
+    @classmethod
+    def load_entity(cls,filter,download_path):
+        assert 'self_id' in filter
+        assert 'attrib' in filter and filter['attrib'] == True
+        try:
+            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
+                obj_attrib = jsondateencode_local.loads(f.read())
+            return obj_attrib
+        except:
+            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+            
+
+    ##
+    ## HASH METHODS
+    ## 
+
+    @classmethod
+    def check_hash(cls,obj_id,download_path):
+        file_path = os.path.join(download_path,obj_id,'object.json')
+        local_is_valid = cls.compare_file_hash(file_path)
+        return local_is_valid
+    
+    @classmethod
+    def overwrite_file_hash(cls,file_path):
+        current_hash = cls.generate_file_hash(file_path)
+        with open(file_path + ".hash", 'wb') as f:
+                f.write(current_hash)  
+
+    @classmethod
+    def generate_file_hash(cls,file_path):
+        # TODO Rename to generate_hash
+        hasher = hashlib.sha256()
+        
+        with open(file_path, 'rb') as f:
+            chunk = f.read(4096)  
+            while chunk:
+                hasher.update(chunk)
+                chunk = f.read(4096)
+        return hasher.hexdigest().encode('utf-8')    
+
+    @classmethod
+    def generwrite_file_hash(cls,download_path,object_name):
+        file_path = os.path.join(download_path,object_name)
+        current_hash = cls.generate_file_hash(file_path+ ".file")
+        with open(file_path + ".file.hash", 'wb') as f:
+                f.write(current_hash)
+
+    @classmethod
+    def compare_file_hash(cls,file_path, hash_func='sha2-256'):
+        if not os.path.exists(file_path):
+            return None
+        current_hash = cls.generate_file_hash(file_path)
+        if not os.path.exists(file_path+".hash"):
+            return None
+        with open(file_path + ".hash", 'rb') as f:
+                stored_hash = f.read()
+        if stored_hash == current_hash:
+            return True
+        return False
+
+    @classmethod
+    def compare_object_hash(cls,download_path,obj_id, hash_func='sha2-256'):
+        cls.init_dir()      
+        file_path = os.path.join(download_path, obj_id+ '.file')
+        return cls.compare_file_hash(file_path,hash_func)
+
+    ##
+    ## UNSORTED
+    ##
+    @classmethod
+    def init_dir(cls,download_path):
+        if not os.path.exists(download_path):
+            os.makedirs(download_path)        
+
     
     @classmethod
     def do_upload_by_type(cls,TpDestination,decw,type_str,download_path,messages,connection_settings):
@@ -335,11 +382,11 @@ class UtilFile:
         file_path = os.path.join(download_path, cid+".dag") ####
         assert os.path.exists(file_path), "Internal impossible situation. DAG missing "+file_path ###
 
-    @classmethod
-    def get_dag_path(cls,download_path,cid):
-        return os.path.join(download_path, cid+".dag") 
-    
 
+    
+    ##
+    ## TESTING UTILITIES
+    ##
 
     @staticmethod
     def corrupt_attrib(filter:dict,download_path:str):
@@ -389,27 +436,6 @@ class UtilFile:
             f.write(data)
         return True
 
-    @staticmethod
-    def remove_entity(filter:dict,download_path:str):
-        assert 'self_id' in filter
-        file_path = os.path.join(download_path,filter['self_id'])
-        try:
-            if os.path.exists(file_path):
-                shutil.rmtree(file_path)
-            if os.path.exists(file_path):
-                return {'error':'could not remove item'}
-            return True
-        except:
-            import traceback as tb
-            return {'error':"Could not remove "+download_path+'/'+filter['self_id'],'traceback':tb.format_exc()}
-        
-    @classmethod
-    def load_entity(cls,filter,download_path):
-        assert 'self_id' in filter
-        assert 'attrib' in filter and filter['attrib'] == True
-        try:
-            with open(download_path+'/'+filter['self_id']+'/object.json','r') as f:
-                obj_attrib = jsondateencode_local.loads(f.read())
-            return obj_attrib
-        except:
-            return {'error':"Could not read a valid object.json from "+download_path+'/'+filter['self_id']+'/object.json'}
+
+
+    

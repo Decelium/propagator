@@ -83,6 +83,3 @@ class TpIPFS(TpFacade):
             if messages.add_assert(obj_valid == True, f"{object_id} seems to be invalid, as reported by DB validate_object_payload_mirror:"+str(obj_valid)) == False:
                 return False, messages
             return len(messages.get_error_messages()) == 0, messages
-        
-    class LocalFilesystem(Local):
-        pass
