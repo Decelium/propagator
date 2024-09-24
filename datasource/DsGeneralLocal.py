@@ -46,11 +46,6 @@ class DsGeneralLocal(DsGeneral):
                 exc = tb.format_exc()
                 filename = 'object_error.txt'
                 written = UtilFile.dump_object_log(filename,download_path,obj_id,exc)
-                #if not os.path.exists(download_path+'/'+obj_id):
-                #    os.makedirs(download_path+'/'+obj_id)
-               
-                #with open(download_path+'/'+obj_id+'/object_error.txt','w') as f:
-                #    f.write(exc)
                 messages.add_assert(False,"Exception encountered for "+obj_id+": "+exc )
                 messages.add_assert(written == True,"Could dump_object_log() for "+obj_id )
 
@@ -160,30 +155,20 @@ class DsGeneralLocal(DsGeneral):
                 messages.add_assert(False,"B. could not parse upload_ipfs_data() result: "+str(result) ) 
         
         return cids,messages
-    
+
+
     @classmethod
     def backup_ipfs_entity(cls,TpSource,item,pinned_cids,download_path,client,overwrite=False):
         new_cids = []
         assert 'cid' in item
         root_cid = item['cid']
         #raise Exception("I am the root CID "+root_cid)
-        # BACKUP:
-        if not os.path.exists(download_path):
-            os.makedirs(download_path)
-        file_path = os.path.join(download_path, root_cid)
-        if os.path.exists(file_path + ".file") and os.path.exists(file_path + ".file.hash"):
-            # print("backup_ipfs_entity cached ")
+        UtilFile.init_dir(download_path)
+        if UtilFile.has_backedup_cid(download_path,root_cid) == True:
             return [root_cid]
-        
-        
-        #UtilFile.init_dir(download_path)
-        #if UtilFile.compare_file_hash(download_path+root_cid + ".file") == True:
-        #    # print("backup_ipfs_entity cached ")
-        #    return [root_cid]
-        print("Do new comparison")
 
         # Check if root the file already exists to avoid double writing
-        if overwrite == False and cls.has_backedup_cid(download_path, root_cid) == True:
+        if overwrite == False and UtilFile.has_backedup_cid(download_path, root_cid) == True:
             return new_cids
         try:
             # Check if the item is pinned on this node
@@ -194,15 +179,12 @@ class DsGeneralLocal(DsGeneral):
                 return new_cids
             
             try:
+                # TODO push IPFS out
                 res = client.cat(root_cid)
-                with open(file_path + ".file", 'wb') as f:
+                with UtilFile.get_file_stream(download_path,root_cid) as f:
                     for chunk in TpSource.get_cid_read_stream(client,root_cid):
                         f.write(chunk)
-
-                current_hash = UtilFile.generate_file_hash(file_path+ ".file")
-                with open(file_path + ".file.hash", 'wb') as f:
-                        f.write(current_hash)
-                print("backup_ipfs_entity.SHOULD HAVE WRITTEN "+file_path)
+                UtilFile.generwrite_file_hash(download_path,root_cid)
                 new_cids.append(root_cid)
             except Exception as e:
                 
@@ -210,11 +192,7 @@ class DsGeneralLocal(DsGeneral):
                     dir_json = TpSource.download_directory_dag(client,root_cid)
                     for new_item in dir_json['Links']:
                         new_cids.append({'self_id':item['self_id'],'cid':new_item['Hash']})
-                    # dir_json = client.object.get(cid)
-                    # print(json.dumps(dict(dir_json)))
-                    with open(file_path+".dag", 'w') as f:
-                        f.write(jsondateencode_local.dumps(dir_json))
-                    UtilFile.overwrite_file_hash(file_path+ ".dag")
+                    UtilFile.write_dagfile(download_path,root_cid,dir_json)
                 else:
                     print("backup_ipfs_entity.failed")
                     raise e
@@ -225,15 +203,7 @@ class DsGeneralLocal(DsGeneral):
             return new_cids    
         
 
-    # TODO - Move Me
-    @classmethod
-    def has_backedup_cid(cls,download_path,cid):
-        file_path = os.path.join(download_path, cid)        
-        for relevant_file in  [file_path+".file",file_path+".dag"]:
-            if os.path.exists(relevant_file):
-                if UtilFile.compare_file_hash(relevant_file) == True:
-                    return True
-        return False
+
      
 
     @classmethod
@@ -311,7 +281,8 @@ class DsGeneralLocal(DsGeneral):
             Validates the object, and generates a query to reupload the exact object
         '''
         messages = ObjectMessages("DsGeneralLocal.upload_object_query(for {"+obj_id+"})")
-        if messages.add_assert(os.path.isfile(download_path+'/'+obj_id+'/object.json'), obj_id+"is missing an object.json") == False:
+        is_file = UtilFile.has_object(download_path,obj_id)
+        if messages.add_assert(is_file == True, obj_id+"is missing an object.json") == False:
             return False,messages
         if attrib_only == True:
             decw = None

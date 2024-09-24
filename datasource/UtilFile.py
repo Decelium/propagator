@@ -195,6 +195,7 @@ class UtilFile:
         
     @classmethod
     def generate_file_hash(cls,file_path):
+        # TODO Rename to generate_hash
         hasher = hashlib.sha256()
         
         with open(file_path, 'rb') as f:
@@ -203,6 +204,34 @@ class UtilFile:
                 hasher.update(chunk)
                 chunk = f.read(4096)
         return hasher.hexdigest().encode('utf-8')    
+
+    @classmethod
+    def write_dagfile(cls,download_path,object_name,data):
+        file_path = os.path.join(download_path,object_name)
+        with open(file_path+".dag", 'w') as f:
+            f.write(jsondateencode_local.dumps(data))
+        UtilFile.overwrite_file_hash(file_path+ ".dag")
+        
+    @classmethod
+    def has_object(cls,download_path,obj_id):
+        return os.path.isfile(download_path+'/'+obj_id+'/object.json')
+    
+    # TODO - Move Me
+    @classmethod
+    def has_backedup_cid(cls,download_path,cid):
+        file_path = os.path.join(download_path, cid)        
+        for relevant_file in  [file_path+".file",file_path+".dag"]:
+            if os.path.exists(relevant_file):
+                if UtilFile.compare_file_hash(relevant_file) == True:
+                    return True
+        return False
+
+    @classmethod
+    def generwrite_file_hash(cls,download_path,object_name):
+        file_path = os.path.join(download_path,object_name)
+        current_hash = cls.generate_file_hash(file_path+ ".file")
+        with open(file_path + ".file.hash", 'wb') as f:
+                f.write(current_hash)
 
     @classmethod
     def compare_file_hash(cls,file_path, hash_func='sha2-256'):
@@ -221,6 +250,19 @@ class UtilFile:
         if not os.path.exists(download_path):
             os.makedirs(download_path)        
 
+    @classmethod
+    def get_file_stream(cls,download_path,base_file_name):
+        file_path = os.path.join(download_path, base_file_name)
+        return open(file_path + ".file", 'wb') 
+
+    @classmethod
+    def file_backup_exists(cls,download_path,root_cid):
+        raise ("Might not be needed")
+        file_path = os.path.join(download_path, root_cid)
+        if os.path.exists(file_path + ".file") and os.path.exists(file_path + ".file.hash"):
+            # print("backup_ipfs_entity cached ")
+            return True
+        return False
     @classmethod
     def compare_object_hash(cls,download_path,obj_id, hash_func='sha2-256'):
         cls.init_dir()      
