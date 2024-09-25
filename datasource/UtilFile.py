@@ -107,10 +107,11 @@ class UtilFile:
         for item in os.listdir(obj_backup_path):
             # Construct the full path of the item-
             file_path = os.path.join(obj_backup_path, item)
-            if item.endswith('.file') or item.endswith('.dag'):
-                os.remove(file_path)
-                if os.path.exists(file_path):
-                    return {'error':'could not remove item '+file_path}
+            if item.contains('object.json'):
+                continue
+            os.remove(file_path)
+            if os.path.exists(file_path):
+                return {'error':'could not remove item '+file_path}
         return True    
 
     @classmethod
@@ -119,17 +120,17 @@ class UtilFile:
         cids_downloaded = []
         for item in os.listdir(download_path+'/'+object_id):
             file_path = os.path.join(download_path+'/'+object_id, item)            
-            if item.endswith('.file') or item.endswith('.dag'):
-                try:
-                    valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
-                    if valido_hasho != True:
-                        invalid_list.append({'cid':item.split('.')[0],"message":"Encountered A bad hash for cid:"+file_path})
+            if 'object.json' in item or item.endswith('.hash'):
+                continue
+            try:
+                valido_hasho = cls.compare_file_hash(file_path, hash_func='sha2-256')
+                if valido_hasho != True:
+                    invalid_list.append({'cid':item.split('.')[0],"message":"Encountered A bad hash for cid:"+file_path})
 
-                except:
-                    import traceback as tb  
-                    invalid_list.append({'cid':item.split('.')[0],"message":"Encountered an exception with the internal hash validation:"+tb.format_exc()})
-            
-            if item.endswith('.file') or item.endswith('.dag'):
+            except:
+                import traceback as tb  
+                invalid_list.append({'cid':item.split('.')[0],"message":"Encountered an exception with the internal hash validation:"+tb.format_exc()})
+            if not "object.json" in item and not item.endswith('.hash'):
                 cids_downloaded.append(item.split('.')[0])
         return cids_downloaded, invalid_list
 
@@ -150,9 +151,9 @@ class UtilFile:
     @classmethod
     def write_dagfile(cls,download_path,object_name,data):
         file_path = os.path.join(download_path,object_name)
-        with open(file_path+".dag", 'w') as f:
+        with open(file_path, 'w') as f:
             f.write(jsondateencode_local.dumps(data))
-        UtilFile.overwrite_file_hash(file_path+ ".dag")
+        UtilFile.overwrite_file_hash(file_path)
 
     # TODO - Move Me
     @classmethod
@@ -167,7 +168,7 @@ class UtilFile:
     @classmethod
     def get_file_stream(cls,download_path,base_file_name):
         file_path = os.path.join(download_path, base_file_name)
-        return open(file_path + ".file", 'wb') 
+        return open(file_path , 'wb') 
 
     @classmethod
     def file_backup_exists(cls,download_path,root_cid):
@@ -319,11 +320,13 @@ class UtilFile:
         return hasher.hexdigest().encode('utf-8')    
 
     @classmethod
-    def generwrite_file_hash(cls,download_path,object_name):
-        file_path = os.path.join(download_path,object_name)
-        current_hash = cls.generate_file_hash(file_path+ ".file")
-        with open(file_path + ".file.hash", 'wb') as f:
-                f.write(current_hash)
+    def generwrite_file_hash_3(cls,download_path,file_name,hash_path):
+        file_path = os.path.join(download_path,file_name)
+        fill_hash_path = os.path.join(download_path,hash_path)
+        current_hash = cls.generate_file_hash(file_path)
+        #raise Exception("Should be generating hash for "+file_path)
+        with open(fill_hash_path, 'wb') as f:
+            f.write(current_hash)
 
     @classmethod
     def compare_file_hash(cls,file_path, hash_func='sha2-256'):
@@ -339,9 +342,9 @@ class UtilFile:
         return False
 
     @classmethod
-    def compare_object_hash(cls,download_path,obj_id, hash_func='sha2-256'):
+    def compare_object_hash_2(cls,download_path,file_name, hash_func='sha2-256'):
         cls.init_dir()      
-        file_path = os.path.join(download_path, obj_id+ '.file')
+        file_path = os.path.join(download_path, file_name)
         return cls.compare_file_hash(file_path,hash_func)
 
     ##
@@ -419,7 +422,7 @@ class UtilFile:
         object_path = os.path.join(download_path, self_id)
         files_affected = []
         for filename in os.listdir(object_path):
-            if  filename.endswith('.file'): # filename.endswith('.dag') or
+            if  not filename.endswith('.hash') and filename != "object.json": # filename.endswith('.dag') or
                 file_path = os.path.join(object_path, filename)
                 random_bytes_size = 1024
                 random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')
