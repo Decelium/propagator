@@ -210,6 +210,7 @@ class DsGeneralLocal(DsGeneral):
     '''
     @classmethod
     def backup_raw_entity(cls, TpSource, item, raw_data, download_path, overwrite=False):
+        raise Exception("YES I AM BACKING UP")
         """
         Stores raw file data along with its metadata.
 
