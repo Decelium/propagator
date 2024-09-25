@@ -156,6 +156,11 @@ class DsGeneralLocal(DsGeneral):
                 messages.add_assert(False,"B. could not parse upload_ipfs_data() result: "+str(result) ) 
         
         return cids,messages
+    '''
+    @classmethod
+    def backup_raw_entity(cls,TpSource,item,raw_data,download_path,client,overwrite=False):
+        #
+
 
 
     @classmethod
@@ -202,10 +207,105 @@ class DsGeneralLocal(DsGeneral):
             print(f"Error downloading : {e}")
             print(tb.format_exc())
             return new_cids    
+    '''
+    @classmethod
+    def backup_raw_entity(cls, TpSource, item, raw_data, download_path, overwrite=False):
+        """
+        Stores raw file data along with its metadata.
+
+        Parameters:
+            TpSource (class): The source class (e.g., DsGeneralGithub).
+            item (dict): Metadata about the file (e.g., path, cid, sha).
+            raw_data (bytes): The raw data of the file.
+            download_path (str): The directory where the file will be stored.
+            overwrite (bool): Whether to overwrite existing files.
+
+        Returns:
+            list: A list containing the identifier of the stored file.
+        """
+        UtilFile.init_dir(download_path)
         
+        file_id = item.get('cid') or item.get('sha') or item.get('path')
+        if not file_id:
+            raise ValueError("Item must contain 'cid', 'sha', or 'path' as an identifier.")
+        
+        if not overwrite and UtilFile.has_backedup_cid(download_path, file_id):
+            print(f"File {file_id} already backed up.")
+            return [file_id]
+        
+        with UtilFile.get_file_stream(download_path, file_id) as f:
+            f.write(raw_data)
+        
+        UtilFile.generwrite_file_hash(download_path, file_id)
+        
+        print(f"Successfully backed up file {file_id}.")
+        return [file_id]
+
+    @classmethod
+    def backup_ipfs_entity(cls, TpSource, item, pinned_cids, download_path, client, overwrite=False):
+        """
+        Backs up an IPFS entity (file or directory) by downloading it and storing its contents.
+
+        Parameters:
+            TpSource (class): The source class (e.g., DsGeneralDecelium).
+            item (dict): Contains 'cid' and optionally 'self_id'.
+            pinned_cids (list): List of pinned CIDs on the IPFS node.
+            download_path (str): The directory where the files will be stored.
+            client: The IPFS client instance.
+            overwrite (bool): Whether to overwrite existing files.
+
+        Returns:
+            list: A list of new CIDs or items to be processed.
+        """
+        new_cids = []
+        assert 'cid' in item, "'cid' must be present in the item dictionary."
+        root_cid = item['cid']
+        UtilFile.init_dir(download_path)
+
+        # Check if the file has already been backed up
+        if not overwrite and UtilFile.has_backedup_cid(download_path, root_cid):
+            print(f"CID {root_cid} already backed up.")
+            return [root_cid]
+
+        try:
+            # Check if the item is pinned on this node
+            if root_cid not in pinned_cids:
+                print(f"CID {root_cid} is not pinned. Skipping.")
+                return new_cids
+
+            try:
+                # Attempt to retrieve the raw data
+                raw_data = client.cat(root_cid)
+                # Use backup_raw_entity to store the raw data
+                backup_result = cls.backup_raw_entity(
+                    TpSource,
+                    item,
+                    raw_data,
+                    download_path,
+                    overwrite=overwrite
+                )
+                new_cids.extend(backup_result)
+            except Exception as e:
+                if "is a directory" in str(e):
+                    # Handle directories by retrieving their DAG
+                    dir_json = TpSource.download_directory_dag(client, root_cid)
+                    for new_item in dir_json['Links']:
+                        new_cids.append({
+                            'self_id': item.get('self_id'),
+                            'cid': new_item['Hash']
+                        })
+                    # Store the directory structure (DAG) for future reference
+                    UtilFile.write_dagfile(download_path, root_cid, dir_json)
+                else:
+                    print("backup_ipfs_entity failed.")
+                    raise e
+            return new_cids
+        except Exception as e:
+            print(f"Error downloading CID {root_cid}: {e}")
+            print(tb.format_exc())
+            return new_cids
 
 
-     
 
     @classmethod
     def validate_object(cls,decw,object_id,download_path,connection_settings):

@@ -7,7 +7,12 @@ except:
 import traceback as tb
 import ipfshttpclient
 from .DsGeneral import DsGeneral
-import json
+from .DsGeneralLocal import DsGeneralLocal
+import os
+from dulwich import client, repo 
+from dulwich.objects import Blob
+from dulwich.walk import Walker
+
 import datetime
 
 class jsondateencode_local:
@@ -34,68 +39,125 @@ class jsondateencode_local:
                     pass
         return dct
 
-class DsGeneralDecelium(DsGeneral):
+class DsGeneralGit(DsGeneral):
     @classmethod
     def download_ipfs_data(cls,TpDestination,decw,cids, download_path, connection_settings,overwrite=False,failure_limit=5):
-        c = connection_settings
-        ipfs_string = f"/dns/{c['host']}/tcp/{c['port']}/{c['protocol']}"
-        print(ipfs_string)
-        current_docs = cids
-        next_batch = []
+        raise Exception("Unsupported")
+                
 
-        all_pins = cls.ipfs_pin_list(decw, connection_settings)
+    @classmethod
+    def download_git_data(cls, TpDestination, decw, download_path, connection_settings, overwrite=False, failure_limit=5):
+        c = connection_settings
+        repo_url = c['repo_url']
+        repo_branch = c.get('repo_branch', 'master')  # Default to 'master' if not specified
+        repo_hash = c.get('repo_hash')  # Specific commit hash, if provided
+
         failures = 0
         count = 0
-        length = len(current_docs) 
 
-        with ipfshttpclient.connect(ipfs_string,headers={'X-Api-Token':'your_secret_token'}) as client:
-            for item in current_docs:
-                count = count + 1
-                dic = None
-                if type(item) == dict:
-                    dic = item.copy()
-                if type(item) == str:
-                    dic = {'cid':item,'self_id':None}
-                if not dic['cid'] in all_pins:
-                    all_pins = cls.ipfs_pin_list(decw, connection_settings,refresh=True)    
-                
-                print(f"{count}/{length} - Backing up "+dic['cid'] )
-                new_pins = TpDestination.backup_ipfs_entity(cls,dic,all_pins,download_path,client,overwrite)
-                if len(new_pins) == 0:
-                    failures = failures + 1
-                    if failures > failure_limit and failure_limit >0:
-                        print("Hit Failure Limit")
-                        return {'error':"too many failures"}
-                if len(new_pins) > 0:
-                    next_batch = next_batch + new_pins
-            current_docs = next_batch
-            next_batch = []
+        # Create an in-memory repository
+        mem_repo = repo.MemoryRepo()
+
+        # Set up the client to fetch from the remote repository
+        remote_client, path = client.get_transport_and_path(mem_repo, repo_url)
+
+        # Fetch the refs from the remote repository
+        try:
+            remote_refs = remote_client.fetch(path, mem_repo)
+        except Exception as e:
+            print(f"Failed to fetch refs from {repo_url}: {e}")
+            return {'error': f"Failed to fetch refs from {repo_url}"}
+
+        # Determine which ref to use
+        if repo_hash:
+            commit_sha = repo_hash.encode('utf-8')
+        else:
+            # Convert branch name to ref name
+            ref_name = f'refs/heads/{repo_branch}'
+            commit_sha = remote_refs.get(ref_name.encode('utf-8'))
+            if not commit_sha:
+                # Try fetching from remote heads
+                ref_name = f'refs/remotes/origin/{repo_branch}'
+                commit_sha = remote_refs.get(ref_name.encode('utf-8'))
+            if not commit_sha:
+                print(f"Failed to find branch {repo_branch} in {repo_url}")
+                return {'error': f"Failed to find branch {repo_branch}"}
+
+        # Walk the repository tree to collect all files
+        walker = Walker(mem_repo.object_store, [commit_sha], include_trees=True, prune=False)
+        file_entries = []
+
+        for entry in walker:
+            tree = entry.tree
+            if not tree:
+                continue
+            for path, blob_sha in tree.items():
+                obj = mem_repo[blob_sha]
+                if isinstance(obj, Blob):
+                    file_path = path.decode('utf-8')
+                    file_entries.append({
+                        'path': file_path,
+                        'sha': blob_sha.hexdigest(),
+                        'mode': oct(obj.mode),
+                        'size': obj.raw_length(),
+                        'blob': obj
+                    })
+
+        total_files = len(file_entries)
+        print(f"Found {total_files} files to backup.")
+
+        # Process each file
+        for file_info in file_entries:
+            count += 1
+            file_path = file_info['path']
+            file_sha = file_info['sha']
+            file_mode = file_info['mode']
+            file_size = file_info['size']
+            blob = file_info['blob']
+
+            # Construct metadata dictionary
+            dic = {
+                'path': file_path,
+                'sha': file_sha,
+                'mode': file_mode,
+                'size': file_size,
+                'commit_sha': commit_sha.decode('utf-8')
+            }
+
+            # Get the file content
+            file_content = blob.data
+
+            print(f"{count}/{total_files} - Backing up {file_path}")
+
+            # Since backup_git_entity expects a URL or file content,
+            # we can pass the file content directly
+            TpDestination: DsGeneralLocal = TpDestination
+            new_local_files = TpDestination.backup_git_entity(DsGeneralGit, dic, file_content, download_path, overwrite)
+
+            # Handle failures
+            if not new_local_files:
+                failures += 1
+                if failures > failure_limit > 0:
+                    print("Hit Failure Limit")
+                    return {'error': "Too many failures"}
+
         return True
-                
+
+
     @classmethod
     def download_payload_data(cls,decw,obj):
-        try:
-            # TODO - temp workaround to be removed when wallet is upgraded to decelium_wallet from paxdk
-            result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']},remote=True)
-        except:
-            result = decw.net.download_entity({"api_key":"UNDEFINED","self_id":obj['self_id']})
-            
-        if type(result) == dict and 'error' in result:
-            return result,None
-        # Cretae bytes
-        if type(result) == str:
-            dat = bytes(result.encode("utf-8"))
-        elif type(result) in [dict,list]:
-            dat = bytes(jsondateencode_local.dumps(result).encode("utf-8"))
-        elif type(result) == bytes:
-            dat = bytes
-        else:
-            raise Exception("Could not parse type "+str(type(result)))
-        return True,dat
-                
+        '''
+        obj = {
+            'self_id':'obj-378543820a0f',
+            'url':'https://github.com/Decelium/decelium_wallet',
+        }
+        '''
+        raise Exception("Unimplemented")        
+
+        
     @classmethod
     def get_cid_read_stream(cls,client,root_cid):
-        return client.cat(root_cid, stream=True)    
+        raise Exception("unimplemented")
     
     @classmethod
     def load_entity(cls,query,decw):
