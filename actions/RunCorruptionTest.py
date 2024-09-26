@@ -204,3 +204,4 @@ class RunCorruptionTest(Action):
     
     def generate(self,lang,record,memory=None):
         return ""
+    

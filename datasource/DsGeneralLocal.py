@@ -136,7 +136,7 @@ class DsGeneralLocal(DsGeneral):
         messages = ObjectMessages("TpGeneralLocal.upload_ipfs_data")
         
         # Sequence and do IPFS upload
-        cid_order = UtilFile.build_upload_sequence(download_path)
+        cid_order = UtilFile.build_ipfs_upload_sequence(download_path)
         uploaded_ids = UtilFile.do_upload_by_type(TpDestination,decw,'.file',download_path,messages,connection_settings)
         cids = cids + uploaded_ids
         

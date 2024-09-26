@@ -198,7 +198,7 @@ class UtilFile:
         return children
 
     @classmethod
-    def build_upload_sequence(cls,download_path):
+    def build_ipfs_upload_sequence(cls,download_path):
         tree = CidTree()
         for item in os.listdir(download_path):
             file_path = os.path.join(download_path, item)
@@ -329,13 +329,15 @@ class UtilFile:
             f.write(current_hash)
 
     @classmethod
-    def compare_file_hash(cls,file_path, hash_func='sha2-256'):
+    def compare_file_hash(cls,file_path,hash_file=None, hash_func='sha2-256'):
         if not os.path.exists(file_path):
             return None
         current_hash = cls.generate_file_hash(file_path)
-        if not os.path.exists(file_path+".hash"):
+        if hash_file == None:
+            hash_file = file_path + ".hash"
+        if not os.path.exists(hash_file):
             return None
-        with open(file_path + ".hash", 'rb') as f:
+        with open(hash_file, 'rb') as f:
                 stored_hash = f.read()
         if stored_hash == current_hash:
             return True
@@ -354,7 +356,6 @@ class UtilFile:
     def init_dir(cls,download_path):
         if not os.path.exists(download_path):
             os.makedirs(download_path)        
-
     
     @classmethod
     def do_upload_by_type(cls,TpDestination,decw,type_str,download_path,messages,connection_settings):
@@ -386,11 +387,9 @@ class UtilFile:
         assert os.path.exists(file_path), "Internal impossible situation. DAG missing "+file_path ###
 
 
-    
     ##
     ## TESTING UTILITIES
     ##
-
     @staticmethod
     def corrupt_attrib(filter:dict,download_path:str):
         assert 'self_id' in filter
@@ -422,7 +421,7 @@ class UtilFile:
         object_path = os.path.join(download_path, self_id)
         files_affected = []
         for filename in os.listdir(object_path):
-            if  not filename.endswith('.hash') and filename != "object.json": # filename.endswith('.dag') or
+            if  not filename.endswith('.hash') and filename != "object.json":
                 file_path = os.path.join(object_path, filename)
                 random_bytes_size = 1024
                 random_bytes = random.getrandbits(8 * random_bytes_size).to_bytes(random_bytes_size, 'little')

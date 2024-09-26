@@ -24,6 +24,14 @@ def agent_action(**overrides):
         return CustomAction()
     return decorator
 
+def memory_decorator(func):
+    def wrapper(self, **kwargs):
+        if self.__memory is None:
+            self.__memory = {}
+        kwargs['memory'] = self.__memory
+        return func(self, **kwargs)
+    return wrapper
+
 class Action():
     
     def __init__(self,**kwargs):
@@ -36,7 +44,8 @@ class Action():
             self.__memory = {}
         kwargs['memory'] = self.__memory
         return self.crun(**kwargs)    
-      
+    
+    #@memory_decorator
     def run(self,**kwargs):
         raise Exception("Unimplemented")
         return
@@ -48,6 +57,8 @@ class Action():
         return True
     
     def crun(self,**kwargs):
+        if self.__memory == None:
+            self.__memory = {}
         if kwargs.get('memory', None)  == None:
             kwargs['memory'] = self.__memory
 
@@ -55,7 +66,7 @@ class Action():
         try:
             assert self.prevalid(**kwargs) #record, memory
             kwargs['response'] = self.run(**kwargs)  #record, memory
-            
+            print("Action.crun.self:"+str(self))
             assert self.postvalid(**kwargs)  #record, memory, response
             return kwargs['response']
         except Exception as e :
