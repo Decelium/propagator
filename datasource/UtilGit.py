@@ -15,6 +15,10 @@ class UtilGit(BaseService):
         #return kwargs
         # Define a command-to-arguments mapping
         command_map = {
+            'example': {
+                'required_args': [],
+                'method': cls.example_command,
+            },
             'list_github_repos': {
                 'required_args': ['username', 'access_token'],
                 'method': cls.list_github_repos
@@ -58,7 +62,9 @@ class UtilGit(BaseService):
 
         # Call the method and return the result
         return method(**method_kwargs)    
-    
+    @staticmethod
+    def example_command():
+        return "I am the output"
     
     @staticmethod
     def list_github_repos_OLD(username, access_token):
@@ -432,6 +438,6 @@ class UtilGit(BaseService):
 if __name__ == "__main__":
     UtilGit.run_cli()  # Inherit CLI behavior from BaseService
 
-# python3 UtilGit.py list_github_repos github_user=justin.girard access_token=TOKEN
 # python3 UtilGit.py download_git_data branch=master repo_url=https://github.com/justingirard/beanleaf download_path='./git_backup_test/' download_dir='beanleaf' username=justin.girard access_key=TOKEN
 # python3 UtilGit.py list_github_repos username=justin.girard access_token=TOKEN
+# python3 UtilGit.py list_local_repos download_path='./git_backup_test/' username=justin.girard access_token=TOKEN
