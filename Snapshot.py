@@ -121,22 +121,7 @@ class Snapshot:
                 'file':DsFileDeceliumMirror,
             }        
         return data_map[datasource_name][type_name]
-    '''
-    @staticmethod
-    def get_datasource_OLD(type_name:str, datasource_name:str) -> DsGeneral:
-        #assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
-        assert datasource_name in Snapshot.s_datasource, 'could not find a property with name '+ str(datasource_name)
-        #TheType:TpFacade = Snapshot.s_type_map[type_name]
-        print("datasource_name",datasource_name)
-        print("type_name",type_name)
-        return TheType.get_datasource_refac(datasource_name)
-    '''
-    #@staticmethod
-    #def get_datasource(type_name:str, datasource_name:str) -> DsGeneral:
-    #    assert type_name in list(Snapshot.s_type_map.keys()), 'Could not find the type name in the registered types '+ str(type_name)
-    #    assert datasource_name in Snapshot.s_datasource, 'could not find a property with name '+ str(datasource_name)
-    #    TheType:TpFacade = Snapshot.s_type_map[type_name]
-    #    return TheType.get_datasource_refac(datasource_name)
+
     
     @staticmethod
     def resolve_type(decw,obj_id,datasource_name,download_path,cached = True):
@@ -253,7 +238,8 @@ class Snapshot:
         return   result_json,messages      
 
     @staticmethod
-    def append_from_remote(decw, connection_settings, download_path, limit=20, offset=0,filter = None, overwrite = False,api_key="undefined",attrib=None):
+    def append_from_remote(decw, connection_settings, download_path,     limit=20, offset=0,filter = None, overwrite = False,api_key="undefined",attrib=None):
+        print("append_from_remote() Filter"+ str(filter) )
         if filter == None:
             filter = {'attrib':{'file_type':'ipfs'}}
             file_type = 'ipfs'
@@ -263,7 +249,7 @@ class Snapshot:
             local_object_ids = os.listdir(download_path)
         
         found_objs = Snapshot.get_general_datasource("remote").find_batch_objects(decw,offset,limit,filter)
-
+        print("append_from_remote() found objs"+ str(filter) )
         needed_objs = found_objs
         results = {}
         if len(needed_objs) <= 0:

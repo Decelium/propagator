@@ -37,7 +37,7 @@ class SetupForTests(Action):
         decw, connected = agent.create_wallet_action(record={
             'wallet_path': '../.wallet.dec',
             'wallet_password_path':'../.wallet.dec.password',
-            'fabric_url': 'http://devdecelium.com:5000/data/query',
+            'fabric_url': 'http://devdecelium.com:5000/data/query'
             })
         
         user_context = {

@@ -204,7 +204,6 @@ class BackupManager():
             f.write(json.dumps(res,indent=1))
         return True
 
-    
     def backup_all_type(self,file_type,backup_path,early_stop = False,self_id=""):
         import pprint
         if len(self_id) > 0: 
@@ -214,7 +213,9 @@ class BackupManager():
         chunk_size = 20
         limit = chunk_size + 1
         offset = 0
+        print("Calling append "+backup_path+" with filter "+ str(filter))
         res = Snapshot.append_from_remote(self.decw, self.connection_settings, backup_path, limit, offset,filter)
+        print(res)
         if early_stop == True:
             return res
         while len(res) >= chunk_size:
@@ -295,8 +296,8 @@ class BackupManager():
             func = self.pull
         self.setup(host=host,protocol=protocol,decw_in=decw_in)
         results = {}
-        
         for type in file_types:
+            print(f".. Generating backup in '{dir}' for '{type}'")
             print(dir)
             print(type)
             if use_type_dir == True:
