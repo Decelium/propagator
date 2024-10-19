@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 import os
 import shutil
 import subprocess
@@ -23,7 +26,7 @@ class UtilGit(BaseService):
                 'method': cls.list_local_repos
             },
             'list_github_repos': {
-                'required_args': ['username', 'access_token'],
+                'required_args': ['username', 'access_token','limit','offset'],
                 'method': cls.list_github_repos
             },
             'list_bitbucket_repos': {
@@ -71,8 +74,9 @@ class UtilGit(BaseService):
     def example_command():
         return "I am the output"
     
+    '''
     @staticmethod
-    def list_github_repos(username, access_token):
+    def list_github_repos(username, access_token, limit=5, offset=0):
         """List all repositories from a user's GitHub account, returning clean JSON output."""
         url = f"https://api.github.com/user/repos"
         headers = {
@@ -106,6 +110,59 @@ class UtilGit(BaseService):
 
             # Return clean JSON output
             return json.dumps(repos_data, indent=4)
+
+        except requests.exceptions.RequestException as e:
+            error_message = {"error": f"Failed to list repositories: {str(e)}"}
+            return json.dumps(error_message, indent=4)
+
+        except Exception as e:
+            # Return any other error with a traceback
+            import traceback as tb
+            error_traceback = tb.format_exc()
+            error_message = {"error": error_traceback}
+            return json.dumps(error_message, indent=4)
+    '''
+
+    @staticmethod
+    def list_github_repos(username, access_token, limit=5, offset=0):
+        """List all repositories from a user's GitHub account, returning clean JSON output."""
+        url = f"https://api.github.com/user/repos"
+        headers = {
+            "Authorization": f"token {access_token}"
+        }
+        limit = int(limit)
+        offset = int(offset)
+        repos_data = []  # List to store repo names and URLs
+
+        try:
+            while url:
+                response = requests.get(url, headers=headers, params={"per_page": 100})  # Fetch 100 repos per page
+                response.raise_for_status()  # Raises HTTPError for bad responses
+                repos = response.json()
+
+                # Extract repository URLs along with their names
+                for repo in repos:
+                    repo_info = {
+                        'name': repo['name'],
+                        'html_url': repo['html_url'],  # The URL for visiting the repo
+                        'clone_url': repo['clone_url'],  # URL used for cloning the repo
+                        'ssh_url': repo['ssh_url'],  # SSH URL for cloning
+                        'branch': repo['default_branch']   # Default branch of the repository                        
+                    }
+                    repos_data.append(repo_info)
+
+                # Check for the 'next' URL for pagination
+                if 'next' in response.links:
+                    url = response.links['next']['url']
+                else:
+                    url = None
+
+            # Apply offset and limit
+            if offset >= len(repos_data):  # If offset is beyond available repos
+                return json.dumps([], indent=4)  # Return empty list
+
+            # Return the sliced list based on limit and offset
+            return json.dumps(repos_data[offset:offset + limit], indent=4)
 
         except requests.exceptions.RequestException as e:
             error_message = {"error": f"Failed to list repositories: {str(e)}"}

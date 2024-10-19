@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import os
 import shutil
 import tempfile
@@ -7,62 +9,37 @@ from typing import Dict, Optional
 from decelium_wallet.commands.BaseService import BaseService  # Assuming your BaseService from earlier
 from datasource.UtilCrypto import UtilCrypto
 from datasource.UtilGit import UtilGit
+'''
+#from .type.BaseData import BaseData
+class DTGHRepo(BaseData):
+    def get_keys(self):
+        required = {'name':lambda v:v, # (╯°□°)╯︵ ┻━┻ 
+                    'user_context':dict,
+                    'connection_settings':dict,
+                    'backup_path':str,
+                    'local_test_folder':str,
+                    }
+        return required,{}
 
+
+class DTRepo(BaseData):
+    def assert_has_schema():
+
+    def get_keys(self):
+        required = {'name':lambda v:v, # (╯°□°)╯︵ ┻━┻ 
+                    'modified':dict,
+                    'branch':dict,
+                    'backup_path':str,
+                    'local_test_folder':str,
+                    }
+        return required,{}
+'''
 class GitBackupManager(BaseService):
 
     @classmethod 
     def list_github_repos(cls,username,access_token):
-        ''' Chat GPT reference, Portion of UtilGit:
-    @staticmethod
-    def list_github_repos(username, access_token):
-        """List all repositories from a user's GitHub account, returning clean JSON output."""
-        url = f"https://api.github.com/user/repos"
-        headers = {
-            "Authorization": f"token {access_token}"
-        }
-
-        repos_data = []  # List to store repo names and URLs
-
-        try:
-            while url:
-                response = requests.get(url, headers=headers, params={"per_page": 100})  # Fetch 100 repos per page
-                response.raise_for_status()  # Raises HTTPError for bad responses
-                repos = response.json()
-
-                # Extract repository URLs along with their names
-                for repo in repos:
-                    repo_info = {
-                        'name': repo['name'],
-                        'html_url': repo['html_url'],  # The URL for visiting the repo
-                        'clone_url': repo['clone_url'],  # URL used for cloning the repo
-                        'ssh_url': repo['ssh_url']  # SSH URL for cloning
-                    }
-                    repos_data.append(repo_info)
-
-                # Check for the 'next' URL for pagination
-                if 'next' in response.links:
-                    url = response.links['next']['url']
-                else:
-                    url = None
-
-            # Return clean JSON output
-            return json.dumps(repos_data, indent=4)
-
-        except requests.exceptions.RequestException as e:
-            error_message = {"error": f"Failed to list repositories: {str(e)}"}
-            return json.dumps(error_message, indent=4)
-
-        except Exception as e:
-            # Return any other error with a traceback
-            import traceback as tb
-            error_traceback = tb.format_exc()
-            error_message = {"error": error_traceback}
-            return json.dumps(error_message, indent=4)        
-        
-        '''
         return UtilGit.list_github_repos(username, access_token)
     
-
     @classmethod
     def download(cls,
         git_username:str,
@@ -148,6 +125,7 @@ class GitBackupManager(BaseService):
         git_access_key:str,
         commit_message: str = 'Restored backup'
     ):
+        raise Exception("I THINK I AM OLD")
         """
         Decrypt and upload a backup to a specified git remote URL.
 
@@ -196,7 +174,7 @@ class GitBackupManager(BaseService):
         finally:
             # Clean up the temporary directory
             shutil.rmtree(temp_dir)
-
+    '''
     @classmethod
     def list_backups(cls,backup_root_path: str):
         """
@@ -221,10 +199,6 @@ class GitBackupManager(BaseService):
     @classmethod
     def get_command_map(cls):
         command_map = {
-            'init': {
-                'required_args': [],
-                'method': cls.init,
-            },
             'download': {
                 'required_args': ['git_username','git_access_key', 'encryption_password', 'repo_url', 'branch', 'backup_path'],
                 'method': cls.download,
@@ -243,7 +217,8 @@ class GitBackupManager(BaseService):
                 'method': cls.list_backups,
             },
         }
-    '''
+        return command_map
+
     @classmethod
     def run_subprocess_command(cls,command, cwd=None):
         """
