@@ -58,8 +58,11 @@ class GitBackupManager(BaseService):
         :param repo_url: URL of the repository to clone.
         :param branch: Branch of the repository to clone.
         :param backup_path: Path to the secure folder where the encrypted backup will be stored.
+
         """
-        key_info = {'key': encryption_password}
+
+        git_repo_dir = 'gitrepo'
+        meta_data_dir = ''
         temp_dir = tempfile.mkdtemp()
         try:
             # Clone the repository using UtilGit
@@ -69,26 +72,40 @@ class GitBackupManager(BaseService):
                 branch=branch,
                 repo_url=repo_url,
                 download_path=temp_dir,
-                download_dir='repo'
+                download_dir=git_repo_dir,
+                meta_data_dir=meta_data_dir
             )
 
-            source_dir = os.path.join(temp_dir, 'repo')
-            encrypted_dir = backup_path
+            #Set SRC and DST Paths
+            source_metadata_dir = temp_dir
+            source_repo_dir = os.path.join(temp_dir, git_repo_dir)
+            dest_metadata_dir = backup_path
+            dest_data_dir = os.path.join(backup_path, git_repo_dir)
 
-            # Encrypt the cloned repository using UtilCrypto
+            # Copy Repo Data
             UtilCrypto.encrypt_directory(
-                source_dir=source_dir,
-                dest_dir=encrypted_dir,
+                source_dir=source_repo_dir,
+                #dest_dir=os.path.join(encrypted_dir,'gitrepo'),
+                dest_dir=dest_data_dir,
+                metadata_dir=dest_metadata_dir,
                 key=encryption_password
             )
-            print(f"Repository encrypted successfully to {encrypted_dir}")
+
+            # Copy Metadata
+            src_entity_path = os.path.join(source_metadata_dir,"dec.object.json")
+            dst_entity_path = os.path.join(dest_metadata_dir,"dec.object.json")
+            shutil.copy(src=src_entity_path,dst=dst_entity_path)
+            print(f"Moved src to dst {src_entity_path}  to {dst_entity_path}")
+            print(f"Repository encrypted successfully to {dest_metadata_dir}")
 
         except Exception as e:
-            print(f"Error during download and encryption: {e}")
+            import traceback as tb
+            print(f"Error during download and encryption: {e}:{tb.format_exc()}")
             raise
         finally:
             # Clean up the temporary directory
-            shutil.rmtree(temp_dir)
+            print("Finished. Debug TMP dir: "+temp_dir)
+            #shutil.rmtree(temp_dir)
 
     @classmethod
     def unpack(cls,

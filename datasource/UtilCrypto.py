@@ -127,7 +127,7 @@ class UtilCrypto(BaseService):
             return False    
   
     @staticmethod
-    def encrypt_directory(source_dir: str, dest_dir: str, key: str):
+    def encrypt_directory(source_dir: str, dest_dir: str, metadata_dir:str, key: str):
         """
         Encrypt all files in the source directory, record their hashes, and save the information in .enc.info.
 
@@ -136,7 +136,7 @@ class UtilCrypto(BaseService):
         :param key_info: A dictionary containing key information for encryption.
         """
         file_hashes = {}
-        enc_info_file = os.path.join(dest_dir, '.enc.info')
+        os.makedirs(dest_dir, exist_ok=True)
 
         for root, dirs, files in os.walk(source_dir):
             for file in files:
@@ -169,7 +169,7 @@ class UtilCrypto(BaseService):
 
         # Save the file hashes to .enc.info
         try:
-            os.makedirs(dest_dir, exist_ok=True)
+            enc_info_file = os.path.join(metadata_dir, '.enc.info')
             with open(enc_info_file, 'w') as f:
                 json.dump(file_hashes, f)
             print(f"Encryption info saved to {enc_info_file}")

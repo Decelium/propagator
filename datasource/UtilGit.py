@@ -43,7 +43,7 @@ class UtilGit(BaseService):
                 'method': cls.is_repo_up_to_date
             },
             'download_git_data': {
-                'required_args':['username','access_key','branch','repo_url', 'download_path', 'download_dir'],
+                'required_args':['username','access_key','branch','repo_url', 'download_path', 'download_dir','meta_data_dir'],
                 'method': cls.download_git_data
             }
         }
@@ -54,6 +54,7 @@ class UtilGit(BaseService):
         """Get the latest commit hash from the current branch in the given repository."""
         command = ['git', '-C', repo_path, 'rev-parse', 'HEAD']
         try:
+            print(f"Running command: {' '.join(command)}")
             result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             return result.stdout.decode().strip()
         except subprocess.CalledProcessError as e:
@@ -296,6 +297,7 @@ class UtilGit(BaseService):
         
         command = ['git', 'ls-remote', authenticated_url, repo_branch]
         try:
+            print(f"Running command: {' '.join(command)}")
             result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             # Parse the output to get the commit hash
             return result.stdout.decode().split()[0]
@@ -351,7 +353,7 @@ class UtilGit(BaseService):
                 if file_to_ignore not in gitignore_content:
                     f.write(f"\n{file_to_ignore}\n")
     @staticmethod
-    def save_repo_metadata(backup_file, obj_id, repo_url, repo_branch, target_path):
+    def save_repo_metadata(metadata_path, obj_id, repo_url, repo_branch, target_path):
         """Save repository metadata (URL, branch, latest commit hash) into the object.json file."""
         # Retrieve the latest commit hash
         latest_commit_hash = UtilGit.get_latest_commit_hash(target_path)
@@ -365,41 +367,43 @@ class UtilGit(BaseService):
         }
 
         # Save metadata to object.json
-        with open(backup_file, 'w') as f:
+        with open(metadata_path, 'w') as f:
             json.dump(backup_data, f, indent=4)
     
     @classmethod
-    def download_git_data(cls, username,access_key,branch,repo_url, download_path, download_dir):
+    def download_git_data(cls, username,access_key,branch,repo_url, download_path, download_dir,meta_data_dir):
         # Unpack git settings
         repo_url = repo_url #git_settings['repo_url']
         repo_branch = branch #git_settings.get('repo_branch', 'main')
         repo_user = username #git_settings.get('repo_user')
         repo_key = access_key #git_settings.get('repo_key')
-        target_path = os.path.join(download_path, download_dir)
-        backup_file = os.path.join(download_path,download_dir, 'dec.object.json')
+        target_data_path = os.path.join(download_path, download_dir)
+        target_metadata_path = os.path.join(download_path, meta_data_dir)
+        target_metadata_file_path = os.path.join(target_metadata_path, 'dec.object.json')
 
-        if cls.is_repo_up_to_date(target_path, repo_url, repo_branch, backup_file):
+        if cls.is_repo_up_to_date(target_data_path, repo_url, repo_branch, target_data_path):
             print(f"Repository {repo_url} (branch: {repo_branch}) is already up to date. No need to pull.")
             return        
         # Generate obj_id based on repo_url + branch (for consistency)
         obj_id = cls.generate_obj_id(repo_url, repo_branch)
 
         # Step 1: Verify and clean up conflicting old data
-        cls.handle_existing_repo(target_path, backup_file, repo_url, repo_branch)
+        cls.handle_existing_repo(target_data_path, target_metadata_path, repo_url, repo_branch)
 
         # Step 2: Clone the repository into the target directory
-        cls.clone_repository(repo_url, repo_branch, repo_user, repo_key, target_path)
+        cls.clone_repository(repo_url, repo_branch, repo_user, repo_key, target_data_path)
 
         # Step 3: Verify the clone was successful
-        cls.verify_clone_success(target_path)
+        cls.verify_clone_success(target_data_path)
 
         # Step 4: Save metadata to object.json
-        cls.save_repo_metadata(backup_file, obj_id, repo_url, repo_branch,target_path)
+        print(f"Saving metadata to path: {target_metadata_file_path} ")
+        cls.save_repo_metadata(target_metadata_file_path, obj_id, repo_url, repo_branch,target_data_path)
 
-        cls.add_to_gitignore(target_path, file_to_ignore="dec.object.json")
-        cls.add_to_gitignore(target_path, file_to_ignore=".enc.info")
+        #cls.add_to_gitignore(target_path, file_to_ignore="dec.DISABLED.object.json")
+        #cls.add_to_gitignore(target_path, file_to_ignore=".enc.DISABLED.info")
 
-        print(f"Repository {repo_url} (branch: {repo_branch}) successfully cloned to {target_path}.")
+        print(f"Repository {repo_url} (branch: {repo_branch}) successfully cloned to {target_data_path}.")
     
 
 
