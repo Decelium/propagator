@@ -10,6 +10,7 @@ import requests
 from decelium_wallet.commands.BaseService import BaseService  # Assuming your BaseService from earlier
 import decelium_wallet.core as core
 import decelium_wallet.crypto as crypto
+from decelium_wallet.datasources.FileCache import FileCache
 
 
 class UtilGit(BaseService):
@@ -26,7 +27,8 @@ class UtilGit(BaseService):
                 'method': cls.list_local_repos
             },
             'list_github_repos': {
-                'required_args': ['username', 'access_token','limit','offset'],
+                # (cls, username, access_token, cache_file, max_cache_age_seconds=500,limit=5, offset=0):
+                'required_args': ['username', 'access_token','limit','offset','cache_file'],
                 'method': cls.list_github_repos
             },
             'list_bitbucket_repos': {
@@ -76,56 +78,47 @@ class UtilGit(BaseService):
         return "I am the output"
     
     '''
-    @staticmethod
-    def list_github_repos(username, access_token, limit=5, offset=0):
-        """List all repositories from a user's GitHub account, returning clean JSON output."""
-        url = f"https://api.github.com/user/repos"
-        headers = {
-            "Authorization": f"token {access_token}"
-        }
+    @staticmethod 
+    def list_github_repos(username, access_token, cache_file, max_cache_age_seconds=500,limit=5, offset=0):
+        # Initialize the cache
+        
+        fc = FileCache(cache_file, max_cache_age_seconds)
 
-        repos_data = []  # List to store repo names and URLs
+        @fc.cached
+        def get_repos():
+            return UtilGit.list_github_repos_inner(username, access_token,limit,offset)
 
-        try:
-            while url:
-                response = requests.get(url, headers=headers, params={"per_page": 100})  # Fetch 100 repos per page
-                response.raise_for_status()  # Raises HTTPError for bad responses
-                repos = response.json()
-
-                # Extract repository URLs along with their names
-                for repo in repos:
-                    repo_info = {
-                        'name': repo['name'],
-                        'html_url': repo['html_url'],  # The URL for visiting the repo
-                        'clone_url': repo['clone_url'],  # URL used for cloning the repo
-                        'ssh_url': repo['ssh_url'],  # SSH URL for cloning
-                        'branch': repo['default_branch']   # Default branch of the repository                        
-                    }
-                    repos_data.append(repo_info)
-
-                # Check for the 'next' URL for pagination
-                if 'next' in response.links:
-                    url = response.links['next']['url']
-                else:
-                    url = None
-
-            # Return clean JSON output
-            return json.dumps(repos_data, indent=4)
-
-        except requests.exceptions.RequestException as e:
-            error_message = {"error": f"Failed to list repositories: {str(e)}"}
-            return json.dumps(error_message, indent=4)
-
-        except Exception as e:
-            # Return any other error with a traceback
-            import traceback as tb
-            error_traceback = tb.format_exc()
-            error_message = {"error": error_traceback}
-            return json.dumps(error_message, indent=4)
+        return get_repos()
+/Users/computercomputer/justinops/propagator/propenv/bin/python3 UtilGit.py list_github_repos username='justin.girard' access_token='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' cache_file='/var/folders/gx/dvqcqxt10jnbsjvscmgff5cc0000gn/T/DefaultCompany/GitBackupUI/github_repos_cache2.json' limit='5' offset='175'
+    
     '''
+    @staticmethod
+    def list_github_repos(username, access_token, cache_file, max_cache_age_seconds=500, limit=5, offset=0):
+        """
+        Fetch a list of GitHub repositories for a user, using caching to avoid redundant API calls.
+        It returns a sublist of the cached data based on the given limit and offset.
+        """
+        # Initialize the cache
+        fc = FileCache(cache_file, max_cache_age_seconds)
+
+        # Fetch all repositories with a large limit, using cached data if available
+        @fc.cached
+        def get_all_repos():
+            return UtilGit.list_github_repos_inner(username, access_token, limit=500, offset=0)
+
+        # Load the full cached repository list
+        all_repos_json = get_all_repos()
+        all_repos = json.loads(all_repos_json)
+        #print(all_repos)
+        # Apply the requested offset and limit to return the sublist
+        start_index = int(offset)
+        end_index = int(offset) + int(limit)
+        if start_index >= len(all_repos):  # If offset is beyond available repos
+            return json.dumps([], indent=4)  # Return empty list
+        return json.dumps(all_repos[start_index:end_index], indent=4)    
 
     @staticmethod
-    def list_github_repos(username, access_token, limit=5, offset=0):
+    def list_github_repos_inner(username, access_token, limit=5, offset=0):
         """List all repositories from a user's GitHub account, returning clean JSON output."""
         url = f"https://api.github.com/user/repos"
         headers = {
@@ -493,5 +486,7 @@ if __name__ == "__main__":
     UtilGit.run_cli()  # Inherit CLI behavior from BaseService
 
 # python3 UtilGit.py download_git_data branch=master repo_url=https://github.com/justingirard/beanleaf download_path='./git_backup_test/' download_dir='beanleaf' username=justin.girard access_key=TOKEN
-# python3 UtilGit.py list_github_repos username=justin.girard access_token=TOKEN
+# 'username', 'access_token','limit','offset','cache_file'
+# python3 UtilGit.py list_github_repos username=justin.girard  limit=10 offset=0 cache_file='./temp/cache.dat' access_token=TOKEN 
+
 # python3 UtilGit.py list_local_repos backup_directory='./git_backup_test/' username=justin.girard access_token=TOKEN

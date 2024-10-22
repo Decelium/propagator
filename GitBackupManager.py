@@ -6,7 +6,8 @@ import tempfile
 import json
 import subprocess
 from typing import Dict, Optional
-from decelium_wallet.commands.BaseService import BaseService  # Assuming your BaseService from earlier
+from decelium_wallet.commands.BaseService import BaseService  
+
 from datasource.UtilCrypto import UtilCrypto
 from datasource.UtilGit import UtilGit
 '''
@@ -34,12 +35,15 @@ class DTRepo(BaseData):
                     }
         return required,{}
 '''
+
+
+
 class GitBackupManager(BaseService):
 
     @classmethod 
-    def list_github_repos(cls,username,access_token):
-        return UtilGit.list_github_repos(username, access_token)
-    
+    def list_github_repos(cls, **kwargs):
+        return UtilGit.list_github_repos(kwargs)
+
     @classmethod
     def download(cls,
         git_username:str,
@@ -105,7 +109,7 @@ class GitBackupManager(BaseService):
         finally:
             # Clean up the temporary directory
             print("Finished. Debug TMP dir: "+temp_dir)
-            #shutil.rmtree(temp_dir)
+            shutil.rmtree(temp_dir)
 
     @classmethod
     def unpack(cls,
@@ -215,6 +219,7 @@ class GitBackupManager(BaseService):
     
     @classmethod
     def get_command_map(cls):
+        util_command_map = UtilGit.get_command_map()
         command_map = {
             'download': {
                 'required_args': ['git_username','git_access_key', 'encryption_password', 'repo_url', 'branch', 'backup_path'],
@@ -233,9 +238,9 @@ class GitBackupManager(BaseService):
                 'required_args': ['backup_root_path'],
                 'method': cls.list_backups,
             },
+            'list_github_repos': util_command_map['list_github_repos']         
         }
         return command_map
-
     @classmethod
     def run_subprocess_command(cls,command, cwd=None):
         """
