@@ -11,7 +11,8 @@ from decelium_wallet.commands.BaseService import BaseService  # Assuming your Ba
 import decelium_wallet.core as core
 import decelium_wallet.crypto as crypto
 from decelium_wallet.datasources.FileCache import FileCache
-
+import zipfile
+from io import BytesIO
 
 class UtilGit(BaseService):
 
@@ -93,7 +94,7 @@ class UtilGit(BaseService):
     
     '''
     @staticmethod
-    def list_github_repos(username, access_token, cache_file, max_cache_age_seconds=500, limit=5, offset=0):
+    def list_github_repos(username, access_token, cache_file, max_cache_age_seconds=60, limit=5, offset=0):
         """
         Fetch a list of GitHub repositories for a user, using caching to avoid redundant API calls.
         It returns a sublist of the cached data based on the given limit and offset.
@@ -306,13 +307,13 @@ class UtilGit(BaseService):
         return f"obj-{sha}"
 
     @staticmethod
-    def is_repo_up_to_date(target_path, repo_url, repo_branch, backup_file):
+    def is_repo_up_to_date(meta_data_file, repo_url, repo_branch, backup_file):
         """Check if the local repo is up to date with the latest commit on the remote."""
         # Check if object.json exists
-        if not os.path.exists(backup_file):
+        if not os.path.exists(meta_data_file):
             return False  # No backup file means no metadata, so we need to pull
 
-        with open(backup_file, 'r') as f:
+        with open(meta_data_file, 'r') as f:
             metadata = json.load(f)
         
         # Get the latest commit hash from the remote
@@ -329,6 +330,51 @@ class UtilGit(BaseService):
         """Clone the repository into the target directory."""
         git_clone_command = UtilGit.build_git_clone_command(repo_url, repo_branch, repo_user, repo_key, target_path)
         UtilGit.run_command(git_clone_command)
+
+
+
+    @staticmethod
+    def clone_curl(repo_url, repo_branch,repo_user, access_token=None, target_path=None):
+        """
+        Clone a GitHub repository using curl by downloading the repo as a ZIP file and extracting it.
+        :param repo_url: The URL of the repository to download.
+        :param repo_branch: The branch to download (e.g., 'main' or 'master').
+        :param access_token: Optional GitHub access token for private repos.
+        :param target_path: The directory where the repo should be extracted.
+        """
+        # Prepare the URL for the ZIP download
+        repo_name = repo_url.split("/")[-1]  # Extracts the repo name from the URL
+        zip_url = f"{repo_url}/archive/refs/heads/{repo_branch}.zip"
+
+        # Add Authorization header if access_token is provided (for private repos)
+        headers = {}
+        if access_token:
+            headers['Authorization'] = f"token {access_token}"
+
+        # Download the ZIP fil
+        try:
+            print(f"Downloading repository from {zip_url}")
+            response = requests.get(zip_url, headers=headers, stream=True)
+            response.raise_for_status()
+
+            # Extract ZIP file contents to the target path
+            with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
+                # Extract all files into target path
+                zip_ref.extractall(target_path)
+            # Move the contents of the subdirectory to the target path
+            top_level_dir = next(os.scandir(target_path)).path  # Get the path of the top-level extracted directory
+            for item in os.listdir(top_level_dir):
+                shutil.move(os.path.join(top_level_dir, item), target_path)                
+            shutil.rmtree(top_level_dir)
+            os.makedirs(os.path.join(target_path,'.git'), exist_ok=True)
+
+            print(f"Repository downloaded and extracted to: {target_path}")
+        except requests.exceptions.RequestException as e:
+            print(f"Error downloading repository: {str(e)}")
+            raise RuntimeError(f"Failed to download the repository: {str(e)}")
+        except zipfile.BadZipFile as e:
+            print(f"Error extracting ZIP file: {str(e)}")
+            raise RuntimeError(f"Failed to extract ZIP file: {str(e)}")        
 
     @classmethod
     def add_to_gitignore(cls,target_path, file_to_ignore="object.json"):
@@ -374,17 +420,18 @@ class UtilGit(BaseService):
         target_metadata_path = os.path.join(download_path, meta_data_dir)
         target_metadata_file_path = os.path.join(target_metadata_path, 'dec.object.json')
 
-        if cls.is_repo_up_to_date(target_data_path, repo_url, repo_branch, target_data_path):
+        if cls.is_repo_up_to_date(target_metadata_file_path, repo_url, repo_branch, target_data_path):
             print(f"Repository {repo_url} (branch: {repo_branch}) is already up to date. No need to pull.")
             return        
         # Generate obj_id based on repo_url + branch (for consistency)
         obj_id = cls.generate_obj_id(repo_url, repo_branch)
 
         # Step 1: Verify and clean up conflicting old data
-        cls.handle_existing_repo(target_data_path, target_metadata_path, repo_url, repo_branch)
+        cls.handle_existing_repo(target_data_path, target_metadata_file_path, repo_url, repo_branch)
 
         # Step 2: Clone the repository into the target directory
-        cls.clone_repository(repo_url, repo_branch, repo_user, repo_key, target_data_path)
+        #cls.clone_repository(repo_url, repo_branch, repo_user, repo_key, target_data_path)
+        cls.clone_curl(repo_url, repo_branch, repo_user, repo_key, target_data_path)
 
         # Step 3: Verify the clone was successful
         cls.verify_clone_success(target_data_path)
@@ -485,8 +532,9 @@ class UtilGit(BaseService):
 if __name__ == "__main__":
     UtilGit.run_cli()  # Inherit CLI behavior from BaseService
 
-# python3 UtilGit.py download_git_data branch=master repo_url=https://github.com/justingirard/beanleaf download_path='./git_backup_test/' download_dir='beanleaf' username=justin.girard access_key=TOKEN
 # 'username', 'access_token','limit','offset','cache_file'
 # python3 UtilGit.py list_github_repos username=justin.girard  limit=10 offset=0 cache_file='./temp/cache.dat' access_token=TOKEN 
 
 # python3 UtilGit.py list_local_repos backup_directory='./git_backup_test/' username=justin.girard access_token=TOKEN
+# python3 UtilGit.py download_git_data branch=master repo_url=https://github.com/justingirard/beanleaf download_path='./beandownload/' download_dir='beanleaf' username=justin.girard meta_data_dir='' access_key=TOKEN
+# python3 UtilGit.py download_git_data branch=master repo_url=https://github.com/justingirard/beanleaf download_path='./beandownload_curl/' download_dir='beanleaf' username=justin.girard meta_data_dir='' access_key=TOKEN
